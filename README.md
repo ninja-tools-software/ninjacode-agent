@@ -1,8 +1,9 @@
 # NinjaCode Agent
 
 **Open-source agentic coding** for VS Code — and JetBrains / Zed / Neovim via [ACP](https://zed.dev/acp).
-Bring your own API key (Anthropic, OpenAI, DeepSeek, OpenRouter, Moonshot, GLM, Mistral, any
-OpenAI-compatible endpoint), or point the agent at a NinjaCode gateway.
+Bring your own API key (Anthropic, OpenAI, DeepSeek, OpenRouter, Moonshot, GLM, Mistral,
+Mammouth, any OpenAI-compatible endpoint), run a local model, or point the agent at a
+NinjaCode gateway.
 
 This repository contains everything that runs on the developer's machine: the agent harness,
 the built-in tools, the provider adapters, and the three front-ends (VS Code extension, CLI,
@@ -20,6 +21,7 @@ The model-tool loop is commodity. The differentiation is the **harness**:
 - Sub-agents for context isolation
 - MCP client, project rules (`AGENTS.md`, `.ninjacode/rules/`), skills and hooks
 - Stop / queue / steer, context meter, rich attachments, inline edit and completions
+- Voice dictation, and an interface localized in English and French
 - One TypeScript core shared by every IDE integration
 
 ## Repository layout
@@ -53,13 +55,13 @@ Dependency direction is one-way: apps depend on `core`, `core` depends on `tools
 - **Node.js** >= 20
 - **pnpm** 9 (`corepack enable && corepack prepare pnpm@9.15.9 --activate`)
 - **Git**
-- VS Code >= 1.85 for the extension (or a compatible fork)
+- VS Code >= 1.105 for the extension (or a compatible fork)
 - A provider API key — or use the `mock` provider offline
 
 ## Install and build
 
 ```bash
-git clone git@github.com:YOUR_ORG/ninjacode-agent.git
+git clone git@github.com:ninja-tools-software/ninjacode-agent.git
 cd ninjacode-agent
 pnpm install
 pnpm build
@@ -84,11 +86,13 @@ Key settings (`Preferences: Open Settings` -> search `ninjacode`):
 
 | Setting | Values |
 |---------|--------|
-| `ninjacode.provider` | `anthropic`, `openai`, `deepseek`, `openrouter`, `moonshot`, `glm`, `mistral`, `openai-compatible`, `gateway`, `mock` |
+| `ninjacode.provider` | `anthropic`, `openai`, `deepseek`, `openrouter`, `moonshot`, `glm`, `mistral`, `mammouth`, `openai-compatible`, `local`, `gateway`, `mock` |
 | `ninjacode.model`, `ninjacode.baseUrl` | provider-specific |
+| `ninjacode.localBaseUrl` | endpoint of the `local` provider (default `http://localhost:11434/v1`) |
 | `ninjacode.mode` | `agent`, `plan`, `ask`, `debug` |
 | `ninjacode.approvalMode` | `strict`, `balanced`, `autonomous` |
 | `ninjacode.reviewEdits` | hold edits for diff review |
+| `ninjacode.locale` | `auto`, `en`, `fr` |
 
 Dev loop: `pnpm --filter ninjacode dev`, then open `apps/vscode` in VS Code and press F5
 for the Extension Development Host.
@@ -107,8 +111,8 @@ pnpm --filter @ninjacode/cli start -- run "Add a healthcheck endpoint" --mode ag
 node apps/cli/dist/index.js run "..." --mode agent
 ```
 
-Flags: `--provider`, `--model`, `--api-key`, `--base-url`, `--workspace`, `--approval`,
-`--yes`, `--no-checkpoints`.
+Flags: `--provider`, `--model`, `--api-key`, `--base-url`, `--workspace`, `--mode`,
+`--approval`, `--lang`, `--yes`, `--no-checkpoints`.
 
 ### JetBrains / Zed / Neovim (ACP)
 
