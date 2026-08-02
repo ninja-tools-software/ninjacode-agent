@@ -199,6 +199,9 @@ export class HookRunner {
         output: input.output?.slice(0, 4000),
         error: input.error,
       });
+      // A hook that never reads its stdin closes the pipe early. The EPIPE that follows is
+      // harmless, but without a listener it escapes as an uncaught exception.
+      child.stdin?.on("error", () => undefined);
       child.stdin?.write(payload);
       child.stdin?.end();
       child.stdout?.on("data", (c: Buffer) => (stdout += c.toString("utf8")));
