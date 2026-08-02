@@ -1,0 +1,211 @@
+.todos, .hypotheses {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--card-pad);
+  margin-bottom: 10px;
+  background: var(--surface-2);
+}
+/* Shared dock panel headers (Changes, Tasks) */
+.dock-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  min-height: 32px;
+}
+.dock-panel-toggle {
+  flex: 1;
+  min-width: 0;
+}
+.dock-panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.todos ul, .hypotheses ul, .todo-items { margin: 6px 0 0; padding-left: 0; list-style: none; }
+.todos { font-size: 12px; color: var(--muted); }
+.todos-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.todos-stop:active:not(:disabled) { transform: scale(0.96); }
+.todos-stop:hover {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+
+/* Shared collapsible-panel header pattern (Changes, Tasks) */
+.collapsible-header {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.collapsible-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+button.collapsible-title {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.collapse-chevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.collapse-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .collapse-chevron { transition: none; }
+}
+
+/* Todolist pinned to the bottom of the conversation while the agent works,
+   docked like the Changes panel for visual consistency. */
+.todos-pinned {
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0;
+  background: var(--surface-1);
+  max-height: 40%;
+  overflow: auto;
+}
+.todos-pinned .todo-items {
+  padding: 0 10px 8px;
+}
+.todo {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 5px 0;
+  line-height: 1.35;
+  transition: color var(--dur-fast) ease;
+}
+.todo-mark {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-pop);
+}
+.todo-icon {
+  display: block;
+  flex-shrink: 0;
+}
+.todo-icon-pending { color: var(--muted); }
+.todo-icon-progress { color: var(--warn); }
+.todo-icon-completed { color: var(--success); }
+.todo-icon-cancelled { color: var(--danger); }
+.todo-spin {
+  animation: todo-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+@keyframes todo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.todo-tool-card .todo-tool-body {
+  padding-top: 4px;
+}
+.todo-tool-card .tool-body {
+  border-top: none;
+}
+.todo-tool-card:not([open]) .todo-tool-body {
+  display: none;
+}
+.todo.status-in_progress .todo-mark,
+.todo.status-completed .todo-mark,
+.todo.status-cancelled .todo-mark {
+  animation: nc-pop-in var(--dur-fast) var(--ease-pop) both;
+}
+.todo-content {
+  color: var(--fg);
+  transition: color var(--dur-fast) ease, text-decoration-color var(--dur-fast) ease;
+}
+.todo.status-pending .todo-content { color: var(--muted); }
+.todo.status-in_progress .todo-mark { color: var(--warn); }
+.todo.status-in_progress .todo-content { color: var(--fg); font-weight: 600; }
+.todo.status-completed .todo-mark { color: var(--success); }
+.todo.status-completed .todo-content {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.todo.status-cancelled .todo-mark { color: var(--danger); }
+.todo.status-cancelled .todo-content {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.hypotheses-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.log-count { font-size: 11px; color: var(--muted); }
+.hypotheses-empty { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.hyp {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 6px 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.hyp-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+.hyp.status-pending .hyp-badge { color: var(--muted); }
+.hyp.status-confirmed .hyp-badge {
+  background: color-mix(in srgb, var(--success) 25%, transparent);
+  border-color: var(--success);
+}
+.hyp.status-rejected .hyp-badge {
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  border-color: var(--danger);
+}
+.hyp.status-inconclusive .hyp-badge {
+  background: color-mix(in srgb, var(--warn) 20%, transparent);
+  border-color: var(--warn);
+}
+.hyp-id { font-weight: 600; font-family: var(--code-font); flex-shrink: 0; }
+.hyp-desc { min-width: 0; overflow-wrap: anywhere; }

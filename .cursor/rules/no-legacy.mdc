@@ -1,0 +1,59 @@
+---
+description: No legacy code, no dead code, no backward-compatibility debt
+alwaysApply: true
+---
+
+# No Legacy, No Dead Code
+
+NinjaCode has not shipped. There are **no external consumers** of any package, so there is **no backward compatibility to preserve**. Every internal API can be renamed, moved, or deleted freely. This is a standing licence to keep the codebase clean — use it.
+
+## Never leave legacy in advance
+
+A change ships **one** path. Do not leave the old path beside the new one "just in case", add a migration adapter for an internal API that has no external consumers, or mark `@deprecated` without deleting in the same change.
+
+Forbidden for internal product code:
+
+- One-shot migrators (`migrateXIfNeeded`, `legacyYToZ`) when callers can be updated instead
+- Dual response / dual setting shims (`a ?? b`, fallback to a removed key)
+- Keeping both `/v1/old` and `/v1/new` while only in-repo clients exist — migrate callers, delete the old route
+
+External disk conventions users may already have (e.g. `.ninjacode/rules`, `.mcp.json`) are not "legacy shims"; product code may keep reading them.
+
+## A refactor replaces, it never doubles
+
+Move the code, update every caller, delete the old location — all in the same commit.
+
+- No compatibility re-exports, no deprecated aliases, no wrapper that forwards to the new name.
+- No two implementations of the same thing coexisting because the old one might still be useful. Pick one, delete the other.
+- No `legacy` branches, no `v2` suffixes alongside a `v1`, no dead feature flags.
+- No `@deprecated` without deleting in the same change — if it can go, it goes now.
+
+```typescript
+// BAD — a transition that will never end
+export { softenSupersededReads as dropSupersededReads } from "./context.js";
+
+// GOOD — rename the symbol, fix the callers, done
+export { softenSupersededReads } from "./context.js";
+```
+
+## Dead code is deleted, not archived
+
+- Any export nothing consumes is deleted. `pnpm knip` reports these; the answer is never an entry in the ignore list.
+- No code kept "for later". A future need will be written better with that era's context. Git history is the safety net — keeping a dead symbol in `main` is not a backup, it is a maintenance cost.
+- No commented-out code blocks.
+
+## Comments do not describe the past
+
+A comment explaining what the code used to do, why it changed, or that a call is "now" handled elsewhere is noise the moment the PR merges. That belongs in the commit message.
+
+```typescript
+// BAD
+// We used to spawn git directly here, now goes through ProcessRunner
+// (kept the old path in mind for the checkpoint case)
+
+// GOOD — nothing. The code shows what it does; git shows how it got there.
+```
+
+## Enforcement
+
+`pnpm knip` (unused files, exports, dependencies) and `pnpm depcruise` (orphan modules, cycles) run in CI. When either flags something, delete the code — do not widen the config.

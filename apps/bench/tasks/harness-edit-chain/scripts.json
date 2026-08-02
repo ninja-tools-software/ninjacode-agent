@@ -1,0 +1,55 @@
+[
+  {
+    "text": "Creating a.txt and c.txt",
+    "toolCalls": [
+      {
+        "id": "t1",
+        "name": "write_file",
+        "arguments": { "path": "a.txt", "content": "alpha-v1" }
+      },
+      {
+        "id": "t2",
+        "name": "write_file",
+        "arguments": { "path": "c.txt", "content": "gamma" }
+      }
+    ]
+  },
+  {
+    "text": "Editing a and b",
+    "toolCalls": [
+      {
+        "id": "t3",
+        "name": "edit_file",
+        "arguments": {
+          "path": "a.txt",
+          "old_string": "alpha-v1",
+          "new_string": "alpha-v2"
+        }
+      },
+      {
+        "id": "t4",
+        "name": "edit_file",
+        "arguments": {
+          "path": "b.txt",
+          "old_string": "beta-draft",
+          "new_string": "beta-mid"
+        }
+      }
+    ]
+  },
+  {
+    "text": "Final edit on b",
+    "toolCalls": [
+      {
+        "id": "t5",
+        "name": "edit_file",
+        "arguments": {
+          "path": "b.txt",
+          "old_string": "beta-mid",
+          "new_string": "beta-final"
+        }
+      }
+    ]
+  },
+  { "text": "Done." }
+]

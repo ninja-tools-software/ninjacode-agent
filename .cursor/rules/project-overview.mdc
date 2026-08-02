@@ -1,0 +1,31 @@
+---
+description: NinjaCode Agent repo map, essential commands, and known pitfalls
+alwaysApply: true
+---
+
+# NinjaCode Agent Project Overview
+
+Open-source agentic coding agent (GPL-2.0-only). pnpm 9.15.9 + Turborepo monorepo, Node >= 20, TypeScript strict ESM.
+
+## Map
+
+- `packages/core` — agent harness: loop (`agent.ts`), permissions, compaction (`context.ts`), checkpoints, hooks, sessions.
+- `packages/tools` — built-in tools + `ToolRegistry`. Shell tool is named `run_shell`.
+- `packages/providers` — LLM adapters (Anthropic, OpenAI-compatible, gateway), model catalog.
+- `apps/` — `cli`, `vscode` (extension + React webview), `acp-agent`, `bench` (NinjaBench).
+- `.ninjacode/` — product runtime data (gitignored). Not the same as `.cursor/rules/` (dev rules for this repo).
+
+The gateway backend lives in a separate private repository (`ninjacode-backend`). Never copy code from it into this repo: it is proprietary and cannot be redistributed under the GPL.
+
+## Commands
+
+- `pnpm build` first — `test` and `typecheck` depend on `^build`.
+- `pnpm --filter @ninjacode/core test` for a single package.
+- `pnpm lint` (ESLint, clean-code budgets), `pnpm knip` (dead code), `pnpm depcruise` (dependency direction, cycles). All three run in CI.
+- `pnpm bench` (mock) / live bench needs `ANTHROPIC_API_KEY`.
+- `pnpm --filter ninjacode build` / `package` auto-bump the extension patch semver (`apps/vscode/package.json`); the VSIX filename follows (e.g. `ninjacode-0.1.2.vsix`).
+
+## Known pitfalls
+
+- Size and complexity rules are `warn` during the current refactoring campaign, so `pnpm lint` exits 0 with warnings. Read them — they are the backlog, not noise.
+- `CAPACITES_AGENT.md` can lag behind the code (e.g. it says `shell`, the tool is `run_shell`). The code is the source of truth; update docs when they diverge.

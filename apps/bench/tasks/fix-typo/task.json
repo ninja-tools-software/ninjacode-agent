@@ -1,0 +1,1 @@
+{"id":"fix-typo","description":"Fix typo in greeting string","category":"fix","difficulty":"easy","prompt":"The test message.test.mjs fails. Fix the typo in message.js so the test passes. Do not modify the test file.","verify":"node message.test.mjs && git diff --quiet HEAD -- message.test.mjs","timeoutSec":120}

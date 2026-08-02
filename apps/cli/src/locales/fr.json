@@ -1,0 +1,15 @@
+{
+  "cli.usage": "CLI NinjaCode — harness de coding agentique\n\nUsage :\n  ninjacode run <tâche> [options]\n  ninjacode demo\n  ninjacode eval\n\nOptions :\n  --workspace <chemin> Racine du workspace (défaut : cwd)\n  --provider <kind>    anthropic|openai|deepseek|openrouter|moonshot|glm|mistral|mammouth|openai-compatible|mock|echo|gateway\n  --model <nom>        Identifiant du modèle\n  --api-key <clé>      Clé API (ou env ANTHROPIC_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY)\n  --base-url <url>     URL de base OpenAI-compatible personnalisée\n  --mode <mode>        agent|plan|ask|debug (défaut : agent)\n  --approval <mode>    strict|balanced|autonomous (défaut : balanced)\n  --lang <locale>      en|fr (défaut : auto via LANG / NINJACODE_LANG)\n  --yes                Approuver automatiquement tous les outils\n  --no-checkpoints     Désactiver les checkpoints shadow-git\n",
+  "cli.invalidMode": "Mode --mode invalide : {mode}. Utilisez agent|plan|ask|debug.",
+  "cli.missingApiKey": "Clé API manquante. Passez --api-key ou définissez la variable d'environnement du fournisseur.",
+  "cli.runHeader": "NinjaCode · provider={provider} · mode={mode} · workspace={workspace}",
+  "cli.routing": "\n◎ Auto → {model}{reason}\n",
+  "cli.incomplete": "\n[incomplet] {answer}",
+  "cli.demoHeader": "Démo NinjaCode (provider mock)",
+  "cli.choiceMulti": "Choix (ex. 1,3) ou texte libre : ",
+  "cli.choiceSingle": "Choix ou texte libre : ",
+  "cli.manualAction": "\n⏸ Action manuelle requise : {action}",
+  "cli.reason": "   Raison : {reason}",
+  "cli.pressEnter": "Appuyez sur Entrée une fois terminé (commentaire optionnel) : ",
+  "cli.approvePrompt": "\n⚠️  Approuver {tool} ({target}) ? [{reason}]\n  [y] oui / [n] non / [a] toujours pour cet outil : "
+}

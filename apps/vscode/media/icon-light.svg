@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Light theme: dark glyph (web app shuriken glyph) -->
+  <path
+    d="M16 2 L20 12 L30 16 L20 20 L16 30 L12 20 L2 16 L12 12 Z M16 12.8 A3.2 3.2 0 1 0 16 19.2 A3.2 3.2 0 1 0 16 12.8 Z"
+    fill="#424242"
+    fill-rule="evenodd"
+  />
+</svg>

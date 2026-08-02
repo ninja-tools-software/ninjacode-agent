@@ -1,0 +1,31 @@
+[
+  {
+    "text": "First attempt (will fail)",
+    "toolCalls": [
+      {
+        "id": "bad",
+        "name": "edit_file",
+        "arguments": {
+          "path": "version.txt",
+          "old_string": "9.9.9",
+          "new_string": "2.0.0"
+        }
+      }
+    ]
+  },
+  {
+    "text": "Retry with correct old_string",
+    "toolCalls": [
+      {
+        "id": "ok",
+        "name": "edit_file",
+        "arguments": {
+          "path": "version.txt",
+          "old_string": "1.0.0",
+          "new_string": "2.0.0"
+        }
+      }
+    ]
+  },
+  { "text": "Fixed after recovery." }
+]

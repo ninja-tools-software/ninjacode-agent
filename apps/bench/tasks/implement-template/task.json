@@ -1,0 +1,10 @@
+{
+  "id": "implement-template",
+  "description": "Implement a tiny mustache-like template engine",
+  "category": "feature",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "Implement render(template, data) in template.js according to SPEC.md so template.test.mjs passes. Do not modify SPEC.md or the test file.",
+  "verify": "node template.test.mjs && git diff --quiet HEAD -- template.test.mjs SPEC.md",
+  "timeoutSec": 300
+}

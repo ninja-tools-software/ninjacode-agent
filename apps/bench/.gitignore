@@ -1,0 +1,6 @@
+dist/
+runs/
+.tmp/
+.tmp-swebench-test/
+.cache/
+agents.json

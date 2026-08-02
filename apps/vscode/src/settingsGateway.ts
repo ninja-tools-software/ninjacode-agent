@@ -1,0 +1,167 @@
+import * as vscode from "vscode";
+import { getProviderCatalog, type ModelInfo } from "@ninjacode/providers";
+import { mapGatewayModel, type GatewayModelWire } from "./gatewayModelMap.js";
+import { resolveGatewayBase, resolveWebUrl } from "./providerHelper.js";
+
+export type GatewayModelsResult =
+  | { ok: true; models: ModelInfo[]; catalog?: string }
+  | { ok: false; models: [] };
+
+export interface AccountInfo {
+  email: string;
+  credits: number;
+  creditsIncluded: number;
+  renewsAt: string | null;
+  passTier: string | null;
+  passStreakMonths: number;
+  catalogSlug?: string | null;
+}
+
+export interface UsageRow {
+  model?: string;
+  createdAt?: string;
+  credits?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+export async function fetchGatewayModels(
+  gatewayBase: string,
+  apiKey?: string,
+): Promise<GatewayModelsResult> {
+  if (!apiKey) return { ok: false, models: [] };
+  try {
+    const res = await fetch(`${gatewayBase}/v1/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return { ok: false, models: [] };
+    const data = (await res.json()) as {
+      catalog?: string;
+      models?: GatewayModelWire[];
+    };
+    const catalog = getProviderCatalog("gateway");
+    const models = (data.models ?? []).map((m) =>
+      mapGatewayModel(
+        m,
+        catalog?.models.find((x) => x.id === m.id),
+        data.catalog,
+      ),
+    );
+    return { ok: true, models, catalog: data.catalog };
+  } catch {
+    return { ok: false, models: [] };
+  }
+}
+
+/** Fetch available models from a local OpenAI-compatible server (Ollama, LM Studio, ...). */
+export async function fetchLocalModels(baseUrl: string): Promise<ModelInfo[]> {
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/models`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      data?: Array<{ id: string }>;
+      models?: Array<{ id?: string; name?: string }>;
+    };
+    const list = data.data ?? data.models ?? [];
+    return list
+      .map((m) => ("id" in m ? m.id : m.name) ?? "")
+      .filter((id): id is string => Boolean(id))
+      .map((id) => ({
+        id,
+        label: id,
+        contextWindow: 32_000,
+        maxOutput: 8_192,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAccount(gatewayBase: string, apiKey: string): Promise<AccountInfo | null> {
+  try {
+    const res = await fetch(`${gatewayBase}/v1/account`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Partial<AccountInfo> & {
+      email: string;
+      passTier: string | null;
+      passStreakMonths: number;
+    };
+    return {
+      email: raw.email,
+      credits: raw.credits ?? 0,
+      creditsIncluded: raw.creditsIncluded ?? 0,
+      renewsAt: raw.renewsAt ?? null,
+      passTier: raw.passTier,
+      passStreakMonths: raw.passStreakMonths,
+      catalogSlug: raw.catalogSlug ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchUsage(gatewayBase: string, apiKey: string): Promise<UsageRow[]> {
+  try {
+    const res = await fetch(`${gatewayBase}/v1/usage/records?limit=50&offset=0`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      items?: Array<UsageRow & { creditsCharged?: number }>;
+    };
+    return (data.items ?? []).map((u) => ({
+      model: u.model,
+      createdAt: u.createdAt,
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
+      credits: typeof u.creditsCharged === "number" ? u.creditsCharged / 1_000 : u.credits,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function startMagicLink(gatewayBase: string, email: string): Promise<void> {
+  try {
+    const res = await fetch(`${gatewayBase}/v1/auth/magic-link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, redirect: "vscode" }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      link?: string;
+      error?: string;
+    };
+    if (!res.ok) {
+      vscode.window.showErrorMessage(data.error ?? "Failed to send magic link");
+      return;
+    }
+    if (data.link) {
+      await vscode.env.openExternal(vscode.Uri.parse(data.link));
+      vscode.window.showInformationMessage("NinjaCode: opening magic link (dev)…");
+    } else {
+      vscode.window.showInformationMessage(
+        data.message ?? "Check your email for the magic link.",
+      );
+    }
+  } catch (e) {
+    vscode.window.showErrorMessage(`Magic link failed: ${(e as Error).message}`);
+  }
+}
+
+export function gatewayBaseFromConfig(): string {
+  return resolveGatewayBase(vscode.workspace.getConfiguration("ninjacode"));
+}
+
+export function webUrlFromConfig(): string {
+  return resolveWebUrl(vscode.workspace.getConfiguration("ninjacode"));
+}
+
+/** Open the web connect-ide page so a browser session can mint a VS Code auth code. */
+export async function startBrowserLogin(webBase: string): Promise<void> {
+  const url = `${webBase.replace(/\/$/, "")}/connect-ide`;
+  await vscode.env.openExternal(vscode.Uri.parse(url));
+}

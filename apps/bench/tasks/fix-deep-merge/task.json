@@ -1,0 +1,10 @@
+{
+  "id": "fix-deep-merge",
+  "description": "Fix deep-merge so nested objects and arrays merge correctly",
+  "category": "fix",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "The deepMerge utility in merge.js has bugs: nested objects are not merged deeply, and arrays are concatenated incorrectly in some cases. Fix merge.js so that all tests in merge.test.mjs pass. Do not modify the test file.",
+  "verify": "node merge.test.mjs && git diff --quiet HEAD -- merge.test.mjs",
+  "timeoutSec": 300
+}

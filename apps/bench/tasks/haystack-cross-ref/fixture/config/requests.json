@@ -1,0 +1,4 @@
+{
+  "req_9f3a": { "env": "production", "tokenRef": "BILLING_TOKEN" },
+  "req_0001": { "env": "staging", "tokenRef": "STAGING_TOKEN" }
+}

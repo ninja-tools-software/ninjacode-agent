@@ -1,0 +1,1 @@
+{"id":"fix-json","description":"Fix invalid JSON trailing comma","category":"fix","difficulty":"easy","prompt":"config.json is invalid JSON. Fix it without changing the values.","verify":"node -e \"JSON.parse(require('fs').readFileSync('config.json','utf8')); if(JSON.parse(require('fs').readFileSync('config.json','utf8')).name!=='demo')process.exit(1)\"","timeoutSec":120}

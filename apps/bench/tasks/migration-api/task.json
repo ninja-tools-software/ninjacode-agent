@@ -1,0 +1,10 @@
+{
+  "id": "migration-api",
+  "description": "Mechanical API migration across ~10 caller files",
+  "category": "refactor",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "Migrate all callers from the deprecated `legacyRequest(url, opts)` API in lib/http.js to the new `request({ url, method, body })` API (already implemented). Update every file under callers/ and remove the legacyRequest export. All tests must pass. After migration, no source file may contain the identifier legacyRequest. Do not modify *.test.mjs files.",
+  "verify": "node callers/all.test.mjs && ! grep -R --include='*.js' -n 'legacyRequest' . && test -f lib/http.js && git diff --quiet HEAD -- '*.test.mjs'",
+  "timeoutSec": 300
+}

@@ -1,0 +1,5 @@
+{
+  "name": "acme-billing",
+  "env": "production",
+  "logLevel": "info"
+}

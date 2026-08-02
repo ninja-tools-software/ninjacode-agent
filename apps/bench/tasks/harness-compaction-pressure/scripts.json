@@ -1,0 +1,259 @@
+[
+  {
+    "text": "read 0",
+    "toolCalls": [
+      {
+        "id": "r0",
+        "name": "read_file",
+        "arguments": {
+          "path": "big.log"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 1",
+    "toolCalls": [
+      {
+        "id": "r1",
+        "name": "read_file",
+        "arguments": {
+          "path": "a.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 2",
+    "toolCalls": [
+      {
+        "id": "r2",
+        "name": "read_file",
+        "arguments": {
+          "path": "b.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 3",
+    "toolCalls": [
+      {
+        "id": "r3",
+        "name": "read_file",
+        "arguments": {
+          "path": "c.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 4",
+    "toolCalls": [
+      {
+        "id": "r4",
+        "name": "read_file",
+        "arguments": {
+          "path": "big.log"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 5",
+    "toolCalls": [
+      {
+        "id": "r5",
+        "name": "read_file",
+        "arguments": {
+          "path": "a.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 6",
+    "toolCalls": [
+      {
+        "id": "r6",
+        "name": "read_file",
+        "arguments": {
+          "path": "b.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 7",
+    "toolCalls": [
+      {
+        "id": "r7",
+        "name": "read_file",
+        "arguments": {
+          "path": "c.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 8",
+    "toolCalls": [
+      {
+        "id": "r8",
+        "name": "read_file",
+        "arguments": {
+          "path": "big.log"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 9",
+    "toolCalls": [
+      {
+        "id": "r9",
+        "name": "read_file",
+        "arguments": {
+          "path": "a.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 10",
+    "toolCalls": [
+      {
+        "id": "r10",
+        "name": "read_file",
+        "arguments": {
+          "path": "b.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 11",
+    "toolCalls": [
+      {
+        "id": "r11",
+        "name": "read_file",
+        "arguments": {
+          "path": "c.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 12",
+    "toolCalls": [
+      {
+        "id": "r12",
+        "name": "read_file",
+        "arguments": {
+          "path": "big.log"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 13",
+    "toolCalls": [
+      {
+        "id": "r13",
+        "name": "read_file",
+        "arguments": {
+          "path": "a.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 14",
+    "toolCalls": [
+      {
+        "id": "r14",
+        "name": "read_file",
+        "arguments": {
+          "path": "b.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 15",
+    "toolCalls": [
+      {
+        "id": "r15",
+        "name": "read_file",
+        "arguments": {
+          "path": "c.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 16",
+    "toolCalls": [
+      {
+        "id": "r16",
+        "name": "read_file",
+        "arguments": {
+          "path": "big.log"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 17",
+    "toolCalls": [
+      {
+        "id": "r17",
+        "name": "read_file",
+        "arguments": {
+          "path": "a.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 18",
+    "toolCalls": [
+      {
+        "id": "r18",
+        "name": "read_file",
+        "arguments": {
+          "path": "b.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "read 19",
+    "toolCalls": [
+      {
+        "id": "r19",
+        "name": "read_file",
+        "arguments": {
+          "path": "c.txt"
+        }
+      }
+    ]
+  },
+  {
+    "text": "final edit",
+    "toolCalls": [
+      {
+        "id": "w1",
+        "name": "edit_file",
+        "arguments": {
+          "path": "target.txt",
+          "old_string": "BEFORE",
+          "new_string": "AFTER"
+        }
+      }
+    ]
+  },
+  {
+    "text": "Done under compaction pressure."
+  }
+]

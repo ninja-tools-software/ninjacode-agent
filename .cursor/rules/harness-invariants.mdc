@@ -1,0 +1,43 @@
+---
+description: Invariants of the agent harness loop (prompt caching, compaction, permissions, reliability)
+globs: packages/core/**
+alwaysApply: false
+---
+
+# Harness Invariants
+
+State-of-the-art coding agents win on harness quality: KV-cache hit rate, token efficiency, and deterministic guardrails. Do not break these invariants.
+
+## Prompt-cache stable prefix
+
+The prefix (tool specs → system prompt → history) must stay byte-stable across turns within a session. A single changed byte invalidates all downstream cache.
+
+- Never inject timestamps, UUIDs, counters, or per-turn state into the system prompt or tool descriptions. Volatile context goes into a message appended to history.
+- Never add/remove/reorder tools mid-session. Mode or edit-format filtering (`ToolRegistry.forMode`, `filterToolsForEditFormat`) happens **once** at session start.
+- Serialize tool specs deterministically (stable ordering).
+- `cacheReadTokens`/`cacheWriteTokens` in `TokenUsage` are the ground truth — if cache reads drop after a change, the prefix broke.
+
+## Compaction (`context.ts`)
+
+Progressive, cheapest first: 1) truncate tool outputs (`TOOL_OUTPUT_MAX`), 2) soften superseded reads and stale workspace snapshots, 3) mask old re-runnable observations (`maskOldObservations`), 4) LLM summarization only past hard limits. Order matters.
+
+- Use body replacement (`softenSupersededReads`, `maskOldObservations`), not deletion: assistant `tool_calls` → `role: "tool"` chains must stay valid for OpenAI-style APIs.
+- Only mask what the agent can obtain again by calling the tool. A user answer or a recorded hypothesis is not maskable.
+- Never re-summarize a summary: compaction output is marked and pinned. A summary of a summary loses detail no later pass can recover.
+- Always pipe results through `normalizeToolHistory`. Keep the pinned task and user constraints out of summarized ranges.
+- `estimateTokens` is a chars/4 heuristic — treat thresholds as soft; never present it as exact.
+
+## Permissions and safety
+
+- Guardrails are deterministic: `PermissionEngine` evaluates `tool.risk` + `tool.target(args)` — never rely on system-prompt wording to prevent an action.
+- `destructive` always requires approval, even in `autonomous` mode. Preserve this.
+- Every new capability must declare a `RiskClass`; anything writing outside the workspace or spawning processes is `shell` or `destructive`, not `write`.
+
+## Reliability
+
+- Every loop needs a termination condition: `maxTurns`, `BudgetTracker.check()` (a cost ceiling applies even when the caller sets none), abort signal, tool-call loop detection that ends the run and not just warns, `ToolCircuitBreaker` (3 strikes, then one probe per cooldown).
+- Exhausting the turn budget on reads is the dominant benchmark failure, so the budget itself must be visible to the model: `editProgress.ts` warns at 50% and 80% when nothing has been written yet, and `readChurn.ts` warns once per path read 4+ times. Keep such warnings to a fixed, small number of turns — one repeated every turn is noise the model stops reading, and it also churns the cached suffix.
+- Loop detection fingerprints a call with its arguments, so any waste expressed as *varying* arguments (paging one file at shifting offsets, re-running a command with a tweak) is invisible to it. New guards against that class must count over a normalized key, not the fingerprint.
+- Price the budget with the model actually being called (`resolveModelPricing`). A ceiling computed at another model's rate is not a ceiling.
+- Retry only classified-retryable failures (`withRetry`: 429/5xx/network). Beware: retrying `completeStreaming` can replay a partial stream to the sink — don't emit partial text twice to the user.
+- One shadow-git checkpoint per user request, before edits. Any new mutating pathway must be checkpoint-covered.

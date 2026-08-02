@@ -1,0 +1,12 @@
+{
+  "id": "harness-max-turns",
+  "description": "Harness: maxTurns budget terminates cleanly (expected agent_error)",
+  "category": "terminal",
+  "difficulty": "easy",
+  "suites": ["harness"],
+  "prompt": "Keep exploring forever",
+  "verify": "true",
+  "timeoutSec": 60,
+  "maxTurns": 3,
+  "expectFailureKind": "agent_error"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "fix-slugify",
+  "description": "Fix multiple bugs in a slugify utility so all tests pass",
+  "category": "fix",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "Several tests in slugify.test.mjs fail. Fix the bugs in slugify.js so that all tests pass. Do not modify the test file.",
+  "verify": "node slugify.test.mjs && git diff --quiet HEAD -- slugify.test.mjs",
+  "timeoutSec": 300
+}

@@ -1,0 +1,10 @@
+{
+  "id": "add-retry",
+  "description": "Add a withRetry wrapper around an async fetch helper",
+  "category": "feature",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "Implement withRetry(fn, { retries, delayMs }) in retry.js so that retry.test.mjs passes. It should call fn, retry on thrown errors up to `retries` times (so total attempts = retries + 1), wait delayMs between attempts (use the provided sleep helper), and rethrow the last error if all attempts fail. Do not modify the test file.",
+  "verify": "node retry.test.mjs && git diff --quiet HEAD -- retry.test.mjs",
+  "timeoutSec": 240
+}

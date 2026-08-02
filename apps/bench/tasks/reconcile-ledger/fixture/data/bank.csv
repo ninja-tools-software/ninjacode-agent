@@ -1,0 +1,6 @@
+id,amount,memo
+tx1,10.00,salary
+tx2,3.50,lunch
+tx3,20.00,transfer
+tx4,5.00,coffee
+tx6,12.50,duplicate-bank

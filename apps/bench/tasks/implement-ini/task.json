@@ -1,0 +1,10 @@
+{
+  "id": "implement-ini",
+  "description": "Implement a minimal INI parser from a provided spec and tests",
+  "category": "feature",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "Implement parseIni(text) in ini.js according to SPEC.md so that ini.test.mjs passes. The stub currently throws. Do not modify SPEC.md or the test file.",
+  "verify": "node ini.test.mjs && git diff --quiet HEAD -- ini.test.mjs SPEC.md",
+  "timeoutSec": 300
+}

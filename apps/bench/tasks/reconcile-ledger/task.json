@@ -1,0 +1,10 @@
+{
+  "id": "reconcile-ledger",
+  "description": "Reconcile two ledgers and list unmatched transactions",
+  "category": "terminal",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "data/bank.csv and data/books.csv have columns id,amount,memo (header). Match rows that share the same id AND the same amount (amount is a decimal string). A bank row may match at most one books row and vice versa. Write unmatched.csv with columns side,id,amount,memo for every unmatched row, where side is `bank` or `books`. Sort by side ascending, then id ascending. Include a header row. Amounts in the output must match the source formatting exactly.",
+  "verify": "printf '%s\\n' 'side,id,amount,memo' 'bank,tx3,20.00,transfer' 'bank,tx4,5.00,coffee' 'books,tx3,20.01,transfer-typo' 'books,tx5,9.99,office' > /tmp/expected-unmatched.csv && tr -d '\\r' < unmatched.csv | cmp -s - /tmp/expected-unmatched.csv",
+  "timeoutSec": 300
+}

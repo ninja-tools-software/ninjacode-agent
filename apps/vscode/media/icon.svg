@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Web app logo: gradient shuriken -->
+  <path
+    d="M16 2 L20 12 L30 16 L20 20 L16 30 L12 20 L2 16 L12 12 Z"
+    fill="url(#shuriken-gradient)"
+  />
+  <circle cx="16" cy="16" r="3.2" fill="#0b0b14" />
+  <defs>
+    <linearGradient id="shuriken-gradient" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f5c518" />
+      <stop offset="1" stop-color="#e63b2e" />
+    </linearGradient>
+  </defs>
+</svg>

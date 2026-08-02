@@ -1,0 +1,10 @@
+{
+  "id": "pipeline-etl",
+  "description": "Multi-step ETL: extract archive, fix transform, run, write report",
+  "category": "terminal",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "bundle.tar.gz contains a small ETL project under bundle/. Extract it, fix the bug in bundle/transform.js so it correctly computes sum(quantity*price) from bundle/data/sales.csv, run `node bundle/transform.js`, then write REPORT.txt at the workspace root containing exactly one line: TOTAL=<value> where <value> matches bundle/out/total.txt (two decimals). Do not modify the CSV.",
+  "verify": "test -f bundle/out/total.txt && test \"$(cat bundle/out/total.txt | tr -d '[:space:]')\" = '55.00' && test \"$(cat REPORT.txt | tr -d '[:space:]')\" = 'TOTAL=55.00' && printf '%s\\n' 'product,region,quantity,price' 'widget,east,4,2.50' 'widget,west,6,2.50' 'gadget,east,3,10.00' > /tmp/expected-sales.csv && tr -d '\\r' < bundle/data/sales.csv | cmp -s - /tmp/expected-sales.csv && git diff --quiet HEAD -- bundle.tar.gz",
+  "timeoutSec": 300
+}

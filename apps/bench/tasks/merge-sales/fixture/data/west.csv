@@ -1,0 +1,4 @@
+product,quantity,unit_price,status
+apple,5,2.50,ok
+cherry,5,3.05,ok
+banana,1,1.50,refunded

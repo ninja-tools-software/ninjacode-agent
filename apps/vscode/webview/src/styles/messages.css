@@ -1,0 +1,302 @@
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 56px 16px 24px;
+  gap: 6px;
+  color: var(--muted);
+}
+.empty-logo { display: inline-flex; opacity: 0.75; }
+.empty-state h2 { margin: 6px 0 0; color: var(--fg); font-size: 14px; font-weight: 600; }
+.empty-state p { margin: 0 0 14px; font-size: 12px; }
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+.suggestion {
+  border-radius: var(--radius-full);
+  padding: 5px 14px;
+  background: transparent;
+  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+}
+.suggestion:hover { color: var(--fg); border-color: var(--border); }
+
+.suggestion-confirm {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  max-width: 28ch;
+}
+.suggestion-confirm p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--fg);
+  line-height: 1.4;
+}
+.suggestion-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.empty-hint {
+  max-width: 34ch;
+  margin-top: 18px !important;
+  font-size: 11px;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+.empty-hint kbd {
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--code-font);
+  font-size: 10px;
+}
+
+.msg { margin: 0 0 6px; }
+/* Badges sit inline in the sent text, so the bubble can no longer be pre-wrap only. */
+.msg-user-text {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg-user-text .ref-badge { white-space: nowrap; }
+.msg.user {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg) 12px 4px 12px;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  margin-left: 12%;
+}
+.msg.assistant { padding: 2px 0; }
+.msg.assistant .md { line-height: 1.5; }
+.msg.assistant .md p { margin: 0 0 0.7em; }
+/* Trailing block (usually the "here's what I'll do next" line) shouldn't add
+   its own bottom margin on top of the message gap before the tool cards. */
+.msg.assistant .md > :last-child { margin-bottom: 0; }
+.msg.assistant .md pre {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  padding: 10px;
+  border-radius: var(--radius-md);
+  overflow: auto;
+  font-family: var(--code-font);
+  font-size: 12px;
+  white-space: pre;
+  tab-size: 4;
+}
+.msg.assistant .md pre code,
+.msg.assistant .md pre code span {
+  background: transparent !important;
+  padding: 0;
+  font-family: inherit;
+  white-space: inherit;
+  tab-size: inherit;
+}
+.msg.assistant .md code { font-family: var(--code-font); font-size: 12px; }
+.msg.assistant .md :not(pre) > code {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.md table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.6em 0;
+  font-size: 12px;
+}
+.md th,
+.md td {
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.md th {
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  font-weight: 600;
+}
+.md tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--fg) 2%, transparent);
+}
+.mermaid-block {
+  position: relative;
+  margin: 0.6em 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
+}
+.mermaid-block .mermaid-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+}
+.mermaid-block .mermaid-source {
+  margin: 0;
+  padding: 32px 10px 10px;
+  max-height: 320px;
+  overflow: auto;
+  font-family: var(--code-font);
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+.mermaid-block .mermaid-source.mermaid-pending {
+  color: var(--muted);
+}
+.mermaid-render {
+  padding: 12px 36px 12px 12px;
+  min-height: 48px;
+  display: flex;
+  justify-content: center;
+}
+.mermaid-render svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: transparent;
+}
+.mermaid-render svg .cluster-label text {
+  font-size: 15px;
+  font-weight: 600;
+}
+.mermaid-render svg .cluster-label span,
+.mermaid-render svg .cluster-label foreignObject div {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+.mermaid-render svg .cluster-label foreignObject p {
+  margin: 0;
+}
+.mermaid-render-clickable {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--dur-fast) ease;
+}
+.mermaid-render-clickable:hover,
+.mermaid-render-clickable:focus-visible {
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+.mermaid-error {
+  padding: 32px 10px 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.msg.status { color: var(--muted); font-size: 12px; font-family: var(--code-font); }
+.msg.reasoning {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  border-left: 2px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  padding: 4px 0 4px 10px;
+  margin: 3px 0;
+}
+.msg.reasoning.reasoning-live {
+  color: color-mix(in srgb, var(--muted) 88%, var(--fg) 12%);
+}
+.reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  padding: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+.reasoning-header:not([aria-expanded="true"]) {
+  margin-bottom: 0;
+}
+.reasoning-label { font-weight: 600; }
+.reasoning-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.reasoning-line {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.reasoning-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  opacity: 0.55;
+  animation: reasoning-cursor-blink 1s step-end infinite;
+}
+@keyframes reasoning-cursor-blink {
+  50% { opacity: 0; }
+}
+.msg.status.status-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: color-mix(in srgb, var(--fg) 72%, var(--muted));
+}
+.status-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, #3794ff);
+  flex-shrink: 0;
+  animation: status-dot-pulse 1.2s ease-in-out infinite;
+}
+.status-live-text {
+  animation: status-text-pulse 1.6s ease-in-out infinite;
+}
+@keyframes status-dot-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@keyframes status-text-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-live-dot,
+  .status-live-text {
+    animation: none;
+  }
+  .status-live-dot { opacity: 0.85; }
+}
+.msg.error { color: var(--danger); }
+
+.msg.routing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 0 6px;
+}
+.routing-badge {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent, #3794ff);
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.routing-model {
+  color: var(--fg);
+  font-weight: 500;
+}
+.routing-credits {
+  opacity: 0.75;
+}

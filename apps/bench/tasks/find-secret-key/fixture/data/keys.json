@@ -1,0 +1,5 @@
+{
+  "staging": { "apiKey": "bk_stage_aaaaaaaaaaaa", "encoding": "plain" },
+  "test": { "apiKey": "bk_test_bbbbbbbbbbbb", "encoding": "plain" },
+  "production": { "apiKey": "YmtfbGl2ZV85ZjNhMmMxZTdkODg=", "encoding": "base64" }
+}

@@ -1,0 +1,152 @@
+.icon-btn.active {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: var(--accent);
+}
+
+/* App-wide tooltip bubble (see GlobalTooltip in App.tsx) */
+.tooltip-bubble {
+  position: fixed;
+  z-index: 1000;
+  max-width: 260px;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  border-radius: var(--radius-sm);
+  background: var(--vscode-editorHoverWidget-background, var(--bg));
+  color: var(--vscode-editorHoverWidget-foreground, var(--fg));
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--border));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  white-space: pre-line;
+  /* Badge previews can be long: clip rather than covering the whole chat. */
+  max-height: 40vh;
+  overflow: hidden;
+  animation: nc-fade-in var(--dur-fast) var(--ease-out) both;
+}
+.tooltip-bubble.above { transform: translate(-50%, -100%); }
+.tooltip-bubble.below { transform: translateX(-50%); }
+
+.icon-btn, .chip-btn, .btn, .suggestion, .tier-card {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    opacity var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.icon-btn:active:not(:disabled),
+.chip-btn:active:not(:disabled),
+.btn:active:not(:disabled),
+.suggestion:active:not(:disabled) {
+  transform: scale(0.96);
+}
+/* A .btn may hold an icon, a label, or both: centering as flex puts the glyph on
+   the text's optical center instead of its baseline, which is what made
+   icon+label buttons taller than their text-only neighbours. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+/* Full-width option buttons wrap over several lines: they keep normal text flow. */
+.btn.question-option { display: block; }
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+}
+/* Icônes plus lisibles dans les boutons (le composer .send-btn est exclu) */
+.icon-btn svg { width: 16px; height: 16px; }
+.btn svg,
+.menu-item svg,
+.composer-pill svg,
+.icon-btn svg { width: 15px; height: 15px; }
+.chip-remove svg { width: 13px; height: 13px; }
+.icon-btn:hover, .chip-btn:hover, .btn:hover, .suggestion:hover, .tier-card:hover {
+  background: var(--list-hover);
+}
+.btn.primary, .chip-btn.active, .send-btn {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn:disabled, .chip-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.app-log-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#log { flex: 1; overflow: auto; overflow-anchor: none; padding: 12px; }
+.log-content { min-height: min-content; }
+/* Positioned over #log rather than inside it, so it never changes scrollHeight. */
+.run-pill-overlay {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.run-pill-overlay .run-pill {
+  pointer-events: auto;
+}
+.scroll-bottom-overlay {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.scroll-bottom-btn {
+  position: relative;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.scroll-bottom-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.scroll-bottom-btn__dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg) 85%, transparent);
+}

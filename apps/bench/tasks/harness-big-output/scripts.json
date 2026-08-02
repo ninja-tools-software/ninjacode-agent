@@ -1,0 +1,43 @@
+[
+  {
+    "text": "Read the large log",
+    "toolCalls": [
+      {
+        "id": "r1",
+        "name": "read_file",
+        "arguments": { "path": "app.log" }
+      }
+    ]
+  },
+  {
+    "text": "Grep for needle",
+    "toolCalls": [
+      {
+        "id": "g1",
+        "name": "grep",
+        "arguments": { "pattern": "NEEDLE_", "path": "app.log" }
+      }
+    ]
+  },
+  {
+    "text": "Read again (superseded read path)",
+    "toolCalls": [
+      {
+        "id": "r2",
+        "name": "read_file",
+        "arguments": { "path": "app.log" }
+      }
+    ]
+  },
+  {
+    "text": "Write answer",
+    "toolCalls": [
+      {
+        "id": "w1",
+        "name": "write_file",
+        "arguments": { "path": "NEEDLE.txt", "content": "NEEDLE_42\n" }
+      }
+    ]
+  },
+  { "text": "Found marker after large outputs." }
+]

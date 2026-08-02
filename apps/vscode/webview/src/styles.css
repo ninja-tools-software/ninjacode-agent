@@ -1,0 +1,24 @@
+/*
+ * Webview stylesheet. Split by domain, imported in cascade order: later files
+ * may override earlier ones, so keep this list stable when adding a domain.
+ */
+@import "./styles/base.css";
+@import "./styles/header.css";
+@import "./styles/tabs.css";
+@import "./styles/session-stats.css";
+@import "./styles/history.css";
+@import "./styles/plans.css";
+@import "./styles/controls.css";
+@import "./styles/messages.css";
+@import "./styles/tools.css";
+@import "./styles/cards.css";
+@import "./styles/composer.css";
+@import "./styles/badges.css";
+@import "./styles/toolbar.css";
+@import "./styles/context-meter.css";
+@import "./styles/picker.css";
+@import "./styles/todos.css";
+@import "./styles/settings.css";
+@import "./styles/changes.css";
+@import "./styles/motion.css";
+@import "./styles/mermaid-app.css";

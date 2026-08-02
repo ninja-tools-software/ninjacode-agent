@@ -1,0 +1,12 @@
+{
+  "id": "harness-circuit-breaker",
+  "description": "Harness: repeated tool failures trip the circuit breaker; run continues",
+  "category": "fix",
+  "difficulty": "medium",
+  "suites": ["harness"],
+  "prompt": "Try edits then write DONE.txt",
+  "verify": "test \"$(cat DONE.txt | tr -d '[:space:]')\" = 'ok'",
+  "timeoutSec": 60,
+  "maxTurns": 15,
+  "minToolErrors": 3
+}

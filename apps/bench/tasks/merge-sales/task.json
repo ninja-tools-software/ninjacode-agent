@@ -1,0 +1,10 @@
+{
+  "id": "merge-sales",
+  "description": "Aggregate multi-region sales CSVs excluding refunded rows",
+  "category": "terminal",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "There are three CSV files under data/: east.csv, west.csv, and central.csv. Columns: product,quantity,unit_price,status (header row). Ignore rows whose status is not exactly `ok`. Produce summary.csv at the workspace root with columns product,revenue sorted by product ascending. revenue is the sum of quantity*unit_price for kept rows, formatted with exactly two decimals. Include a header row.",
+  "verify": "printf '%s\\n' 'product,revenue' 'apple,45.00' 'banana,12.00' 'cherry,30.25' > /tmp/expected-summary.csv && tr -d '\\r' < summary.csv | cmp -s - /tmp/expected-summary.csv",
+  "timeoutSec": 240
+}

@@ -1,0 +1,66 @@
+name: NinjaBench
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - "apps/bench/**"
+      - ".github/workflows/bench.yml"
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  bench-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build deps
+        run: pnpm --filter @ninjacode/bench... build
+
+      - name: Run harness suite (deterministic mock scripts)
+        run: pnpm bench:harness
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ninjabench-harness-report
+          path: runs/harness/
+
+  bench-live:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Live benchmark
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "Skipping live bench — ANTHROPIC_API_KEY not configured"
+            exit 0
+          fi
+          pnpm bench -- --provider anthropic --trials 3

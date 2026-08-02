@@ -1,0 +1,28 @@
+{
+  "name": "@ninjacode/bench",
+  "version": "0.1.0",
+  "description": "NinjaBench — benchmark & monitoring harness for the NinjaCode agent (and competitors)",
+  "license": "GPL-2.0-only",
+  "type": "module",
+  "bin": {
+    "ninjabench": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "start": "node dist/index.js",
+    "bench": "node dist/index.js run",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ninjacode/core": "workspace:*",
+    "@ninjacode/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
+  }
+}

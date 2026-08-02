@@ -1,0 +1,23 @@
+import assert from "node:assert/strict";
+import { fetchUser } from "./users.js";
+import { createOrder } from "./orders.js";
+import { listProducts } from "./products.js";
+import { addToCart } from "./cart.js";
+import { login } from "./auth.js";
+import { charge } from "./billing.js";
+import { sendNotify } from "./notify.js";
+import { search } from "./search.js";
+import { adminPing } from "./admin.js";
+import { health } from "./health.js";
+
+assert.equal(fetchUser(1).url, "/users/1");
+assert.equal(createOrder({ id: 1 }).method, "POST");
+assert.equal(listProducts().method, "GET");
+assert.deepEqual(addToCart({ sku: "a" }).body, { sku: "a" });
+assert.equal(login({ u: "a" }).url, "/auth/login");
+assert.deepEqual(charge(10).body, { amount: 10 });
+assert.equal(sendNotify("hi").method, "POST");
+assert.equal(search("x").url, "/search?q=x");
+assert.equal(adminPing().url, "/admin/ping");
+assert.equal(health().ok, true);
+console.log("ok");

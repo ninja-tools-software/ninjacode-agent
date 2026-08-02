@@ -1,0 +1,10 @@
+{
+  "id": "flaky-test-recovery",
+  "description": "Recover from a misleading first test failure to find the real bug",
+  "category": "fix",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "Run `node test.mjs`. The first run fails with a misleading message. Find and fix the real bug so that a clean run of `node test.mjs` passes. Do not modify test.mjs.",
+  "verify": "rm -f .first_run_done && (node test.mjs || true) && node test.mjs && git diff --quiet HEAD -- test.mjs",
+  "timeoutSec": 300
+}

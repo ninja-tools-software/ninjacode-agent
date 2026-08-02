@@ -1,0 +1,9 @@
+{
+  "id": "bump-version",
+  "description": "Edit the version field in package.json",
+  "category": "edit",
+  "difficulty": "easy",
+  "prompt": "In package.json, change the version field from \"0.0.1\" to \"0.1.0\". Do not change anything else.",
+  "verify": "node -e \"const p=require('./package.json'); if(p.version!=='0.1.0'||p.name!=='demo')process.exit(1)\"",
+  "timeoutSec": 120
+}

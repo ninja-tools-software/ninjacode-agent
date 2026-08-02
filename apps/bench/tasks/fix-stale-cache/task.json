@@ -1,0 +1,10 @@
+{
+  "id": "fix-stale-cache",
+  "description": "Fix stale cache invalidation across store and service modules",
+  "category": "fix",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "The tests in cache.test.mjs fail because the cache is not invalidated correctly when values are updated. Fix the bug(s) in store.js and/or service.js so all tests pass. Do not modify the test file.",
+  "verify": "node cache.test.mjs && git diff --quiet HEAD -- cache.test.mjs",
+  "timeoutSec": 240
+}

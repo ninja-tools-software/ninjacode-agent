@@ -1,0 +1,21 @@
+node_modules/
+.pnpm-store/
+.turbo/
+.ninjacode/
+.vscode/
+dist/
+.turbo/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+*.vsix
+.vscode-test/
+coverage/
+.ninjacode/
+*.log
+# SWE-bench: dataset cache and the Python harness used by `ninjabench swebench eval`
+.cache/
+.venv-swebench/
+runs/

@@ -1,0 +1,652 @@
+{
+  "name": "ninjacode",
+  "displayName": "%ninjacode.displayName%",
+  "description": "%ninjacode.description%",
+  "version": "0.1.54",
+  "publisher": "ninjacode",
+  "icon": "media/icon.png",
+  "license": "GPL-2.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ninjacode/ninjacode.git"
+  },
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onUri",
+    "onView:ninjacode.chatView",
+    "onView:ninjacode.chatViewLeft",
+    "onCommand:ninjacode.toggleChat",
+    "onCommand:ninjacode.openChat"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "icons": {
+      "ninjacode-shuriken": {
+        "description": "%ninjacode.icon.shuriken%",
+        "default": {
+          "fontPath": "media/ninjacode.woff",
+          "fontCharacter": "\\f101"
+        }
+      }
+    },
+    "customEditors": [
+      {
+        "viewType": "ninjacode.planEditor",
+        "displayName": "%ninjacode.planEditor.displayName%",
+        "selector": [
+          {
+            "filenamePattern": "**/.ninjacode/plans/*.plan.md"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "ninjacode.chat",
+        "name": "ninjacode",
+        "fullName": "NinjaCode",
+        "description": "%ninjacode.chatParticipant.description%",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "ask",
+            "description": "%ninjacode.chatParticipant.ask%"
+          },
+          {
+            "name": "plan",
+            "description": "%ninjacode.chatParticipant.plan%"
+          },
+          {
+            "name": "agent",
+            "description": "%ninjacode.chatParticipant.agent%"
+          }
+        ]
+      }
+    ],
+    "languageModelChatProviders": [
+      {
+        "vendor": "ninjacode",
+        "displayName": "%ninjacode.lmProvider.displayName%",
+        "managementCommand": "ninjacode.setApiKey"
+      }
+    ],
+    "commands": [
+      {
+        "command": "ninjacode.openChat",
+        "title": "%ninjacode.command.openChat%",
+        "icon": "$(ninjacode-shuriken)"
+      },
+      {
+        "command": "ninjacode.toggleChat",
+        "title": "%ninjacode.command.toggleChat%",
+        "icon": {
+          "light": "media/icon-light.svg",
+          "dark": "media/icon-dark.svg"
+        }
+      },
+      {
+        "command": "ninjacode.setApiKey",
+        "title": "%ninjacode.command.setApiKey%"
+      },
+      {
+        "command": "ninjacode.newSession",
+        "title": "%ninjacode.command.newSession%"
+      },
+      {
+        "command": "ninjacode.restoreCheckpoint",
+        "title": "%ninjacode.command.restoreCheckpoint%"
+      },
+      {
+        "command": "ninjacode.stopAgent",
+        "title": "%ninjacode.command.stopAgent%"
+      },
+      {
+        "command": "ninjacode.acceptAllEdits",
+        "title": "%ninjacode.command.acceptAllEdits%"
+      },
+      {
+        "command": "ninjacode.rejectAllEdits",
+        "title": "%ninjacode.command.rejectAllEdits%"
+      },
+      {
+        "command": "ninjacode.reviewEdit",
+        "title": "%ninjacode.command.reviewEdit%"
+      },
+      {
+        "command": "ninjacode.openSettings",
+        "title": "%ninjacode.command.openSettings%"
+      },
+      {
+        "command": "ninjacode.inlineEdit",
+        "title": "%ninjacode.command.inlineEdit%"
+      },
+      {
+        "command": "ninjacode.inlineEdit.accept",
+        "title": "%ninjacode.command.inlineEdit.accept%"
+      },
+      {
+        "command": "ninjacode.inlineEdit.reject",
+        "title": "%ninjacode.command.inlineEdit.reject%"
+      },
+      {
+        "command": "ninjacode.inlineEdit.continueInChat",
+        "title": "%ninjacode.command.inlineEdit.continueInChat%"
+      },
+      {
+        "command": "ninjacode.quickChat",
+        "title": "%ninjacode.command.quickChat%"
+      },
+      {
+        "command": "ninjacode.nextEdit.jump",
+        "title": "%ninjacode.command.nextEdit.jump%"
+      },
+      {
+        "command": "ninjacode.nextEdit.accept",
+        "title": "%ninjacode.command.nextEdit.accept%"
+      },
+      {
+        "command": "ninjacode.nextEdit.dismiss",
+        "title": "%ninjacode.command.nextEdit.dismiss%"
+      },
+      {
+        "command": "ninjacode.codeAction.explain",
+        "title": "%ninjacode.command.codeAction.explain%"
+      },
+      {
+        "command": "ninjacode.codeAction.fix",
+        "title": "%ninjacode.command.codeAction.fix%"
+      },
+      {
+        "command": "ninjacode.codeAction.generateTests",
+        "title": "%ninjacode.command.codeAction.generateTests%"
+      },
+      {
+        "command": "ninjacode.codeAction.document",
+        "title": "%ninjacode.command.codeAction.document%"
+      },
+      {
+        "command": "ninjacode.codeAction.sendToChat",
+        "title": "%ninjacode.command.codeAction.sendToChat%"
+      },
+      {
+        "command": "ninjacode.reviewChanges",
+        "title": "%ninjacode.command.reviewChanges%"
+      },
+      {
+        "command": "ninjacode.forkSession",
+        "title": "%ninjacode.command.forkSession%"
+      },
+      {
+        "command": "ninjacode.renameSession",
+        "title": "%ninjacode.command.renameSession%"
+      },
+      {
+        "command": "ninjacode.exportSession",
+        "title": "%ninjacode.command.exportSession%"
+      },
+      {
+        "command": "ninjacode.pinSession",
+        "title": "%ninjacode.command.pinSession%"
+      },
+      {
+        "command": "ninjacode.archiveSession",
+        "title": "%ninjacode.command.archiveSession%"
+      },
+      {
+        "command": "ninjacode.executePlan",
+        "title": "%ninjacode.command.executePlan%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "ninjacode.addToChat",
+        "title": "%ninjacode.command.addToChat%"
+      },
+      {
+        "command": "ninjacode.addSelectionToChat",
+        "title": "%ninjacode.command.addSelectionToChat%"
+      },
+      {
+        "command": "ninjacode.addProblemsToChat",
+        "title": "%ninjacode.command.addProblemsToChat%"
+      },
+      {
+        "command": "ninjacode.addDiffToChat",
+        "title": "%ninjacode.command.addDiffToChat%"
+      },
+      {
+        "command": "ninjacode.addTerminalSelectionToChat",
+        "title": "%ninjacode.command.addTerminalSelectionToChat%"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "ninjacode.executePlan",
+          "group": "navigation@1",
+          "when": "resourcePath =~ /[/\\\\]\\.ninjacode[/\\\\]plans[/\\\\].*\\.plan\\.md$/"
+        },
+        {
+          "command": "ninjacode.toggleChat",
+          "group": "navigation",
+          "when": "true"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "ninjacode.inlineEdit",
+          "group": "ninjacode@1",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "ninjacode.quickChat",
+          "group": "ninjacode@2",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "ninjacode.codeAction.explain",
+          "group": "ninjacode@3",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ninjacode.codeAction.fix",
+          "group": "ninjacode@4",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ninjacode.codeAction.generateTests",
+          "group": "ninjacode@5",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ninjacode.codeAction.document",
+          "group": "ninjacode@6",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ninjacode.codeAction.sendToChat",
+          "group": "ninjacode@7",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "ninjacode.addSelectionToChat",
+          "group": "ninjacode@0",
+          "when": "editorTextFocus"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "ninjacode.addToChat",
+          "group": "ninjacode@1"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "ninjacode.addToChat",
+          "group": "ninjacode@1"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "ninjacode.addDiffToChat",
+          "group": "ninjacode@1"
+        },
+        {
+          "command": "ninjacode.addToChat",
+          "group": "ninjacode@2"
+        }
+      ],
+      "scm/resourceGroup/context": [
+        {
+          "command": "ninjacode.addDiffToChat",
+          "group": "ninjacode@1"
+        }
+      ],
+      "terminal/context": [
+        {
+          "command": "ninjacode.addTerminalSelectionToChat",
+          "group": "ninjacode@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ninjacode.addProblemsToChat",
+          "group": "ninjacode@1",
+          "when": "view == workbench.panel.markers.view"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "ninjacode.toggleChat",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l"
+      },
+      {
+        "command": "ninjacode.stopAgent",
+        "key": "ctrl+shift+backspace",
+        "mac": "cmd+shift+backspace"
+      },
+      {
+        "command": "ninjacode.stopAgent",
+        "key": "escape",
+        "mac": "escape",
+        "when": "ninjacode.chatFocused && !ninjacode.voiceRecording"
+      },
+      {
+        "command": "ninjacode.inlineEdit",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "ninjacode.quickChat",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "ninjacode.addSelectionToChat",
+        "key": "ctrl+alt+a",
+        "mac": "cmd+alt+a",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "ninjacode.nextEdit.jump",
+        "key": "tab",
+        "when": "ninjacode.nextEditVisible && editorTextFocus && !inSnippetMode && !suggestWidgetVisible"
+      },
+      {
+        "command": "ninjacode.executePlan",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "resourcePath =~ /[/\\\\]\\.ninjacode[/\\\\]plans[/\\\\].*\\.plan\\.md$/"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ninjacode-left",
+          "title": "%ninjacode.viewsContainers.title%",
+          "icon": "media/icon-dark.svg"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "ninjacode",
+          "title": "%ninjacode.viewsContainers.title%",
+          "icon": "media/icon-dark.svg"
+        }
+      ]
+    },
+    "views": {
+      "ninjacode": [
+        {
+          "type": "webview",
+          "id": "ninjacode.chatView",
+          "name": "%ninjacode.views.chat%",
+          "when": "ninjacode.chatLocation == secondary"
+        },
+        {
+          "id": "ninjacode.checkpointsView",
+          "name": "%ninjacode.views.checkpoints%",
+          "visibility": "collapsed",
+          "when": "ninjacode.chatLocation == secondary"
+        }
+      ],
+      "ninjacode-left": [
+        {
+          "type": "webview",
+          "id": "ninjacode.chatViewLeft",
+          "name": "%ninjacode.views.chat%",
+          "when": "ninjacode.chatLocation == primary"
+        },
+        {
+          "id": "ninjacode.checkpointsViewLeft",
+          "name": "%ninjacode.views.checkpoints%",
+          "visibility": "collapsed",
+          "when": "ninjacode.chatLocation == primary"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "%ninjacode.configuration.title%",
+      "properties": {
+        "ninjacode.chatLocation": {
+          "type": "string",
+          "default": "secondary",
+          "enum": [
+            "primary",
+            "secondary"
+          ],
+          "enumDescriptions": [
+            "%ninjacode.configuration.chatLocation.enumDescriptions.primary%",
+            "%ninjacode.configuration.chatLocation.enumDescriptions.secondary%"
+          ],
+          "markdownDescription": "%ninjacode.configuration.chatLocation.markdownDescription%"
+        },
+        "ninjacode.provider": {
+          "type": "string",
+          "default": "anthropic",
+          "markdownDescription": "%ninjacode.configuration.provider.markdownDescription%",
+          "enum": [
+            "anthropic",
+            "openai",
+            "deepseek",
+            "openrouter",
+            "moonshot",
+            "glm",
+            "mistral",
+            "mammouth",
+            "openai-compatible",
+            "local",
+            "gateway",
+            "mock"
+          ]
+        },
+        "ninjacode.providers": {
+          "type": "array",
+          "default": [
+            "anthropic",
+            "gateway"
+          ],
+          "items": {
+            "type": "string",
+            "enum": [
+              "anthropic",
+              "openai",
+              "deepseek",
+              "openrouter",
+              "moonshot",
+              "glm",
+              "mistral",
+              "mammouth",
+              "openai-compatible",
+              "local",
+              "gateway",
+              "mock"
+            ]
+          },
+          "description": "%ninjacode.configuration.providers.description%"
+        },
+        "ninjacode.model": {
+          "type": "string",
+          "default": ""
+        },
+        "ninjacode.favoriteModels": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "%ninjacode.configuration.favoriteModels.description%"
+        },
+        "ninjacode.baseUrl": {
+          "type": "string",
+          "default": ""
+        },
+        "ninjacode.localBaseUrl": {
+          "type": "string",
+          "default": "http://localhost:11434/v1",
+          "description": "%ninjacode.configuration.localBaseUrl.description%"
+        },
+        "ninjacode.gatewayUrl": {
+          "type": "string",
+          "default": "https://api.ninjacode.dev",
+          "description": "%ninjacode.configuration.gatewayUrl.description%"
+        },
+        "ninjacode.webUrl": {
+          "type": "string",
+          "default": "",
+          "description": "%ninjacode.configuration.webUrl.description%"
+        },
+        "ninjacode.mode": {
+          "type": "string",
+          "default": "agent",
+          "enum": [
+            "agent",
+            "plan",
+            "ask",
+            "debug"
+          ]
+        },
+        "ninjacode.approvalMode": {
+          "type": "string",
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "autonomous"
+          ]
+        },
+        "ninjacode.reviewEdits": {
+          "type": "boolean",
+          "default": true,
+          "description": "%ninjacode.configuration.reviewEdits.description%"
+        },
+        "ninjacode.reasoningEffort": {
+          "type": "string",
+          "default": "medium",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "description": "%ninjacode.configuration.reasoningEffort.description%"
+        },
+        "ninjacode.thinkingBudgetTokens": {
+          "type": "number",
+          "default": 10000,
+          "description": "%ninjacode.configuration.thinkingBudgetTokens.description%"
+        },
+        "ninjacode.contextWindow": {
+          "type": "number",
+          "default": 0,
+          "description": "%ninjacode.configuration.contextWindow.description%"
+        },
+        "ninjacode.inlineCompletions.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%ninjacode.configuration.inlineCompletions.enabled.description%"
+        },
+        "ninjacode.inlineCompletions.model": {
+          "type": "string",
+          "default": "",
+          "description": "%ninjacode.configuration.inlineCompletions.model.description%"
+        },
+        "ninjacode.autoAcceptEditsDelayMs": {
+          "type": "number",
+          "default": 0,
+          "description": "%ninjacode.configuration.autoAcceptEditsDelayMs.description%"
+        },
+        "ninjacode.voice.model": {
+          "type": "string",
+          "default": "small",
+          "enum": [
+            "base",
+            "small"
+          ],
+          "enumDescriptions": [
+            "%ninjacode.configuration.voice.model.enumDescriptions.base%",
+            "%ninjacode.configuration.voice.model.enumDescriptions.small%"
+          ],
+          "description": "%ninjacode.configuration.voice.model.description%"
+        },
+        "ninjacode.voice.language": {
+          "type": "string",
+          "default": "auto",
+          "description": "%ninjacode.configuration.voice.language.description%"
+        },
+        "ninjacode.voice.manifestUrl": {
+          "type": "string",
+          "default": "",
+          "description": "%ninjacode.configuration.voice.manifestUrl.description%"
+        },
+        "ninjacode.voice.recorderCommand": {
+          "type": "string",
+          "default": "",
+          "description": "%ninjacode.configuration.voice.recorderCommand.description%"
+        },
+        "ninjacode.locale": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "en",
+            "fr"
+          ],
+          "enumDescriptions": [
+            "%ninjacode.configuration.locale.enumDescriptions.auto%",
+            "%ninjacode.configuration.locale.enumDescriptions.en%",
+            "%ninjacode.configuration.locale.enumDescriptions.fr%"
+          ],
+          "description": "%ninjacode.configuration.locale.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "prebuild": "node scripts/bump-version.mjs",
+    "build:webview": "vite build --config webview/vite.config.ts",
+    "build:ext": "node esbuild.mjs",
+    "build": "pnpm run clean && pnpm run build:deps && pnpm run build:webview && pnpm run build:ext",
+    "build:deps": "pnpm --filter @ninjacode/core --filter @ninjacode/providers --filter @ninjacode/tools run build",
+    "dev": "node esbuild.mjs --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p webview/tsconfig.json --noEmit",
+    "clean": "rm -rf dist *.vsix",
+    "package": "pnpm run build && npx @vscode/vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "@ninjacode/core": "workspace:*",
+    "@ninjacode/providers": "workspace:*",
+    "@ninjacode/tools": "workspace:*",
+    "@vscode/l10n": "^0.0.18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/vscode": "^1.105.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "esbuild": "^0.25.1",
+    "jsdom": "^26.0.0",
+    "mermaid": "^11.6.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.2",
+    "vitest": "^3.0.9"
+  },
+  "l10n": "./l10n"
+}

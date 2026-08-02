@@ -1,0 +1,278 @@
+.approval {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--card-pad);
+  margin: 8px 0;
+  background: var(--surface-2);
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+.approval.resolved { opacity: 0.55; }
+.approval-body p { margin: 6px 0; color: var(--muted); }
+.approval-body code { font-size: 11px; word-break: break-all; }
+.approval-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+/* Keep Approve/Deny tonal with other .btn actions; reveal danger only on hover. */
+.approval-actions .btn.danger {
+  border-color: var(--border);
+  color: var(--muted);
+}
+.approval-actions .btn.danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: transparent;
+}
+
+.question-card {
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: var(--radius-md);
+  padding: var(--card-pad);
+  margin: 8px 0;
+  background: var(--surface-2);
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+.question-card.resolved { opacity: 0.65; }
+.question-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+.question-step-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.question-progress {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.question-progress-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--fg) 20%, transparent);
+}
+.question-progress-dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+.question-progress-dot.done {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.question-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--card-pad);
+  background: var(--surface-1);
+}
+.question-block-active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.question-block-resolved + .question-block-resolved {
+  margin-top: 8px;
+}
+.question-prompt { font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
+.question-hint { font-size: 11px; margin-bottom: 4px; }
+.question-options { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.question-option {
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  line-height: 1.35;
+  padding: 6px 10px;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.question-option:active:not(:disabled) { transform: scale(0.98); }
+.question-option.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.question-option-recommended {
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 6px;
+}
+.question-free-text {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+.question-free-text:focus { outline: 1px solid var(--accent); }
+.question-answer { font-size: 12px; margin-top: 4px; }
+.question-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.question-actions-right {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.user-action-card {
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: var(--radius-md);
+  padding: var(--card-pad);
+  margin: 8px 0;
+  background: var(--surface-2);
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+.user-action-card.resolved { opacity: 0.6; }
+.user-action-header { display: flex; align-items: center; gap: 6px; }
+.user-action-icon { font-size: 13px; }
+.user-action-text { margin: 8px 0 4px; }
+.user-action-reason { margin: 0 0 6px; font-size: 12px; }
+.user-action-actions { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.user-action-actions .question-free-text { flex: 1; margin-top: 0; }
+.user-action-footer { margin-top: 6px; font-size: 12px; }
+
+.edits-bar {
+  border-top: 1px solid var(--border);
+  padding: 6px 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* Thin animated progress line under the header while the agent works. */
+.run-progress {
+  height: 2px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.run-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: run-progress-slide 1.4s ease-in-out infinite;
+}
+.run-progress.run-waiting { background: color-mix(in srgb, var(--warn) 15%, transparent); }
+.run-progress.run-waiting::after {
+  background: linear-gradient(90deg, transparent, var(--warn), transparent);
+}
+.run-progress.run-stopping { background: color-mix(in srgb, var(--danger) 15%, transparent); }
+.run-progress.run-stopping::after {
+  background: linear-gradient(90deg, transparent, var(--danger), transparent);
+}
+@keyframes run-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-progress::after { animation: none; width: 100%; opacity: 0.5; }
+}
+
+/* Discreet status pill floating over the log while running (see .run-pill-overlay). */
+.run-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.run-pill.run-waiting {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  background: color-mix(in srgb, var(--warn) 10%, var(--bg));
+}
+.run-pill.run-stopping {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
+}
+.run-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: status-dot-pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.run-pill.run-waiting .run-pill-dot { background: var(--warn); animation: none; }
+.run-pill.run-stopping .run-pill-dot { background: var(--danger); }
+.run-pill-label { white-space: nowrap; }
+.run-pill-stop {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.run-pill-stop:active:not(:disabled) { transform: scale(0.96); }
+.run-pill-stop:hover {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-pill-dot { animation: none; }
+}
+
+.queue-panel {
+  border-top: 1px solid var(--border);
+  padding: var(--card-pad);
+  background: var(--surface-1);
+}
+.queue-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.queue-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 4px 6px 4px 10px;
+  background: var(--bg);
+}
+.queue-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.queue-actions .icon-btn { width: 26px; height: 26px; font-size: 11px; }

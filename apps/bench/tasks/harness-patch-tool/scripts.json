@@ -1,0 +1,15 @@
+[
+  {
+    "text": "Applying multi-file patch",
+    "toolCalls": [
+      {
+        "id": "p1",
+        "name": "apply_patch",
+        "arguments": {
+          "patch": "--- a/one.txt\n+++ b/one.txt\n@@\n alpha\n-beta\n+ninja\n--- a/two.txt\n+++ b/two.txt\n@@\n gamma\n-delta\n+code\n"
+        }
+      }
+    ]
+  },
+  { "text": "Patch applied." }
+]

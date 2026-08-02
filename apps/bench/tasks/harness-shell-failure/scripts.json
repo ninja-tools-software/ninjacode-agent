@@ -1,0 +1,38 @@
+[
+  {
+    "text": "Run check (expected failure)",
+    "toolCalls": [
+      {
+        "id": "s1",
+        "name": "run_shell",
+        "arguments": { "command": "sh check.sh" }
+      }
+    ]
+  },
+  {
+    "text": "Create flag and re-run",
+    "toolCalls": [
+      {
+        "id": "s2",
+        "name": "write_file",
+        "arguments": { "path": "flag.txt", "content": "ready" }
+      },
+      {
+        "id": "s3",
+        "name": "run_shell",
+        "arguments": { "command": "sh check.sh" }
+      }
+    ]
+  },
+  {
+    "text": "Write result",
+    "toolCalls": [
+      {
+        "id": "s4",
+        "name": "write_file",
+        "arguments": { "path": "RESULT.txt", "content": "OK\n" }
+      }
+    ]
+  },
+  { "text": "Shell failure recovered." }
+]

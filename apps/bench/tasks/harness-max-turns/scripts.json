@@ -1,0 +1,52 @@
+[
+  {
+    "text": "loop",
+    "toolCalls": [
+      {
+        "id": "l1",
+        "name": "run_shell",
+        "arguments": { "command": "echo turn1" }
+      }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      {
+        "id": "l2",
+        "name": "run_shell",
+        "arguments": { "command": "echo turn2" }
+      }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      {
+        "id": "l3",
+        "name": "run_shell",
+        "arguments": { "command": "echo turn3" }
+      }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      {
+        "id": "l4",
+        "name": "run_shell",
+        "arguments": { "command": "echo turn4" }
+      }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      {
+        "id": "l5",
+        "name": "run_shell",
+        "arguments": { "command": "echo turn5" }
+      }
+    ]
+  }
+]

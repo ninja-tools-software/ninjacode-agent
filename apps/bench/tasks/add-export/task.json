@@ -1,0 +1,1 @@
+{"id":"add-export","description":"Export add function from math.js","category":"edit","difficulty":"easy","prompt":"Export the add function from math.js so use.mjs can import it. Do not change use.mjs.","verify":"node use.mjs","timeoutSec":120}

@@ -1,0 +1,12 @@
+{
+  "id": "harness-permission-denied",
+  "description": "Harness: path-escape permission error is non-fatal; run continues",
+  "category": "fix",
+  "difficulty": "easy",
+  "suites": ["harness"],
+  "prompt": "Write SAFE.txt with ok",
+  "verify": "test \"$(cat SAFE.txt | tr -d '[:space:]')\" = 'ok'",
+  "timeoutSec": 60,
+  "maxTurns": 10,
+  "minToolErrors": 1
+}

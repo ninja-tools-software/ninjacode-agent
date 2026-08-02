@@ -1,0 +1,69 @@
+[
+  {
+    "text": "fail 1",
+    "toolCalls": [
+      {
+        "id": "f1",
+        "name": "edit_file",
+        "arguments": {
+          "path": "config.txt",
+          "old_string": "DOES_NOT_EXIST_1",
+          "new_string": "x"
+        }
+      }
+    ]
+  },
+  {
+    "text": "fail 2",
+    "toolCalls": [
+      {
+        "id": "f2",
+        "name": "edit_file",
+        "arguments": {
+          "path": "config.txt",
+          "old_string": "DOES_NOT_EXIST_2",
+          "new_string": "x"
+        }
+      }
+    ]
+  },
+  {
+    "text": "fail 3",
+    "toolCalls": [
+      {
+        "id": "f3",
+        "name": "edit_file",
+        "arguments": {
+          "path": "config.txt",
+          "old_string": "DOES_NOT_EXIST_3",
+          "new_string": "x"
+        }
+      }
+    ]
+  },
+  {
+    "text": "fail 4 — should hit circuit_open",
+    "toolCalls": [
+      {
+        "id": "f4",
+        "name": "edit_file",
+        "arguments": {
+          "path": "config.txt",
+          "old_string": "DOES_NOT_EXIST_4",
+          "new_string": "x"
+        }
+      }
+    ]
+  },
+  {
+    "text": "recover via different tool",
+    "toolCalls": [
+      {
+        "id": "ok",
+        "name": "write_file",
+        "arguments": { "path": "DONE.txt", "content": "ok\n" }
+      }
+    ]
+  },
+  { "text": "Circuit breaker handled; wrote DONE.txt." }
+]

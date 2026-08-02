@@ -1,0 +1,596 @@
+textarea {
+  width: 100%;
+  resize: none;
+  min-height: 32px;
+  max-height: 160px;
+  background: transparent;
+  color: var(--input-fg);
+  border: none;
+  outline: none;
+  padding: 2px 2px 0;
+  font: inherit;
+  line-height: 1.4;
+}
+
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.composer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+/* Compact toolbar attach control — match pill height, keep glyph readable.
+   Global .icon-btn padding (4px 8px) must be zeroed: with border-box it
+   crushed the SVG into a ~6×14px content box. */
+.composer-controls .icon-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border-color: transparent;
+  background: transparent;
+  color: var(--input-fg, var(--fg));
+}
+.composer-controls .icon-btn:hover {
+  color: var(--fg);
+  background: var(--list-hover);
+  border-color: transparent;
+}
+.composer-controls .icon-btn.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: transparent;
+}
+.composer-controls .icon-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+/* Dictation cluster (Cursor-style): [spectrum] [stop] [validate] */
+.composer-send-cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.voice-spectrum {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 4px;
+}
+.voice-spectrum-bar {
+  width: 3px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  transform: scaleY(0.12);
+  transform-origin: center;
+  transition: transform 90ms linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-spectrum-bar { transition: none; }
+}
+/* Empty-state mic: subtle ghost variant of the round send button. */
+.send-btn.mic,
+.send-btn.enhance {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.send-btn.mic:hover,
+.send-btn.enhance:hover:not(:disabled) {
+  background: var(--list-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ctrl {
+  appearance: none;
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  padding: 3px 8px;
+  font-size: 11px;
+  max-width: 160px;
+  cursor: pointer;
+}
+.ctrl:hover {
+  background: var(--list-hover);
+  border-color: var(--border);
+}
+
+/* Composer toolbar pills — unified height with icon buttons (22px) */
+.composer-controls .composer-pill {
+  height: 22px;
+  box-sizing: border-box;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  font-size: 11px;
+  font-family: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.composer-controls .composer-pill svg {
+  width: 11px;
+  height: 11px;
+}
+.composer-controls .composer-pill:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.composer-controls .composer-pill:hover {
+  border-color: var(--border);
+}
+
+/* Mode selector tinted by active mode (Cursor-style) */
+.mode-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.composer-controls .mode-pill {
+  min-width: 5.5rem;
+  padding: 0 6px;
+  gap: 4px;
+  font-weight: 600;
+  justify-content: space-between;
+  border-radius: var(--radius-md);
+}
+.mode-pill-leading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+.mode-pill-label {
+  text-align: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+.mode-pill > svg:last-child {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+.mode-pill-leading svg {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+.mode-pill.mode-agent {
+  color: var(--mode-agent);
+  background-color: color-mix(in srgb, var(--mode-agent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--mode-agent) 35%, transparent);
+}
+.mode-pill.mode-plan {
+  color: var(--mode-plan);
+  background-color: color-mix(in srgb, var(--mode-plan) 12%, transparent);
+  border-color: color-mix(in srgb, var(--mode-plan) 35%, transparent);
+}
+.mode-pill.mode-ask {
+  color: var(--mode-ask);
+  background-color: color-mix(in srgb, var(--mode-ask) 12%, transparent);
+  border-color: color-mix(in srgb, var(--mode-ask) 35%, transparent);
+}
+.mode-pill.mode-debug {
+  color: var(--mode-debug);
+  background-color: color-mix(in srgb, var(--mode-debug) 12%, transparent);
+  border-color: color-mix(in srgb, var(--mode-debug) 35%, transparent);
+}
+.mode-pill.mode-agent:hover { background-color: color-mix(in srgb, var(--mode-agent) 20%, transparent); }
+.mode-pill.mode-plan:hover { background-color: color-mix(in srgb, var(--mode-plan) 20%, transparent); }
+.mode-pill.mode-ask:hover { background-color: color-mix(in srgb, var(--mode-ask) 20%, transparent); }
+.mode-pill.mode-debug:hover { background-color: color-mix(in srgb, var(--mode-debug) 20%, transparent); }
+
+.mode-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 260px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mode-menu-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 16px;
+  align-items: start;
+  column-gap: 9px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 7px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.mode-menu-item:active:not(:disabled) { transform: scale(0.98); }
+.mode-menu-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Optically centers the 16px glyph against the label's first line. */
+  padding-top: 1px;
+  opacity: 0.85;
+}
+.mode-menu-item.selected .mode-menu-item-icon { opacity: 1; }
+.mode-menu-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mode-menu-item-label {
+  font-weight: 600;
+  line-height: 1.3;
+}
+.mode-menu-item-hint {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.mode-menu-item-check {
+  display: inline-flex;
+  justify-content: center;
+  padding-top: 2px;
+}
+.mode-menu-item:hover { background: var(--list-hover); }
+.mode-menu-item.mode-agent.selected { color: var(--mode-agent); border-left-color: var(--mode-agent); }
+.mode-menu-item.mode-plan.selected { color: var(--mode-plan); border-left-color: var(--mode-plan); }
+.mode-menu-item.mode-ask.selected { color: var(--mode-ask); border-left-color: var(--mode-ask); }
+.mode-menu-item.mode-debug.selected { color: var(--mode-debug); border-left-color: var(--mode-debug); }
+.mode-menu-item.selected .mode-menu-item-hint { color: var(--muted); }
+
+/* Model dropdown (Cursor-style) */
+.model-menu-wrap { position: relative; min-width: 0; flex-shrink: 1; }
+.model-menu-btn {
+  max-width: 140px;
+  min-width: 0;
+  width: 100%;
+  padding: 0 6px;
+  gap: 3px;
+  font-weight: 400;
+  color: var(--fg);
+  background: transparent;
+  justify-content: space-between;
+}
+.model-menu-btn:hover {
+  background: var(--list-hover);
+}
+.model-menu-btn svg { flex-shrink: 0; opacity: 0.7; }
+.model-menu-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.model-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 340px;
+  max-width: 400px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow: auto;
+}
+.model-menu-section + .model-menu-section {
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding-top: 6px;
+}
+.model-menu-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 0 6px 4px;
+}
+/* One row = the selectable model plus its own favorite toggle, so the star
+   never ends up as a button nested inside another button. */
+.model-menu-row {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+}
+.model-menu-row:hover,
+.model-menu-row.highlighted { background: var(--list-hover); }
+.model-menu-row.after-favorites {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.model-menu-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-areas:
+    "check main"
+    ".     meta";
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.model-menu-item:active:not(:disabled) { transform: scale(0.98); }
+.model-menu-item:hover { background: var(--list-hover); }
+.model-menu-item.selected { font-weight: 600; }
+.model-menu-check {
+  grid-area: check;
+  width: 14px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.model-menu-main {
+  grid-area: main;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.model-menu-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-menu-meta {
+  grid-area: meta;
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--code-font);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.model-menu-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    color var(--dur-fast) ease,
+    opacity var(--dur-fast) ease;
+}
+.model-menu-row:hover .model-menu-star,
+.model-menu-star:focus-visible,
+.model-menu-star.active {
+  opacity: 1;
+}
+.model-menu-star:hover { color: var(--warn); }
+.model-menu-star.active { color: var(--warn); }
+.model-menu-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  padding: 0 5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+.model-menu-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 6px 2px;
+}
+.model-menu-pill {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--fg);
+  font-size: 11px;
+  padding: 2px 9px;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.model-menu-pill:active:not(:disabled) { transform: scale(0.96); }
+.model-menu-pill:hover { background: var(--list-hover); }
+.model-menu-pill.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Copilot-style effort / context settings next to the model picker */
+.model-settings-wrap { flex-shrink: 0; }
+.model-settings-btn {
+  max-width: 120px;
+  min-width: 0;
+  padding: 0 6px;
+  gap: 3px;
+  font-weight: 400;
+  color: var(--fg);
+  background: transparent;
+  justify-content: space-between;
+}
+.model-settings-btn:hover { background: var(--list-hover); }
+.model-settings-btn svg { flex-shrink: 0; opacity: 0.7; }
+.model-settings-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.model-settings-menu {
+  min-width: 220px;
+  max-width: 280px;
+  left: auto;
+  right: 0;
+}
+.model-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.model-settings-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 7px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.model-settings-item:hover { background: var(--list-hover); }
+.model-settings-item.selected { font-weight: 600; }
+/* Fixed check column — never reuse .model-menu-check (it sets grid-area). */
+.model-settings-check {
+  width: 16px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.model-settings-item-label { min-width: 0; }
+.model-settings-default {
+  min-width: 4.5em;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+  white-space: nowrap;
+  text-align: right;
+}
+.send-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    opacity var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.send-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.send-btn-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.send-btn-icon-stop {
+  width: 14px;
+  height: 14px;
+}
+.send-btn.stop {
+  background: var(--danger);
+  color: #fff;
+}
+/* Validate / send follows the active mode tint (mic / enhance / stop keep their own look). */
+.composer-card.mode-agent .send-btn:not(.stop):not(.mic):not(.enhance) {
+  background: var(--mode-agent);
+  color: #fff;
+}
+.composer-card.mode-plan .send-btn:not(.stop):not(.mic):not(.enhance) {
+  background: var(--mode-plan);
+  color: #fff;
+}
+.composer-card.mode-ask .send-btn:not(.stop):not(.mic):not(.enhance) {
+  background: var(--mode-ask);
+  color: #fff;
+}
+.composer-card.mode-debug .send-btn:not(.stop):not(.mic):not(.enhance) {
+  background: var(--mode-debug);
+  color: #fff;
+}
+.send-modes {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+.send-modes .btn { padding: 4px 8px; font-size: 11px; white-space: nowrap; }

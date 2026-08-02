@@ -1,0 +1,29 @@
+{
+  "name": "@ninjacode/cli",
+  "version": "0.1.0",
+  "description": "NinjaCode CLI — headless agentic coding",
+  "license": "GPL-2.0-only",
+  "type": "module",
+  "bin": {
+    "ninjacode": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist",
+    "eval": "node dist/eval.js"
+  },
+  "dependencies": {
+    "@ninjacode/core": "workspace:*",
+    "@ninjacode/providers": "workspace:*",
+    "@ninjacode/tools": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
+  }
+}

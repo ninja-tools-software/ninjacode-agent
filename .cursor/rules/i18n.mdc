@@ -1,0 +1,28 @@
+---
+description: User-facing UI strings must go through i18n with en + fr keys in the same change
+alwaysApply: true
+---
+
+# Internationalisation
+
+Supported locales in v1: **`en`** (source) and **`fr`**. Every user-facing UI string change must update **both** catalogs in the same change — never ship an English-only key.
+
+## Where strings go
+
+| Surface | Mechanism | Catalogs |
+|---------|-----------|----------|
+| `apps/vscode` host | `vscode.l10n.t` / `package.nls` | `package.nls.json` + `package.nls.fr.json`, `l10n/bundle.l10n*.json` |
+| `apps/vscode` webview | `@vscode/l10n` | webview locale bundles |
+| `apps/cli`, `apps/acp-agent` | local `t()` helper | `locales/en.json` + `fr.json` |
+
+## Rules
+
+- No hardcoded user-facing copy in templates, TSX, or TS for UI chrome (labels, buttons, nav, form errors, empty states, tooltips, aria-labels that users hear).
+- Add the key to **en** and **fr** together. Key names are stable English dotted ids (`nav.signIn`, `auth.login.title`).
+- Use interpolation (`{name}` / l10n args), never concatenate translated fragments into a sentence.
+- Language selection: auto (browser / VS Code display language / `LANG`) with a persisted manual override. Fallback: `en`.
+
+## Out of scope (do not force through UI i18n)
+
+- Model-facing text in `packages/core` / `packages/tools` (system prompts, tool descriptions) — keep English for the model.
+- Internal logs, telemetry event names, and developer-only stderr that is not product UI.

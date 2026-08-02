@@ -1,0 +1,9 @@
+{
+  "id": "fix-off-by-one",
+  "description": "Fix an off-by-one bug so the test passes",
+  "category": "fix",
+  "difficulty": "easy",
+  "prompt": "The test in sum.test.mjs fails. Fix the bug in sum.js so that the test passes. Do not modify the test file.",
+  "verify": "node sum.test.mjs && git diff --quiet HEAD -- sum.test.mjs",
+  "timeoutSec": 180
+}

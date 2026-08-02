@@ -1,0 +1,40 @@
+import type { OpenTabId } from "./state/openTabs.js";
+import type { PlanSummary, SessionSummary, VsCodeApi } from "./types.js";
+
+export interface AppHeaderProps {
+  tabIds: OpenTabId[];
+  activeTabId: OpenTabId;
+  sessions: SessionSummary[];
+  fallbackTitles?: Record<string, string>;
+  activeSession?: SessionSummary;
+  historyOpen: boolean;
+  historyClosing: boolean;
+  historyMounted: boolean;
+  historySessions: SessionSummary[];
+  historyQuery: string;
+  plansOpen: boolean;
+  plansClosing: boolean;
+  plansMounted: boolean;
+  plansItems: PlanSummary[];
+  plansQuery: string;
+  activePlanId?: string;
+  plansLoading: boolean;
+  activeSessionId?: string;
+  sessionsLoading: boolean;
+  onTabSelect: (tabId: OpenTabId) => void;
+  onTabClose: (tabId: OpenTabId) => void;
+  onToggleHistory: () => void;
+  onHistoryClose: () => void;
+  onHistoryQuery: (q: string) => void;
+  onHistoryOpen: (id: string) => void;
+  onHistoryDelete: (id: string) => void;
+  onTogglePlans: () => void;
+  onPlansClose: () => void;
+  onPlansQuery: (q: string) => void;
+  onPlanOpen: (planId: string) => void;
+  onPlanActivate: (planId: string) => void;
+  onPlanDelete: (planId: string) => void;
+  onNewSession: () => void;
+  onOpenSettings: () => void;
+  vscode: VsCodeApi;
+}

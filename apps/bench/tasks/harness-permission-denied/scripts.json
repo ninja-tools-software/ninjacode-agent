@@ -1,0 +1,26 @@
+[
+  {
+    "text": "Attempt escape (must be denied)",
+    "toolCalls": [
+      {
+        "id": "p1",
+        "name": "write_file",
+        "arguments": {
+          "path": "../../outside-ninjabench-escape.txt",
+          "content": "should-not-write"
+        }
+      }
+    ]
+  },
+  {
+    "text": "Write inside workspace",
+    "toolCalls": [
+      {
+        "id": "p2",
+        "name": "write_file",
+        "arguments": { "path": "SAFE.txt", "content": "ok\n" }
+      }
+    ]
+  },
+  { "text": "Permission denial handled." }
+]

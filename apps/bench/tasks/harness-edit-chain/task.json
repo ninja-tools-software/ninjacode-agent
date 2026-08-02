@@ -1,0 +1,11 @@
+{
+  "id": "harness-edit-chain",
+  "description": "Harness: scripted write → edit → re-edit chain across files",
+  "category": "edit",
+  "difficulty": "easy",
+  "suites": ["harness"],
+  "prompt": "Apply the planned file edits.",
+  "verify": "test \"$(cat a.txt)\" = 'alpha-v2' && test \"$(cat b.txt)\" = 'beta-final' && test \"$(cat c.txt)\" = 'gamma'",
+  "timeoutSec": 60,
+  "maxTurns": 10
+}

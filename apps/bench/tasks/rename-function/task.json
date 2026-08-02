@@ -1,0 +1,1 @@
+{"id":"rename-function","description":"Rename addNums to add","category":"refactor","difficulty":"easy","prompt":"Rename addNums to add in calc.js so calc.test.mjs passes. Do not modify the test.","verify":"node calc.test.mjs && git diff --quiet HEAD -- calc.test.mjs","timeoutSec":120}

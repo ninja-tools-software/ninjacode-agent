@@ -1,0 +1,396 @@
+.plans-popover-wrap {
+  position: relative;
+}
+
+.plans-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: min(360px, calc(100vw - 16px));
+  max-height: min(520px, calc(100vh - 48px));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.plans-search {
+  margin: 8px 8px 4px;
+  background: var(--input-bg);
+  color: var(--input-fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.plans-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 4px 0;
+}
+
+.plans-group-label {
+  padding: 6px 12px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.plans-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plans-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 36px;
+  padding: 0 4px 0 8px;
+  border-radius: var(--radius-sm);
+  margin: 0 4px;
+}
+.plans-item:hover,
+.plans-item:focus-within {
+  background: var(--list-hover);
+}
+.plans-item.active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--list-hover));
+}
+
+.plans-main {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  padding: 6px 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.plans-active-icon {
+  width: 12px;
+  flex-shrink: 0;
+  color: var(--accent);
+  margin-top: 2px;
+}
+
+.plans-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plans-title {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plans-preview {
+  font-size: 11px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.plans-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+.plans-item:hover .plans-item-actions,
+.plans-item:focus-within .plans-item-actions {
+  opacity: 1;
+}
+
+.plans-item-menu-wrap {
+  position: relative;
+}
+
+.plans-item-menu {
+  position: fixed;
+  min-width: 140px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.plans-empty {
+  padding: 12px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.plans-toggle.active {
+  color: var(--accent);
+}
+
+/* Inline plan card in chat + plan editor tab */
+.plan-card {
+  border: 1px solid var(--border);
+  border-left: 2px solid color-mix(in srgb, var(--mode-plan) 50%, var(--border));
+  border-radius: var(--radius-md);
+  margin: 8px 0;
+  padding: var(--card-pad);
+  background: var(--surface-2);
+}
+.plan-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.plan-path {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.plan-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.plan-view-btn {
+  flex-shrink: 0;
+}
+.plan-execute-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.plan-model-picker {
+  position: relative;
+}
+.plan-model-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  max-width: 160px;
+}
+.plan-model-pick:hover:not(:disabled) {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+.plan-model-pick-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btn-execute {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-fg, #fff);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 30px;
+  padding: 8px 14px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 40%, #000);
+  transition: filter var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+.btn-execute:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn-execute:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn-execute-kbd {
+  font-size: 11px;
+  opacity: 0.75;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  font-family: inherit;
+  line-height: 1.2;
+}
+.plan-preview {
+  max-height: 180px;
+  overflow: auto;
+  font-size: 12px;
+}
+.plan-preview-expanded {
+  max-height: none;
+}
+.plan-show-more {
+  margin-top: 6px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+}
+.plan-show-more:hover {
+  text-decoration: underline;
+}
+.plan-todos {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  font-size: 12px;
+}
+.plan-todos .todos-header {
+  margin-bottom: 4px;
+}
+.plan-model-menu {
+  /* Position is set inline when portaled; keep list styling only. */
+  min-width: 340px;
+}
+.plan-model-menu-portal {
+  bottom: auto;
+  left: auto;
+  right: auto;
+  top: auto;
+  overflow: auto;
+  z-index: 1000;
+  box-sizing: border-box;
+}
+.plan-model-menu-portal .model-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+.plan-model-menu-portal .model-menu-item {
+  width: 100%;
+  box-sizing: border-box;
+}
+.plan-card-footer,
+.plan-app-toolbar,
+.plan-app-actions {
+  overflow: visible;
+}
+.plan-compact-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 4px 0;
+  padding: 6px 10px;
+  border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+.plan-compact-row:hover {
+  color: var(--fg);
+  border-color: var(--border);
+  background: var(--surface-3);
+}
+.plan-compact-label {
+  font-weight: 600;
+  color: var(--accent);
+}
+.plan-compact-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Plan editor tab (full document view) */
+.plan-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+.plan-app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.plan-app-title {
+  min-width: 0;
+}
+.plan-app-title strong {
+  display: block;
+  font-size: 14px;
+}
+.plan-app-path {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.plan-app-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.plan-app-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 18px;
+  font-size: 13px;
+}
+.plan-app-body .md {
+  max-width: 860px;
+}
+.plan-app-loading {
+  padding: 16px;
+  font-size: 12px;
+}

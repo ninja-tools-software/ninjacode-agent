@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": [],
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "composite": false
+  },
+  "include": ["src/**/*", "../src/reasoningUi.ts", "../src/toolLogUi.ts", "../src/toolUi.ts", "../src/protocol.ts"]
+}

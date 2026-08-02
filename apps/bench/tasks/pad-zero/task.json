@@ -1,0 +1,1 @@
+{"id":"pad-zero","description":"Zero-pad single digit numbers","category":"fix","difficulty":"medium","prompt":"Implement pad in format.js so format.test.mjs passes. Do not modify the test.","verify":"node format.test.mjs && git diff --quiet HEAD -- format.test.mjs","timeoutSec":180}

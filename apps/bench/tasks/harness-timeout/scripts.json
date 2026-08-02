@@ -1,0 +1,13 @@
+[
+  {
+    "text": "sleeping",
+    "toolCalls": [
+      {
+        "id": "s1",
+        "name": "run_shell",
+        "arguments": { "command": "sleep 120", "timeout_ms": 180000 }
+      }
+    ]
+  },
+  { "text": "should never reach here" }
+]

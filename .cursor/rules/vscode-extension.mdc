@@ -1,0 +1,40 @@
+---
+description: Structure of the VS Code extension host and React webview
+globs: apps/vscode/**
+alwaysApply: false
+---
+
+# VS Code Extension
+
+Two processes, one contract. Most bugs here come from state that exists on both sides and drifts.
+
+## The protocol is the only contract
+
+`src/protocol.ts` holds the discriminated `HostToWebview` / `WebviewToHost` unions and is imported by both sides.
+
+- **Types only.** No functions, no constants, no `vscode` or Node imports — the webview bundle imports this file.
+- A new message goes in three places, in order: `protocol.ts`, then a handler in `src/chat/messageRouter.ts`, then the webview's `useHostMessages`.
+- Payload types in `protocol.ts` are the **single source of truth**. Never redeclare a parallel shape in `webview/src/types.ts`; derive it (`Omit<Msg, "type">`) instead.
+
+## Host: controllers hold the logic
+
+`ChatViewProvider` is wiring only — construct controllers, route messages, expose commands. Any decision, transformation, or multi-step flow belongs in `src/chat/*`:
+
+- One controller per concern (`SessionsController`, `EditsController`, `PlanService`, `ContextController`, ...). New behaviour extends a controller or adds one; it does not grow the provider.
+- Keep the `vscode` API at the edges. `showQuickPick`/`showInputBox` calls sit in a thin method whose body is a call to a pure function plus the dialog.
+- Pure helpers (`toolUi.ts`, `reasoningUi.ts`, `sessionUsage.ts`, `contextRefs.ts`) are where the testable logic lives — that is why those have tests and the controllers mostly do not.
+
+## Webview: composition in components, logic in state
+
+- `App.tsx` composes. Conversation state lives in the pure reducer `chat/state/chatReducer.ts`; interaction logic lives in `chat/state/*` controllers and `chat/hooks/*`.
+- Components receive data and callbacks. A component that computes a rule or assembles a `postMessage` payload inline is holding logic that belongs in a hook.
+- One listener pattern: `useHostMessages`. Do not add a bare `window.addEventListener("message", ...)`.
+- Never mirror the same derived state on both sides. Event-to-UI mapping exists once, in shared code, not once in `sessionRuntime.ts` and once in the reducer.
+
+## Styles
+
+`webview/src/styles.css` is an import index only. Rules live in `styles/*.css`, imported in cascade order — later files may override earlier ones, so add to the file matching the zone rather than appending to the index.
+
+## Build
+
+`pnpm --filter ninjacode build` runs deps, then the webview (Vite), then the extension (esbuild). `typecheck` covers both tsconfigs — run it, the webview has its own.

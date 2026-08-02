@@ -1,0 +1,34 @@
+---
+description: Design standards for agent tools in packages/tools
+globs: packages/tools/**
+alwaysApply: false
+---
+
+# Tool Design
+
+Tools are the agent's interface to the world. Every tool costs static context (its spec is in every request) and shapes model behavior. The bar for adding one is high — prefer extending an existing tool or letting the model compose `run_shell`/`grep`.
+
+## Contract (`packages/tools/src/types.ts`)
+
+Every tool implements `Tool`: `name`, `description`, `risk: RiskClass`, `inputSchema`, `target(args)`, `execute(ctx, args)`.
+
+- `risk` is mandatory and honest: `read_only` | `write` | `destructive` | `network` | `shell` | `user`. The `PermissionEngine` enforces it — a mislabeled risk is a security bug.
+- `target(args)` returns the capability target (path, URL, command) used for per-target permission grants. Never return `""` for something that touches a resource.
+- Descriptions are written for the model, not humans: state what it does, when to use it, parameter semantics, and disambiguation vs similar tools. Explicit parameter names (`session_id`, not `id`).
+
+## Token-efficient outputs
+
+Tool results consume the context window. Bound every output:
+
+- Default limits with pagination/truncation params (see `truncateToolOutput` cap of 8k chars in core; don't rely on it — truncate at the source with a clear `[truncated]` marker telling the model how to get more).
+- Return high-signal text, not raw dumps: paths + line numbers + snippets, not whole files.
+- On failure, throw `ToolError` with an actionable message (what was wrong, what to try) — error text is model feedback, not logging.
+
+## Registration checklist
+
+1. Register in `createDefaultToolRegistry()` (`packages/tools/src/index.ts`), behind `includeNetwork`/`includeDebug` flags if applicable.
+2. Check mode filtering in `ToolRegistry.forMode` — should it be available in `ask`/`plan`?
+3. Colocated Vitest test exercising success, invalid args, and truncation.
+4. Update `CAPACITES_AGENT.md` and README with the exact tool name.
+
+Use the `add-agent-tool` skill for the full workflow.

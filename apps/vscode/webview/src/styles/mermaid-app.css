@@ -1,0 +1,30 @@
+/* Mermaid diagram tab (single diagram, full size) */
+.mermaid-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+.mermaid-app-body {
+  flex: 1;
+  overflow: auto;
+  padding: 18px;
+  display: flex;
+  justify-content: center;
+}
+.mermaid-app-loading {
+  padding: 16px;
+  font-size: 12px;
+}
+.mermaid-app-body .mermaid-block {
+  border: none;
+  background: transparent;
+  overflow: visible;
+  width: 100%;
+}
+.mermaid-app-body .mermaid-source {
+  max-height: none;
+}
+.mermaid-app-body .mermaid-render {
+  padding: 0 36px 0 0;
+}

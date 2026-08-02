@@ -1,0 +1,1 @@
+{"id":"add-env-key","description":"Add host key to config","category":"edit","difficulty":"easy","prompt":"Add host: \"127.0.0.1\" to config in config.js. Do not modify config.test.mjs.","verify":"node config.test.mjs && git diff --quiet HEAD -- config.test.mjs","timeoutSec":120}

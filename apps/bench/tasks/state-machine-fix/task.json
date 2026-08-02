@@ -1,0 +1,10 @@
+{
+  "id": "state-machine-fix",
+  "description": "Fix a multi-file state machine bug far from the failing test",
+  "category": "fix",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "The order state machine tests fail. Explore src/ and lib/, fix the bug(s) so `node src/order.test.mjs` passes. Do not modify any *.test.mjs file.",
+  "verify": "node src/order.test.mjs && git diff --quiet HEAD -- '*.test.mjs'",
+  "timeoutSec": 300
+}

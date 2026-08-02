@@ -1,0 +1,38 @@
+---
+description: TypeScript conventions for the NinjaCode monorepo
+globs: **/*.ts
+alwaysApply: false
+---
+
+# TypeScript Standards
+
+- `strict: true` + `noUnusedLocals`/`noUnusedParameters` (tsconfig.base.json). Fix type errors, never `@ts-ignore` them.
+- ESM `NodeNext`: relative imports **must** carry the `.js` extension.
+
+```typescript
+// ❌ BAD
+import { ToolRegistry } from "./types";
+// ✅ GOOD
+import { ToolRegistry } from "./types.js";
+```
+
+- Internal dependencies use `workspace:*` in package.json.
+- Prefer exhaustive switches with a `never` guard (see `createProvider` in `packages/providers/src/index.ts`).
+
+## Errors
+
+Throw typed errors, never bare strings — retry and classification logic depends on them:
+
+```typescript
+// Tools (packages/tools)
+throw new ToolError("old_string not found in file", "invalid_args");
+// Providers (packages/providers)
+throw new LlmError(`HTTP ${res.status}: ${text}`, res.status, this.name);
+```
+
+- `ToolError` codes: `invalid_args`, `not_found`, `permission`, `timeout`, `aborted`, `runtime`. `classifyToolFailure` (`packages/core/src/toolErrors.ts`) maps them to categories and drives retryability — it reads the typed code first and only falls back to message heuristics, so throwing the right code matters more than the wording.
+- `LlmError` with `status` 429 or >= 500 is retried by `withRetry` (`packages/core/src/reliability.ts`); anything else fails fast.
+
+## Tests
+
+Vitest, colocated: `src/foo.ts` → `src/foo.test.ts`. Required for any change to the agent loop, permissions, compaction, tools, or providers. See `testing.mdc` for how to make code testable rather than mocking around it.

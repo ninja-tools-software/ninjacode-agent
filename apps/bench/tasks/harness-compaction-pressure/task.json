@@ -1,0 +1,11 @@
+{
+  "id": "harness-compaction-pressure",
+  "description": "Harness: many large reads then a final edit still applies after compaction",
+  "category": "explore",
+  "difficulty": "hard",
+  "suites": ["harness"],
+  "prompt": "Explore the large log then update target.txt",
+  "verify": "test \"$(cat target.txt | tr -d '[:space:]')\" = 'AFTER'",
+  "timeoutSec": 120,
+  "maxTurns": 40
+}

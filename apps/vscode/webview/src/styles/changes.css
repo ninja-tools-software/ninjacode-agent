@@ -1,0 +1,169 @@
+/* Hover Edit/Fork actions on user messages */
+.user-hoverable { position: relative; }
+.msg-hover-actions {
+  position: absolute;
+  top: -12px;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) ease, visibility var(--dur-fast) ease;
+}
+.user-hoverable:hover .msg-hover-actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.msg-hover-actions .icon-btn { width: 22px; height: 22px; font-size: 12px; border: none; }
+.msg.user.editing { display: flex; flex-direction: column; gap: 6px; }
+.msg-edit-input {
+  width: 100%;
+  min-height: 60px;
+  background: var(--input-bg);
+  color: var(--input-fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  font: inherit;
+  resize: vertical;
+}
+.msg-edit-actions { display: flex; gap: 6px; }
+
+/* Inline session rename (header) */
+.session-rename-input {
+  flex: 1;
+  min-width: 120px;
+  max-width: 240px;
+  background: var(--input-bg);
+  color: var(--input-fg);
+  border: 1px solid var(--focus);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font: inherit;
+  font-weight: 600;
+}
+/* Changes panel */
+.changes-panel {
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+  max-height: 40%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.changes-header {
+  flex-shrink: 0;
+}
+.changes-summary {
+  white-space: nowrap;
+}
+/* "Reject all" is the destructive, non-default action: keep it neutral so it
+   doesn't out-shout "Accept all", and only reveal the danger color on hover. */
+.changes-header .btn.danger {
+  border-color: var(--border);
+  color: var(--muted);
+}
+.changes-header .btn.danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: transparent;
+}
+/* The generic `.muted` utility carries a bottom margin (for settings paragraphs);
+   drop it here so the file count sits on the same baseline as "Changes". */
+.changes-header .muted,
+.dock-panel-actions .muted { margin: 0; }
+.auto-accept-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+}
+.changes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 8px;
+  overflow: auto;
+}
+.change-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-top: 6px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.change-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; }
+.change-path {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  padding: 4px;
+}
+.change-path:hover { background: var(--list-hover); border-radius: var(--radius-sm); }
+.change-path-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--code-font);
+  font-size: 11px;
+}
+.badge.warn { border-color: var(--warn); color: var(--warn); }
+.change-stats { display: flex; gap: 6px; font-size: 11px; font-family: var(--code-font); flex-shrink: 0; }
+.stat-add { color: var(--success); }
+.stat-del { color: var(--danger); }
+.change-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.change-actions .icon-btn { width: 24px; height: 24px; font-size: 12px; }
+
+.feedback-box { display: flex; gap: 6px; padding: 0 8px 8px; }
+.feedback-box input {
+  flex: 1;
+  background: var(--input-bg);
+  color: var(--input-fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font: inherit;
+}
+
+.hunk-list { list-style: none; margin: 0; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+.hunk-item {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding-top: 6px;
+}
+.hunk-diff {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 11px;
+  font-family: var(--code-font);
+  overflow: auto;
+  max-height: 140px;
+  background: var(--surface-1);
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+}
+.hunk-line { white-space: pre-wrap; }
+.hunk-line.del { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.hunk-line.add { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.hunk-empty { padding: 4px 0; }
+.hunk-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.hunk-actions .icon-btn { width: 22px; height: 22px; font-size: 11px; }

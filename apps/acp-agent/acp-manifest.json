@@ -1,0 +1,16 @@
+{
+  "name": "ninjacode",
+  "description": "Frontier open-source agentic coding agent",
+  "version": "0.1.0",
+  "protocol": "acp",
+  "command": "ninjacode-acp",
+  "args": [],
+  "env": {
+    "NINJACODE_PROVIDER": "anthropic",
+    "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
+  },
+  "homepage": "https://github.com/ninjacode/ninjacode",
+  "license": "GPL-2.0-only",
+  "editors": ["jetbrains", "zed", "neovim", "emacs"],
+  "notes": "Submit to JetBrains/Zed ACP Agent Registry. Set NINJACODE_Yolo=1 for auto-approve (dev only)."
+}

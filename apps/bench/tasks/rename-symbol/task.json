@@ -1,0 +1,10 @@
+{
+  "id": "rename-symbol",
+  "description": "Rename a helper across multiple modules without breaking imports",
+  "category": "refactor",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "Rename the exported function `legacyFormat` in utils/format.js to `formatLabel`, and update every import/call site (handlers/user.js, handlers/order.js, utils/format.js itself). All tests must pass. Do not modify any *.test.mjs file. After the rename, `legacyFormat` must not appear anywhere in .js source files.",
+  "verify": "node handlers/user.test.mjs && node handlers/order.test.mjs && ! grep -R --include='*.js' -n 'legacyFormat' . && git diff --quiet HEAD -- '*.test.mjs'",
+  "timeoutSec": 240
+}

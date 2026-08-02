@@ -1,0 +1,14 @@
+[
+  {
+    "name": "claude-code",
+    "command": "claude -p {prompt} --permission-mode acceptEdits"
+  },
+  {
+    "name": "codex",
+    "command": "codex exec --full-auto {prompt}"
+  },
+  {
+    "name": "cursor-agent",
+    "command": "cursor-agent -p {prompt} --force"
+  }
+]

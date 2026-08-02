@@ -1,0 +1,12 @@
+{
+  "id": "harness-loop-detection",
+  "description": "Harness: identical repeated tool calls trigger loop stop before maxTurns",
+  "category": "explore",
+  "difficulty": "easy",
+  "suites": ["harness"],
+  "prompt": "Read loop.txt forever",
+  "verify": "true",
+  "timeoutSec": 60,
+  "maxTurns": 40,
+  "expectFailureKind": "agent_error"
+}

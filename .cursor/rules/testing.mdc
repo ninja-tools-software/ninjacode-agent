@@ -1,0 +1,46 @@
+---
+description: What must be tested in NinjaCode and how to make it testable
+globs: **/*.test.{ts,tsx}
+alwaysApply: false
+---
+
+# Testing
+
+Vitest, colocated: `src/foo.ts` -> `src/foo.test.ts`. `pnpm build` first (`test` depends on `^build`).
+
+## What requires a test
+
+A change to any of these does not land without one:
+
+- the agent loop, `toolPipeline`, `agentTurn` (`packages/core`)
+- `permissions.ts` — this is the security boundary
+- `context.ts` compaction, `toolHistory.ts` normalization
+- `reliability.ts` — retry, circuit breaker, budget
+- any tool in `packages/tools`: success, invalid args, and output truncation
+- any provider adapter: tool-call assembly from stream deltas, and HTTP error to `LlmError` mapping
+
+## Make it testable instead of mocking the world
+
+The order of preference is strict:
+
+1. **Extract the pure function and test it directly.** Most "untestable" code is a decision fused to an effect. `computeHunks`, `creditCharge`, `resolveChatSide` are testable because someone split them out.
+2. **Use the existing fakes.** `MockProvider` / `EchoProvider` from `@ninjacode/providers` drive the full agent loop with no network. `Ledger(null)` runs the credits rules in memory.
+3. **Inject a port** (`Clock`, `FileSystem`, `ProcessRunner` from `packages/core`) — only when 1 and 2 cannot reach the behaviour. A fake clock is the right tool for backoff timing; it is the wrong tool for a pure pricing function.
+
+Do not reach for module mocking (`vi.mock`) to work around a design problem. If a test needs to intercept `fs` to observe a decision, extract the decision.
+
+```typescript
+// BAD — the assertion is about a rule, the setup is about a filesystem
+vi.mock("node:fs/promises");
+await runVerification(workspace);
+
+// GOOD
+expect(shouldRunVerify({ hasLintScript: true, editedFiles: 2 })).toBe(true);
+```
+
+## Writing the test
+
+- Assert on behaviour, not on internals: a test that breaks on every rename is testing the implementation.
+- Cover the failure path, not just the happy one — for tools, the error message *is* model-facing feedback, so assert on it.
+- Never copy a private function into the test file to test a copy of it. Export it and test the real one (`openai-compatible.test.ts` had this shape; it is not the pattern to follow).
+- Temp workspaces go under `os.tmpdir()` and are cleaned up; never write test artefacts into `.ninjacode/`.

@@ -1,0 +1,7 @@
+{
+  "acp.listening": "ninjacode-acp : écoute sur stdio (ACP JSON-RPC)",
+  "acp.unknownSession": "Session inconnue",
+  "acp.debugUnsupported": "Le mode debug n'est pas encore pris en charge dans l'agent ACP. Utilisez l'extension VS Code ou la CLI.",
+  "acp.modeUnsupported": "Le changement de mode n'est pas pris en charge via ACP (demandé : {mode}).",
+  "acp.methodNotFound": "Méthode introuvable : {method}"
+}

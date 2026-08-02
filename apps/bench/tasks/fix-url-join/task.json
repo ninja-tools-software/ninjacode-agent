@@ -1,0 +1,10 @@
+{
+  "id": "fix-url-join",
+  "description": "Fix URL path joining with slashes and query strings",
+  "category": "fix",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "url.js exports joinUrl(base, ...parts) which should join URL path segments correctly (no double slashes, preserve trailing slash only when requested via options, preserve query/hash on base). Fix the bugs so url.test.mjs passes. Do not modify the test file.",
+  "verify": "node url.test.mjs && git diff --quiet HEAD -- url.test.mjs",
+  "timeoutSec": 240
+}

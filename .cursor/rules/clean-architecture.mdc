@@ -1,0 +1,50 @@
+---
+description: Dependency direction, layering, and where logic belongs across the agent monorepo
+alwaysApply: true
+---
+
+# Clean Architecture
+
+The goal is not formal layers, it is that **business logic stays testable without mocking the world**. Two rules deliver most of that: dependencies point one way, and decisions live in pure functions.
+
+## Dependency direction
+
+```
+apps/{cli,vscode,acp-agent,bench}  ->  packages/core  ->  packages/{tools,providers}
+```
+
+- `packages/tools` and `packages/providers` must never import `@ninjacode/core`. They are leaves.
+- Apps share code through `packages/`, never by reaching into each other.
+- **Zero import cycles.** A cycle means the two modules are one module with an arbitrary split. Either merge them or invert one edge with an injected interface (`AgentFactory` in `subagents.ts` is the reference example).
+- `pnpm depcruise` enforces all of the above.
+
+## Where logic belongs
+
+Split every module into a decision part and an effect part:
+
+- **Decisions and data transformations** — permission evaluation, compaction choices, diff computation, path resolution, event mapping, pricing — are pure functions. No `fs`, no `spawn`, no `fetch`, no `Date.now()`, no `vscode` import. These are what tests actually cover.
+- **Effects** live in thin adapters that do the I/O and immediately hand off to a pure function. An adapter should have almost no branching: if you are tempted to test an adapter, the logic inside it wants to be extracted.
+
+```typescript
+// BAD — decision and effect fused, testable only with a real filesystem
+async function shouldCompact(sessionDir: string) {
+  const raw = await fs.readFile(path.join(sessionDir, "session.json"), "utf8");
+  return JSON.parse(raw).messages.length > 50;
+}
+
+// GOOD — the rule is a pure function, the read is the caller's job
+function shouldCompact(session: Session): boolean {
+  return session.messages.length > 50;
+}
+```
+
+## Ports
+
+`packages/core` defines three ports in `ports.ts` — `Clock`, `FileSystem`, `ProcessRunner` — with Node implementations in `nodePorts.ts` used as defaults, so call sites stay clean and only tests inject a double.
+
+- Add a port only when it unblocks a test that is otherwise impossible. Three is the budget; a fourth needs a concrete reason.
+- Do **not** introduce ports around the `vscode` API. There, extract the pure functions and leave the adapter thin.
+
+## One responsibility per file
+
+A file's responsibility must be stateable in one sentence without "and". If the sentence needs "and", the file is two files. Same test for a class: a constructor taking 20 collaborators is a God object announcing itself.

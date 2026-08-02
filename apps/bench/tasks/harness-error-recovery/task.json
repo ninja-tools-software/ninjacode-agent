@@ -1,0 +1,12 @@
+{
+  "id": "harness-error-recovery",
+  "description": "Harness: recover after a failed edit_file (invalid old_string)",
+  "category": "fix",
+  "difficulty": "easy",
+  "suites": ["harness"],
+  "prompt": "Fix version.txt to contain 2.0.0",
+  "verify": "test \"$(cat version.txt | tr -d '[:space:]')\" = '2.0.0'",
+  "timeoutSec": 60,
+  "maxTurns": 10,
+  "minToolErrors": 1
+}

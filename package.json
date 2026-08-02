@@ -1,0 +1,39 @@
+{
+  "name": "ninjacode-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open source agentic coding agent for VS Code and multi-IDE via ACP",
+  "license": "GPL-2.0-only",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "knip": "knip",
+    "depcruise": "depcruise packages apps --config .dependency-cruiser.cjs",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "eval": "pnpm --filter @ninjacode/cli exec node dist/eval.js",
+    "eval:live": "NINJACODE_EVAL_KEY=$ANTHROPIC_API_KEY pnpm eval",
+    "bench": "pnpm --filter @ninjacode/bench exec node dist/index.js run",
+    "bench:quick": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite quick --trials 1 --provider deepseek --model deepseek-v4-flash --concurrency 4 --max-turns 20 --out runs/quick",
+    "bench:harness": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite harness --provider mock --trials 1 --concurrency 4 --strict --out runs/harness"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.13.10",
+    "dependency-cruiser": "^18.1.0",
+    "eslint": "^9.39.5",
+    "globals": "^17.8.0",
+    "knip": "^5.88.1",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^3.0.9"
+  },
+  "packageManager": "pnpm@9.15.9"
+}

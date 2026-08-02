@@ -1,0 +1,10 @@
+{
+  "id": "fix-priority-queue",
+  "description": "Fix a buggy min-heap priority queue implementation",
+  "category": "fix",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "pq.js implements a min-heap PriorityQueue but several operations are wrong (heapify, peek, decrease-key). Fix pq.js so pq.test.mjs passes. Do not modify the test file.",
+  "verify": "node pq.test.mjs && git diff --quiet HEAD -- pq.test.mjs",
+  "timeoutSec": 300
+}

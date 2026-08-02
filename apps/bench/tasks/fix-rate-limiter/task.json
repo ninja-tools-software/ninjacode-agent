@@ -1,0 +1,10 @@
+{
+  "id": "fix-rate-limiter",
+  "description": "Fix a token-bucket rate limiter with a fake clock",
+  "category": "fix",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "limiter.js implements a token-bucket rate limiter but several behaviours are wrong (refill math, allow() return value, burst capacity). Fix limiter.js so limiter.test.mjs passes. The clock is injected — do not use Date.now() directly. Do not modify the test file.",
+  "verify": "node limiter.test.mjs && git diff --quiet HEAD -- limiter.test.mjs",
+  "timeoutSec": 300
+}

@@ -1,0 +1,11 @@
+{
+  "id": "harness-parallel-tools",
+  "description": "Harness: multiple tool calls in one completion are all applied",
+  "category": "edit",
+  "difficulty": "easy",
+  "suites": ["harness"],
+  "prompt": "Create the three marker files",
+  "verify": "test \"$(cat one.txt)\" = '1' && test \"$(cat two.txt)\" = '2' && test \"$(cat three.txt)\" = '3'",
+  "timeoutSec": 60,
+  "maxTurns": 5
+}

@@ -1,0 +1,169 @@
+/* ── Motion utilities ─────────────────────────────────────────────── */
+
+@keyframes nc-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes nc-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes nc-pop-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes nc-pop-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.96); }
+}
+@keyframes nc-slide-up-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes nc-slide-up-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(8px); }
+}
+@keyframes nc-slide-down-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes nc-slide-down-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes nc-slide-left-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes nc-slide-left-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-12px); }
+}
+
+@keyframes nc-slide-right-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes nc-slide-right-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(12px); }
+}
+
+.anim-pop {
+  animation: nc-pop-in var(--dur-med) var(--ease-pop) both;
+}
+.anim-pop.anim-closing {
+  animation: nc-pop-out var(--dur-fast) var(--ease-out) both;
+}
+.anim-pop-origin-bottom { transform-origin: center bottom; }
+.anim-pop-origin-top { transform-origin: center top; }
+
+.anim-fade {
+  animation: nc-fade-in var(--dur-fast) var(--ease-out) both;
+}
+.anim-fade.anim-closing {
+  animation: nc-fade-out var(--dur-fast) var(--ease-out) both;
+}
+
+.anim-slide-up {
+  animation: nc-slide-up-in var(--dur-med) var(--ease-out) both;
+}
+.anim-slide-up.anim-closing {
+  animation: nc-slide-up-out var(--dur-fast) var(--ease-out) both;
+}
+
+.anim-slide-down {
+  animation: nc-slide-down-in var(--dur-med) var(--ease-out) both;
+}
+.anim-slide-down.anim-closing {
+  animation: nc-slide-down-out var(--dur-fast) var(--ease-out) both;
+}
+
+.anim-slide-left {
+  animation: nc-slide-left-in var(--dur-med) var(--ease-out) both;
+}
+.anim-slide-left.anim-closing {
+  animation: nc-slide-left-out var(--dur-fast) var(--ease-out) both;
+}
+
+.anim-slide-right {
+  animation: nc-slide-right-in var(--dur-med) var(--ease-out) both;
+}
+.anim-slide-right.anim-closing {
+  animation: nc-slide-right-out var(--dur-fast) var(--ease-out) both;
+}
+
+.panel-enter {
+  animation: nc-slide-up-in var(--dur-med) var(--ease-out) both;
+}
+.panel-enter.anim-closing {
+  animation: nc-slide-up-out var(--dur-fast) var(--ease-out) both;
+}
+
+.msg-enter {
+  animation: nc-slide-up-in var(--dur-med) var(--ease-out) both;
+}
+
+.screen-enter {
+  animation: nc-fade-in var(--dur-med) var(--ease-out) both;
+}
+
+.send-btn-state {
+  animation: nc-pop-in var(--dur-fast) var(--ease-pop) both;
+}
+
+details[open] > .tool-body,
+details[open] > .mcp-tools {
+  animation: nc-slide-down-in var(--dur-med) var(--ease-out) both;
+}
+
+.hunk-list,
+.feedback-box {
+  animation: nc-slide-down-in var(--dur-med) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-pop,
+  .anim-fade,
+  .anim-slide-up,
+  .anim-slide-down,
+  .anim-slide-left,
+  .anim-slide-right,
+  .panel-enter,
+  .msg-enter,
+  .screen-enter,
+  .send-btn-state,
+  details[open] > .tool-body,
+  details[open] > .mcp-tools,
+  .hunk-list,
+  .feedback-box,
+  .tooltip-bubble {
+    animation: none !important;
+  }
+  .icon-btn:active:not(:disabled),
+  .chip-btn:active:not(:disabled),
+  .btn:active:not(:disabled),
+  .suggestion:active:not(:disabled),
+  .composer-controls .composer-pill:active:not(:disabled),
+  .menu-item:active:not(:disabled),
+  .mode-menu-item:active:not(:disabled),
+  .model-menu-item:active:not(:disabled),
+  .slash-item:active:not(:disabled),
+  .context-picker-item:active:not(:disabled),
+  .question-option:active:not(:disabled),
+  .run-pill-stop:active:not(:disabled),
+  .segmented button:active:not(:disabled),
+  .send-btn:active:not(:disabled) {
+    transform: none;
+  }
+  .msg-hover-actions {
+    transition: none;
+  }
+  .todo.status-in_progress .todo-mark,
+  .todo.status-completed .todo-mark,
+  .todo.status-cancelled .todo-mark {
+    animation: none !important;
+  }
+}

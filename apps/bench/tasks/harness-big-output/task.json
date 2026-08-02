@@ -1,0 +1,11 @@
+{
+  "id": "harness-big-output",
+  "description": "Harness: large tool outputs then continue the tool_calls chain",
+  "category": "explore",
+  "difficulty": "medium",
+  "suites": ["harness"],
+  "prompt": "Find the NEEDLE marker in app.log and write its code to NEEDLE.txt",
+  "verify": "test \"$(cat NEEDLE.txt | tr -d '[:space:]')\" = 'NEEDLE_42'",
+  "timeoutSec": 120,
+  "maxTurns": 25
+}

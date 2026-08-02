@@ -1,0 +1,12 @@
+{
+  "id": "harness-patch-tool",
+  "description": "Harness: apply_patch multi-file unified diff is applied exactly",
+  "category": "edit",
+  "difficulty": "medium",
+  "suites": ["harness"],
+  "prompt": "Apply the planned patch",
+  "verify": "printf '%s\\n' alpha ninja > /tmp/e1 && printf '%s\\n' gamma code > /tmp/e2 && tr -d '\\r' < one.txt | cmp -s - /tmp/e1 && tr -d '\\r' < two.txt | cmp -s - /tmp/e2",
+  "timeoutSec": 60,
+  "maxTurns": 5,
+  "editFormat": "patch"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "add-cli-flag",
+  "description": "Add an --upper flag to a small CLI (multi-file feature)",
+  "category": "feature",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "This small CLI prints a greeting: `node cli.js World` prints \"Hello, World!\". Add support for an `--upper` flag anywhere in the arguments that makes the greeting uppercase: `node cli.js --upper World` must print \"HELLO, WORLD!\". Keep the default behaviour unchanged, and implement the transformation in format.js (not inline in cli.js).",
+  "verify": "test \"$(node cli.js World)\" = 'Hello, World!' && test \"$(node cli.js --upper World)\" = 'HELLO, WORLD!' && test \"$(node cli.js World --upper)\" = 'HELLO, WORLD!'",
+  "timeoutSec": 300
+}

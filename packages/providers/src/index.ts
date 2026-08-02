@@ -1,0 +1,124 @@
+export type {
+  Role,
+  ToolCall,
+  Message,
+  ContentPart,
+  ToolSpec,
+  TokenUsage,
+  CompletionRequest,
+  Completion,
+  StreamEvent,
+  StreamSink,
+  LlmProvider,
+  ReasoningEffort,
+  ProviderKind,
+} from "./types.js";
+export { LlmError, emptyUsage, wantsTools, hasImageParts } from "./types.js";
+
+export {
+  listProviderCatalogs,
+  getProviderCatalog,
+  getModelInfo,
+  findModelAnywhere,
+} from "./catalog.js";
+
+export { contextPresetsFor } from "./models.js";
+export type { ModelInfo, ModelPricing, ProviderCatalog, ReasoningSupport } from "./models.js";
+
+export { resolveModelPricing } from "./pricing.js";
+
+export {
+  listGatewayModels,
+  listGatewayModelInfos,
+  listRoutableGatewayModels,
+  getGatewayModel,
+  buildGatewayPriceTables,
+  buildGatewayCreditTable,
+  GOOGLE_BASE,
+  MISTRAL_BASE,
+  ANTHROPIC_BASE,
+  DEEPSEEK_BASE,
+  OPENROUTER_BASE,
+} from "./gatewayModels.js";
+export type {
+  GatewayModelEntry,
+  GatewayPriceTable,
+  GatewayRouteTemplate,
+  GatewayUpstreamKind,
+  ModelCapabilities,
+} from "./gatewayModels.js";
+
+export {
+  creditRateFromCost,
+  GATEWAY_PLANS,
+  getGatewayPlan,
+  CREDIT_VALUE_USD,
+  CREDIT_TARGET_MARGIN,
+} from "./gatewayPlans.js";
+export type {
+  GatewayCreditRate,
+  GatewayPlan,
+  GatewayPlanTier,
+} from "./gatewayPlans.js";
+
+export type {
+  GatewayEnvKeys,
+  ResolvedGatewayRoute,
+} from "./gatewayRegistry.js";
+export {
+  resolveGatewayRoutes,
+  gatewayEnvFromProcess,
+} from "./gatewayRegistry.js";
+export {
+  selectRoutes,
+  toResolvedRoutes,
+  gatewayEnvHasKey,
+} from "./selectRoutes.js";
+export type { RouteCandidate, RouteFilter } from "./selectRoutes.js";
+export {
+  OpenAICompatibleProvider,
+  createOpenAIProvider,
+  createDeepSeekProvider,
+  createOpenRouterProvider,
+  createMoonshotProvider,
+  createGlmProvider,
+  createMistralProvider,
+  createMammouthProvider,
+} from "./openai-compatible.js";
+export type { OpenAICompatibleConfig } from "./openai-compatible.js";
+
+export { fetchMammouthModels, MAMMOUTH_MODELS_URL } from "./modelDiscovery.js";
+
+export {
+  fetchAnthropicModels,
+  fetchMammouthDiscoveryModels,
+  fetchOpenAiCompatibleModels,
+  fetchOpenRouterModels,
+  discoverProviderModels,
+  reconcileDiscoveredRoutes,
+  resolveDiscoveredModelTarget,
+  isDeprecationPast,
+  shouldDeprecateModel,
+  summarizeProposals,
+} from "./discovery/index.js";
+export type {
+  DiscoveredModel,
+  DiscoverProviderInput,
+  ReconcileProposal,
+  ProposalCounts,
+} from "./discovery/index.js";
+
+export { AnthropicProvider } from "./anthropic.js";
+export type { AnthropicConfig } from "./anthropic.js";
+
+export { applyAnthropicCacheBreakpoints } from "./anthropicCache.js";
+export type { AnthropicCacheablePayload } from "./anthropicCache.js";
+
+export { MockProvider, EchoProvider } from "./mock.js";
+export type { MockScript } from "./mock.js";
+
+export { NinjaCodeGatewayProvider } from "./gateway.js";
+export type { GatewayConfig } from "./gateway.js";
+
+export type { ProviderFactoryOptions } from "./providerFactory.js";
+export { buildProvider as createProvider } from "./providerFactory.js";

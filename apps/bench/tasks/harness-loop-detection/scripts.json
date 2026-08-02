@@ -1,0 +1,74 @@
+[
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l1", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l2", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l3", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l4", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l5", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l6", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l7", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l8", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l9", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l10", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l11", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  },
+  {
+    "text": "loop",
+    "toolCalls": [
+      { "id": "l12", "name": "read_file", "arguments": { "path": "loop.txt" } }
+    ]
+  }
+]

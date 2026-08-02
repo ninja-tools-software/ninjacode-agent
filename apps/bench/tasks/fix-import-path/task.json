@@ -1,0 +1,1 @@
+{"id":"fix-import-path","description":"Fix broken import path","category":"fix","difficulty":"easy","prompt":"main.test.mjs fails because main.js imports the wrong module path. Fix main.js only.","verify":"node main.test.mjs && git diff --quiet HEAD -- main.test.mjs","timeoutSec":180}

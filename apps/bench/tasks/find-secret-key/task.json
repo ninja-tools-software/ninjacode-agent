@@ -1,0 +1,10 @@
+{
+  "id": "find-secret-key",
+  "description": "Explore a multi-file fixture and write the decoded production API key",
+  "category": "explore",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "This workspace is a small project with many files. Find the production API key for the billing service (not staging or test). Production keys may be stored encoded — follow the project docs/code to obtain the raw key. Write only that raw key, with no extra whitespace or quotes, into a new file ANSWER.txt at the workspace root.",
+  "verify": "test \"$(cat ANSWER.txt | tr -d '[:space:]')\" = 'bk_live_9f3a2c1e7d88'",
+  "timeoutSec": 240
+}

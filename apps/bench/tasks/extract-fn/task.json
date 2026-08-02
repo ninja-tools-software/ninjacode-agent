@@ -1,0 +1,1 @@
+{"id":"extract-fn","description":"Extract sum helper from run","category":"refactor","difficulty":"medium","prompt":"Extract the reduce logic from run into an exported sum(items) function in app.js. Keep run working. Do not modify app.test.mjs.","verify":"node app.test.mjs && git diff --quiet HEAD -- app.test.mjs","timeoutSec":240}

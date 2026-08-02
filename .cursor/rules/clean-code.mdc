@@ -1,0 +1,63 @@
+---
+description: Clean code budgets and readability rules for all TypeScript in the monorepo
+globs: **/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Clean Code
+
+Readability is the constraint that matters: this code is read far more often than it is written. The rules below are budgets, not ideals — ESLint enforces them (`pnpm lint`).
+
+## Budgets
+
+- **Function <= 60 lines.** Past that, it holds more than one idea. Extract the inner steps as named functions.
+- **File <= 400 lines**, excluding pure data files (model catalogs, icon sets, type-only contracts) which are exempt in `eslint.config.js`.
+- **<= 4 parameters.** Beyond that, take a single options object with named fields — call sites become self-documenting and argument order stops mattering.
+- **Nesting depth <= 3.** Use early returns and guard clauses instead of `else` branches.
+- **Cyclomatic complexity <= 15** per function.
+
+## Naming
+
+- No abbreviations except the ones already ubiquitous here (`ctx`, `req`, `res`, `id`, `fs`). `cfg`, `mgr`, `tmp`, `res2` are not acceptable.
+- Booleans read as predicates: `isStreaming`, `hasApiKey`, `shouldCompact` — never `flag`, `status` for a boolean, or a negated name (`isNotReady`).
+- Functions are verb phrases (`resolveInWorkspace`, `buildSystemPrompt`); values are noun phrases.
+- **A name containing "and" means the function does two things.** Split it.
+
+## Control flow
+
+Guard clauses first, happy path last and unindented:
+
+```typescript
+// BAD
+function apply(edit?: Edit) {
+  if (edit) {
+    if (edit.path) {
+      return write(edit);
+    } else {
+      throw new ToolError("missing path", "invalid_args");
+    }
+  }
+}
+
+// GOOD
+function apply(edit?: Edit) {
+  if (!edit) return;
+  if (!edit.path) throw new ToolError("missing path", "invalid_args");
+  return write(edit);
+}
+```
+
+- No `else` after a `return`.
+- Prefer exhaustive `switch` with a `never` guard over chained `if`/`else if` on a discriminant.
+
+## Comments
+
+Write a comment only for a constraint the code cannot express: a protocol quirk, an invariant an unrelated module depends on, a non-obvious trade-off.
+
+- Never narrate (`// loop over tools`, `// increment counter`), never restate a signature, never explain a change you just made.
+- Never describe what the code used to do — see `no-legacy.mdc`.
+- Prefer making the code say it: a well-named local beats a comment explaining a condition.
+
+## Duplication
+
+Two copies of the same logic will diverge; the second copy is the bug. Factor on the second occurrence, not the third — but factor along the seam of a real shared concept, not to save keystrokes. Two functions that merely look alike today are not duplication.

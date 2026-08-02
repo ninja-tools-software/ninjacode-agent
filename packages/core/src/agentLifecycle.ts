@@ -1,0 +1,92 @@
+import fs from "node:fs/promises";
+import type { Message } from "@ninjacode/providers";
+import type { ToolRegistry } from "@ninjacode/tools";
+import { estimateContextForSession } from "./agentContextEstimate.js";
+import { compactAgentHistory } from "./agentCompact.js";
+import { redact, truncateForLog } from "./agentLogs.js";
+import type { AgentTaskInput } from "./agentOptions.js";
+import type { ContextUsageBreakdown } from "./context.js";
+import type { SkillDefinition } from "./skills.js";
+import type { AgentMode } from "./types.js";
+
+export async function previewAgentContextUsage(opts: {
+  workspaceRoot: string;
+  agentDir: string;
+  mode: AgentMode;
+  history: Message[];
+  tools: ToolRegistry;
+  contextWindow?: number;
+  maxTokens: number;
+  providerName: string;
+  model?: string;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}): Promise<ContextUsageBreakdown> {
+  return estimateContextForSession(opts);
+}
+
+export async function compactAgentSession(opts: {
+  history: Message[];
+  pinnedTask?: string;
+  provider: import("@ninjacode/providers").LlmProvider;
+  model?: string;
+  contextWindow?: number;
+  workspaceRoot: string;
+  agentDir: string;
+  mode: AgentMode;
+  skills: SkillDefinition[];
+  tools: ToolRegistry;
+  maxTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  onCompaction: (info: unknown) => Promise<void>;
+  onUsage: (usage: ContextUsageBreakdown) => Promise<void>;
+}): Promise<{ compacted: Message[]; usage: ContextUsageBreakdown } | null> {
+  const result = await compactAgentHistory(opts);
+  if (!result) return null;
+  return { compacted: result.compacted, usage: result.usage };
+}
+
+export async function prepareAgentRun(opts: {
+  agentDir: string;
+  enableCheckpoints: boolean;
+  checkpoints: {
+    init: () => Promise<void>;
+    create: (label: string, meta: { sessionId: string }) => Promise<{ id: string } | null>;
+  };
+  requestsLength: number;
+  sessionId: string;
+  task: AgentTaskInput;
+  emitCheckpoint: (cp: { id: string }) => Promise<void>;
+}): Promise<{ requestSeq: number; pendingCheckpointId?: string }> {
+  await fs.mkdir(opts.agentDir, { recursive: true });
+  if (!opts.enableCheckpoints) return { requestSeq: opts.requestsLength + 1 };
+
+  await opts.checkpoints.init().catch(() => undefined);
+  const requestSeq = opts.requestsLength + 1;
+  const preview = opts.task.text.replace(/\s+/g, " ").trim().slice(0, 60);
+  const cp = await opts.checkpoints
+    .create(`request-${requestSeq}${preview ? `: ${preview}` : ""}`, { sessionId: opts.sessionId })
+    .catch(() => null);
+  if (!cp) return { requestSeq };
+  await opts.emitCheckpoint(cp);
+  return { requestSeq, pendingCheckpointId: cp.id };
+}
+
+export function logAgentEventEntry(opts: {
+  sessionId: string;
+  emit: (type: "agent_log", payload: unknown) => Promise<void>;
+  type: "llm_call" | "llm_response" | "tool_call" | "tool_result" | "cache" | "cancel" | "error";
+  summary: string;
+  detail?: string;
+  meta?: Record<string, unknown>;
+}): void {
+  void opts.emit("agent_log", {
+    timestamp: new Date().toISOString(),
+    sessionId: opts.sessionId,
+    type: opts.type,
+    summary: redact(truncateForLog(opts.summary, 300)),
+    detail: opts.detail ? redact(truncateForLog(opts.detail)) : undefined,
+    meta: opts.meta,
+  });
+}

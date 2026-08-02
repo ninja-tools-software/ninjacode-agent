@@ -1,0 +1,12 @@
+{
+  "id": "harness-timeout",
+  "description": "Harness: agent wall-clock timeout ends the run cleanly",
+  "category": "terminal",
+  "difficulty": "easy",
+  "suites": ["harness"],
+  "prompt": "Sleep for a long time",
+  "verify": "true",
+  "timeoutSec": 4,
+  "maxTurns": 10,
+  "expectFailureKind": "timeout"
+}

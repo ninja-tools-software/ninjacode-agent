@@ -1,0 +1,9 @@
+{
+  "id": "count-csv",
+  "description": "Terminal task: aggregate a CSV and write the result to a file",
+  "category": "terminal",
+  "difficulty": "easy",
+  "prompt": "The file data.csv contains sales records with a header row (product,quantity,price). Compute the total revenue (sum of quantity*price over all rows) and write only that number, with two decimals, to a new file revenue.txt (for example: 123.40).",
+  "verify": "test \"$(cat revenue.txt | tr -d '[:space:]')\" = '176.35'",
+  "timeoutSec": 180
+}

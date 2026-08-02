@@ -1,0 +1,1 @@
+{"id":"add-greet","description":"Update greet format","category":"edit","difficulty":"easy","prompt":"Update greet.js so greet.test.mjs passes (expected format: Hello, Name!). Do not modify the test.","verify":"node greet.test.mjs && git diff --quiet HEAD -- greet.test.mjs","timeoutSec":120}

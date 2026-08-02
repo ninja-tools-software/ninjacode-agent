@@ -1,0 +1,10 @@
+{
+  "id": "extract-module",
+  "description": "Extract shared formatters into a new module and update all callers",
+  "category": "refactor",
+  "difficulty": "medium",
+  "suites": ["quick"],
+  "prompt": "The same formatMoney and formatDate helpers are duplicated in services/orders.js, services/invoices.js, and lib/report.js. Extract them into a new file lib/format.js that exports both functions, update all three callers to import from there, and remove the local copies. After the change, no .js file other than lib/format.js may contain a function declaration/expression named formatMoney or formatDate. All existing tests must still pass. Do not modify any *.test.mjs file.",
+  "verify": "node services/orders.test.mjs && node services/invoices.test.mjs && node lib/report.test.mjs && test -f lib/format.js && ! grep -R --include='*.js' -n -E 'function[[:space:]]+format(Money|Date)|const[[:space:]]+format(Money|Date)[[:space:]]*=' services lib/report.js && git diff --quiet HEAD -- '*.test.mjs'",
+  "timeoutSec": 300
+}

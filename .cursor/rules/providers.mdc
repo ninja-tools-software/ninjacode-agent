@@ -1,0 +1,30 @@
+---
+description: LLM provider adapter conventions in packages/providers
+globs: packages/providers/**
+alwaysApply: false
+---
+
+# Provider Adapters
+
+All adapters implement `LlmProvider` (`types.ts`): `complete(req)` and `completeStreaming(req, sink)`, both returning a final `Completion` with accurate `usage` (including `cacheReadTokens`/`cacheWriteTokens` when the API reports them).
+
+## Contract rules
+
+- Map HTTP failures to `LlmError(message, status, provider)` — `withRetry` in core keys off `status` (429/5xx retryable). Swallowing status codes breaks retry.
+- Honor `req.signal` in both the fetch and the stream-consumption loop.
+- Emit `StreamEvent`s in order: deltas → `usage` → `done`. Never emit `done` twice; on failure emit `error` then throw.
+- `stopReason` must be accurate (`tool_use` vs `end`) — the agent loop branches on it.
+
+## Prompt caching (per provider)
+
+- **Anthropic** (`anthropic.ts`): when `req.cacheSystemPrompt`, place `cache_control: { type: "ephemeral" }` breakpoints on the last tool def, the system block, and the last message block (max 4 breakpoints). Keep tools → system → messages ordering stable.
+- **OpenAI-compatible** (`openai-compatible.ts`): caching is automatic prefix-matching; keep the serialized prefix byte-stable and set `prompt_cache_key` for routing stickiness. Do not reorder tools or interleave dynamic content before history.
+- Never inject dynamic values (dates, request ids) before the message history — it silently kills the cache.
+
+## Adding a model or provider
+
+- New models go in `catalog.ts` (context window, pricing, `editFormat` if the model prefers `patch` over `string_replace` — see `preferredEditFormat` in core) and in `gatewayRegistry.ts` if served through the gateway.
+- New providers: add to `ProviderKind`, wire in `createProvider` (keep the exhaustive `never` check), export from `index.ts`.
+- Test streaming against `MockProvider` patterns; add a colocated `*.test.ts` covering tool-call assembly from deltas and error mapping.
+
+Use the `add-llm-provider` skill for the full workflow.

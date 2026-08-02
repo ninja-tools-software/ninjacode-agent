@@ -1,0 +1,10 @@
+{
+  "id": "policy-constraints",
+  "description": "Implement a feature while respecting CONTRIBUTING.md constraints",
+  "category": "feature",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "Read CONTRIBUTING.md and docs/SPEC.md. Implement the feature they describe while obeying every constraint (frozen files, naming, output format). Run `node src/greet.test.mjs` to verify.",
+  "verify": "node src/greet.test.mjs && git diff --quiet HEAD -- locked/secret.json docs/SPEC.md CONTRIBUTING.md src/greet.test.mjs && test -f src/greeter.js && ! test -f src/hello.js && grep -q 'export function formatGreeting' src/greeter.js",
+  "timeoutSec": 300
+}

@@ -1,0 +1,1 @@
+{"id":"reverse-string","description":"Implement reverse function","category":"fix","difficulty":"easy","prompt":"Implement reverse in reverse.js so reverse.test.mjs passes. Do not modify the test.","verify":"node reverse.test.mjs && git diff --quiet HEAD -- reverse.test.mjs","timeoutSec":180}

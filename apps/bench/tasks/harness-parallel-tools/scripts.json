@@ -1,0 +1,23 @@
+[
+  {
+    "text": "Parallel writes",
+    "toolCalls": [
+      {
+        "id": "a",
+        "name": "write_file",
+        "arguments": { "path": "one.txt", "content": "1" }
+      },
+      {
+        "id": "b",
+        "name": "write_file",
+        "arguments": { "path": "two.txt", "content": "2" }
+      },
+      {
+        "id": "c",
+        "name": "write_file",
+        "arguments": { "path": "three.txt", "content": "3" }
+      }
+    ]
+  },
+  { "text": "All three written in one turn." }
+]

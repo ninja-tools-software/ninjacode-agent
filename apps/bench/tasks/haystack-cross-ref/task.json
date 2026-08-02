@@ -1,0 +1,10 @@
+{
+  "id": "haystack-cross-ref",
+  "description": "Cross-reference log id → config → code constant across a large fixture",
+  "category": "explore",
+  "difficulty": "hard",
+  "suites": ["quick"],
+  "prompt": "Investigate a production incident. logs/app.log is large. Find the ERROR line that mentions a request id, look up that id in config/, then find the matching secret token constant in src/. Write only that token (no quotes/whitespace) to ANSWER.txt.",
+  "verify": "test \"$(cat ANSWER.txt | tr -d '[:space:]')\" = 'tok_prod_7c3e91aa'",
+  "timeoutSec": 300
+}
