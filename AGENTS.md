@@ -29,10 +29,10 @@ pnpm knip                    # unused files, exports, dependencies
 pnpm depcruise               # dependency direction, cycles, orphans
 pnpm bench                   # NinjaBench (mock); live runs need ANTHROPIC_API_KEY
 pnpm eval                    # CLI eval harness
-pnpm --filter ninjacode package   # VSIX; bumps patch semver in apps/vscode/package.json via prebuild
+pnpm --filter ninjacode package   # VSIX; bumps patch semver via prebuild
 ```
 
-`pnpm --filter ninjacode build` and `package` both run the `prebuild` hook, which increments the patch version in [`apps/vscode/package.json`](apps/vscode/package.json) (0.1.0 → 0.1.1 → …). The resulting `.vsix` is named after that version. Commit the bumped `package.json` when you want to publish; there is no auto-commit.
+`pnpm --filter ninjacode build` and `package` both run the `prebuild` hook, which increments the patch version in [`apps/vscode/package.json`](apps/vscode/package.json) and mirrors it to the root [`package.json`](package.json) (0.1.0 → 0.1.1 → …) — the two versions are always the same. The resulting `.vsix` is named after that version. Commit the bumped `package.json` files when you want to publish; there is no auto-commit.
 
 Known pitfall: `CAPACITES_AGENT.md` is sometimes out of date vs the code — trust the code.
 
