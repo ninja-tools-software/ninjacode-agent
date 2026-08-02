@@ -35,14 +35,23 @@ describe("mapPool", () => {
 
 describe("runBench concurrency", () => {
   it("runs jobs concurrently when concurrency > 1", async () => {
+    const concurrency = 3;
     let inflight = 0;
     let maxInflight = 0;
+    // Each job parks until the whole pool is in flight, so the assertion measures the pool
+    // instead of hoping fixed sleeps overlap on a loaded machine. The cap keeps a real
+    // regression to a failed assertion rather than a hang.
+    let poolFull = (): void => undefined;
+    const allRunning = new Promise<void>((resolve) => {
+      poolFull = resolve;
+    });
     const agent: AgentAdapter = {
       name: "fake",
       async run() {
         inflight += 1;
         maxInflight = Math.max(maxInflight, inflight);
-        await new Promise((r) => setTimeout(r, 40));
+        if (inflight === concurrency) poolFull();
+        await Promise.race([allRunning, new Promise((r) => setTimeout(r, 2000))]);
         inflight -= 1;
         return {
           metrics: { filesChanged: 0, linesAdded: 0, linesRemoved: 0 },
@@ -57,9 +66,9 @@ describe("runBench concurrency", () => {
       { id: "t2", description: "", category: "fix", difficulty: "easy", prompt: "", verify: "true" },
       { id: "t3", description: "", category: "fix", difficulty: "easy", prompt: "", verify: "true" },
     ];
-    const report = await runBench([agent], tasks, { trials: 1, concurrency: 3 });
-    expect(report.results).toHaveLength(3);
-    expect(maxInflight).toBe(3);
+    const report = await runBench([agent], tasks, { trials: 1, concurrency });
+    expect(report.results).toHaveLength(concurrency);
+    expect(maxInflight).toBe(concurrency);
     expect(report.results.every((r) => r.failureKind === "agent_error")).toBe(true);
   });
 });

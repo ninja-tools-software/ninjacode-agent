@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MockProvider } from "@ninjacode/providers";
 import { createDefaultToolRegistry, listPlans } from "@ninjacode/tools";
 import { Agent } from "./agent.js";
@@ -400,8 +400,7 @@ describe("Agent abort", () => {
     });
 
     const runPromise = agent.run("Edit a file");
-    await new Promise((r) => setTimeout(r, 20));
-    expect(agent.getState()).toBe("waiting");
+    await vi.waitFor(() => expect(agent.getState()).toBe("waiting"));
 
     agent.abort();
     const outcome = await runPromise;
