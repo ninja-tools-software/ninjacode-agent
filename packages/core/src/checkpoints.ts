@@ -35,6 +35,19 @@ const DEFAULT_EXCLUDES = [
 ];
 
 /**
+ * Identity and signing overrides for every checkpoint commit: the shadow repo must not
+ * depend on the user's git config, and signing would prompt or fail on a locked key.
+ */
+const COMMIT_CONFIG = [
+  "-c",
+  "user.email=ninjacode@local",
+  "-c",
+  "user.name=NinjaCode",
+  "-c",
+  "commit.gpgsign=false",
+];
+
+/**
  * Shadow-git checkpoints for step-by-step rollback.
  * Separate git dir under .ninjacode/checkpoints.git; user repo untouched.
  * Uses GIT_INDEX_FILE + info/exclude so node_modules etc. are never staged.
@@ -71,16 +84,7 @@ export class CheckpointManager {
     const head = await this.gitInWorktree(["rev-parse", "--verify", "HEAD"]).catch(() => "");
     if (!head.trim()) {
       await this.gitInWorktree(["add", "-A"]).catch(() => undefined);
-      await this.gitInWorktree([
-        "-c",
-        "user.email=ninjacode@local",
-        "-c",
-        "user.name=NinjaCode",
-        "commit",
-        "--allow-empty",
-        "-m",
-        "baseline",
-      ]).catch(() => undefined);
+      await this.gitInWorktree([...COMMIT_CONFIG, "commit", "--allow-empty", "-m", "baseline"]).catch(() => undefined);
     }
     this.ready = true;
   }
@@ -93,29 +97,11 @@ export class CheckpointManager {
     const list = await this.list();
     const prevHash = list.at(-1)?.commitHash;
     try {
-      await this.gitInWorktree([
-        "-c",
-        "user.email=ninjacode@local",
-        "-c",
-        "user.name=NinjaCode",
-        "commit",
-        "--allow-empty",
-        "-m",
-        msg,
-      ]);
+      await this.gitInWorktree([...COMMIT_CONFIG, "commit", "--allow-empty", "-m", msg]);
     } catch (e) {
       // If commit fails (nothing to commit without --allow-empty support), still record snapshot of HEAD
       void e;
-      await this.gitInWorktree([
-        "-c",
-        "user.email=ninjacode@local",
-        "-c",
-        "user.name=NinjaCode",
-        "commit",
-        "--allow-empty",
-        "-m",
-        msg,
-      ]).catch(() => undefined);
+      await this.gitInWorktree([...COMMIT_CONFIG, "commit", "--allow-empty", "-m", msg]).catch(() => undefined);
     }
     const hash = (await this.gitInWorktree(["rev-parse", "HEAD"])).trim();
     if (!hash) throw new Error("Failed to create checkpoint: empty HEAD");

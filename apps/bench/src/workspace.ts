@@ -16,7 +16,19 @@ export async function prepareWorkspace(taskId: string, fixtureDir?: string): Pro
   await execFileAsync("git", ["add", "-A"], { cwd: dir });
   await execFileAsync(
     "git",
-    ["-c", "user.email=bench@ninjacode.dev", "-c", "user.name=NinjaBench", "commit", "-q", "--allow-empty", "-m", "fixture"],
+    [
+      "-c",
+      "user.email=bench@ninjacode.dev",
+      "-c",
+      "user.name=NinjaBench",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "fixture",
+    ],
     { cwd: dir },
   );
   return dir;

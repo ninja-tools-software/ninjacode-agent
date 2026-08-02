@@ -26,7 +26,7 @@ async function initRepo(): Promise<string> {
   await execFileAsync("git", ["config", "user.name", "Bench"], { cwd: dir });
   await fs.writeFile(path.join(dir, "foo.txt"), "hello\n");
   await execFileAsync("git", ["add", "foo.txt"], { cwd: dir });
-  await execFileAsync("git", ["commit", "-q", "-m", "init"], { cwd: dir });
+  await execFileAsync("git", ["-c", "commit.gpgsign=false", "commit", "-q", "-m", "init"], { cwd: dir });
   return dir;
 }
 
