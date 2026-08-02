@@ -52,6 +52,8 @@ Read the diff, not just the subjects — commit messages under-report breaking c
 
 ### 4. Update CHANGELOG.md
 
+Two files, same content: the root `CHANGELOG.md`, and `apps/vscode/CHANGELOG.md`, which is the copy vsce packs into the VSIX and the Marketplace renders. Write the root one, then `cp CHANGELOG.md apps/vscode/CHANGELOG.md`.
+
 Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/). Create the file with the standard header on first release.
 
 - Sections, in this order, omitting empty ones: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
@@ -76,15 +78,20 @@ Write the target version to **both** `apps/vscode/package.json` and the root `pa
 ### 6. Build the release
 
 ```bash
+export NINJACODE_BUMP=skip
 pnpm install
 pnpm build
 pnpm typecheck
 pnpm test
 pnpm lint && pnpm depcruise && pnpm knip
-NINJACODE_BUMP=skip pnpm --filter ninjacode package
+pnpm --filter ninjacode package
 ```
 
-`NINJACODE_BUMP=skip` disables the `prebuild` auto-bump so the VSIX lands on the exact target version. Without it, `apps/vscode/ninjacode-<version>.vsix` would be one patch ahead of the CHANGELOG and the tag.
+`NINJACODE_BUMP=skip` disables the `prebuild` auto-bump so the build and the VSIX land on the exact target version. Export it for the whole sequence, not just the packaging step: `pnpm build` runs the extension `build` through turbo, which triggers `prebuild` too. Turbo only forwards the variable because `turbo.json` lists it under `globalPassThroughEnv` — without that entry, strict env mode hides it and the build silently bumps past the target.
+
+`pnpm depcruise` needs Node >= 22 even though the repo supports Node 20; on Node 20 it refuses to run and CI covers it instead.
+
+Check the versions after every build: `node -p "require('./package.json').version"`.
 
 Verify the artifact name matches the target version.
 
@@ -99,7 +106,7 @@ If a fix changes user-visible behavior, add it to the CHANGELOG entry.
 Only the release files:
 
 ```bash
-git add README.md CHANGELOG.md package.json apps/vscode/package.json
+git add README.md CHANGELOG.md apps/vscode/CHANGELOG.md package.json apps/vscode/package.json
 git commit -m "Release X.Y.Z"
 ```
 
