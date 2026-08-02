@@ -6,6 +6,11 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const extensionPath = path.join(scriptDir, "..", "package.json");
 const rootPath = path.join(scriptDir, "..", "..", "..", "package.json");
 
+if (process.env.NINJACODE_BUMP === "skip") {
+  console.log("bump-version: skipped (NINJACODE_BUMP=skip)");
+  process.exit(0);
+}
+
 const extension = JSON.parse(fs.readFileSync(extensionPath, "utf8"));
 
 const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(extension.version ?? "");

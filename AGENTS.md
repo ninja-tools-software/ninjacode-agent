@@ -32,7 +32,7 @@ pnpm eval                    # CLI eval harness
 pnpm --filter ninjacode package   # VSIX; bumps patch semver via prebuild
 ```
 
-`pnpm --filter ninjacode build` and `package` both run the `prebuild` hook, which increments the patch version in [`apps/vscode/package.json`](apps/vscode/package.json) and mirrors it to the root [`package.json`](package.json) (0.1.0 → 0.1.1 → …) — the two versions are always the same. The resulting `.vsix` is named after that version. Commit the bumped `package.json` files when you want to publish; there is no auto-commit.
+`pnpm --filter ninjacode build` and `package` both run the `prebuild` hook, which increments the patch version in [`apps/vscode/package.json`](apps/vscode/package.json) and mirrors it to the root [`package.json`](package.json) (0.1.0 → 0.1.1 → …) — the two versions are always the same. The resulting `.vsix` is named after that version. Set `NINJACODE_BUMP=skip` to build on the current version instead, which is what a release does. Commit the bumped `package.json` files when you want to publish; there is no auto-commit.
 
 Known pitfall: `CAPACITES_AGENT.md` is sometimes out of date vs the code — trust the code.
 
