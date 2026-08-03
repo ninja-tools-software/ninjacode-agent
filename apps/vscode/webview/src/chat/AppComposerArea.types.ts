@@ -72,4 +72,5 @@ export interface AppComposerAreaProps {
   onStartVoice: () => void;
   onFinishVoice: () => void;
   vscode: VsCodeApi;
+  openModelMenuNonce?: number;
 }

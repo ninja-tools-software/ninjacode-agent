@@ -1,7 +1,8 @@
 {
   "NinjaCode: you're out of credits for this billing cycle.": "NinjaCode : vous n’avez plus de crédits pour ce cycle de facturation.",
+  "NinjaCode: {0}": "NinjaCode : {0}",
+  "Open Chat": "Ouvrir le chat",
   "Upgrade plan": "Améliorer l’offre",
-  "You've used all your monthly credits. They come back at your next renewal — or upgrade your plan to keep going now (Settings → Account).": "Vous avez utilisé tous vos crédits mensuels. Ils seront renouvelés à la prochaine échéance — ou améliorez votre offre pour continuer (Paramètres → Compte).",
   "No checkpoints available.": "Aucun point de contrôle disponible.",
   "Restore checkpoint": "Restaurer un point de contrôle",
   "Restored checkpoint {0}": "Point de contrôle {0} restauré",

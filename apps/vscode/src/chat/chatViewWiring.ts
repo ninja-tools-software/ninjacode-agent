@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AgentLogChannel } from "@ninjacode/core";
 import type { CodebaseIndex } from "@ninjacode/tools";
+import { t } from "../locale.js";
 import type { SettingsToHost, WebviewToHost } from "../protocol.js";
 import { SettingsService } from "../settingsService.js";
 import { ProposedEditsStore } from "../proposedEdits.js";
@@ -48,7 +49,6 @@ interface WireChatViewInput {
   proposedEdits: ProposedEditsStore;
   recentFiles: () => string[];
   codebaseIndex: (root: string) => Promise<CodebaseIndex | undefined>;
-  friendlyRunError: (message: string) => string;
   pushSettings: () => Promise<void>;
   stopActiveSession: () => void;
   withActiveSession: (fn: (sessionId: string) => void) => void;
@@ -196,7 +196,7 @@ function createAgentLayer(
     recentFiles: input.recentFiles,
   });
 
-  const bridge = createAgentEventBridge(input, deps);
+  const bridge = createAgentEventBridge(deps);
 
   const runner = createAgentRunner(input, deps, { interactions, contextCtl, bridge });
   const voice = new VoiceController(deps.context.globalStorageUri.fsPath, (payload) =>
@@ -254,21 +254,18 @@ function createAgentRunner(
     clearTodos: () => deps.plan.clearTodos(),
     refreshTodos: (sid) => deps.plan.refreshTodos(sid),
     pushSessions: () => deps.sessions.pushSessions(),
-    friendlyError: (m) => input.friendlyRunError(m),
+    consumeGatewayError: (sid) => stack.bridge.consumeGatewayError(sid),
     notifyIfNotFocused: (sid, ok, answer) => stack.interactions.notifyRunFinished(sid, ok, answer),
   });
 }
 
-function createAgentEventBridge(
-  input: WireChatViewInput,
-  deps: {
-    core: ChatCore;
-    proposedEdits: ProposedEditsStore;
-    agentLogs: AgentLogChannel;
-    compactionOccurred: Set<string>;
-    plan: PlanService;
-  },
-): AgentEventBridge {
+function createAgentEventBridge(deps: {
+  core: ChatCore;
+  proposedEdits: ProposedEditsStore;
+  agentLogs: AgentLogChannel;
+  compactionOccurred: Set<string>;
+  plan: PlanService;
+}): AgentEventBridge {
   return new AgentEventBridge({
     post: (sid, payload) => deps.core.post(sid, payload),
     runtimes: deps.core.runtimes,
@@ -281,7 +278,6 @@ function createAgentEventBridge(
         detail: e.detail,
         meta: e.meta,
       }),
-    friendlyError: (m) => input.friendlyRunError(m),
     refreshTodos: (sid) => void deps.plan.refreshTodos(sid),
     refreshScratchpad: (sid) => void deps.plan.refresh(sid),
     syncTodosIntoPlan: (sid) => void deps.plan.syncTodosIntoPlan(sid),
@@ -289,6 +285,16 @@ function createAgentEventBridge(
     pushPlansList: (sid) => void deps.plan.pushPlansList(sid),
     syncPlanEditor: () => void deps.plan.syncEditorPanel(),
     markCompacted: (sid) => deps.compactionOccurred.add(sid),
+    isShowing: (sid) => deps.core.isShowing(sid),
+    notifyGatewayError: (_sid, info) => {
+      const title =
+        info.code === "insufficient_credits"
+          ? t("NinjaCode: you're out of credits for this billing cycle.")
+          : t("NinjaCode: {0}", info.code.replaceAll("_", " "));
+      void vscode.window.showWarningMessage(title, t("Open Chat")).then((choice) => {
+        if (choice === t("Open Chat")) void deps.core.focusChat();
+      });
+    },
   });
 }
 
@@ -324,6 +330,12 @@ function createChatMessageRoute(
       withActiveSession: input.withActiveSession,
       pushSettings: input.pushSettings,
       pushExtras: input.pushExtras,
+      openSubscribe: async (tier) => {
+        await deps.settingsService.openSubscribe(tier);
+      },
+      startBrowserLogin: async () => {
+        await deps.settingsService.handleMessage({ type: "account_browser_login" });
+      },
     }),
     (msg: SettingsToHost) => deps.settingsService.handleMessage(msg),
   );

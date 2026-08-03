@@ -24,6 +24,7 @@ interface UseAppHostHandlersOptions {
   setExpandedHunksPath: (path: string | null) => void;
   setFeedbackForPath: (path: string | null) => void;
   onLocale?: (locale: string) => void;
+  onOpenModelMenu?: () => void;
 }
 
 export function useAppHostHandlers({
@@ -38,6 +39,7 @@ export function useAppHostHandlers({
   setExpandedHunksPath,
   setFeedbackForPath,
   onLocale,
+  onOpenModelMenu,
 }: UseAppHostHandlersOptions) {
   useHostMessages(vscode, dispatch, {
     onHydrate: stickToBottom,
@@ -71,6 +73,7 @@ export function useAppHostHandlers({
     onVoice: voice.handleMessage,
     onEnhancePromptResult: (msg) => enhance.onResult(msg.requestId, msg.text),
     onEnhancePromptError: (msg) => enhance.onEnhanceError(msg.requestId, msg.text),
+    onOpenModelMenu: () => onOpenModelMenu?.(),
   });
 }
 

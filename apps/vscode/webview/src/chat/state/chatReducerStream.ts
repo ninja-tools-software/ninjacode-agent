@@ -55,6 +55,11 @@ export function reduceStreamMessage(state: ChatState, msg: HostToWebview): ChatS
       };
     case "error":
       return { ...state, log: [...state.log, { kind: "error", text: msg.text }] };
+    case "gateway_error":
+      return {
+        ...state,
+        log: [...state.log, { kind: "gateway_error", ...msg.info }],
+      };
     default:
       return null;
   }

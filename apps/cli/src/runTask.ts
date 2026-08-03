@@ -2,7 +2,8 @@ import path from "node:path";
 import { buildAgentRuntime, type ApprovalMode, type AgentMode } from "@ninjacode/core";
 import { createProvider, type ProviderKind } from "@ninjacode/providers";
 import { setAskUserHandler, setUserActionHandler } from "@ninjacode/tools";
-import { handleAgentEvent, promptApproval } from "./cliEventHandlers.js";
+import { consumeLastGatewayError, handleAgentEvent, promptApproval } from "./cliEventHandlers.js";
+import { gatewayExitCode } from "./gatewayErrorLines.js";
 import { setupAskUserHandlers } from "./cliUserHandlers.js";
 import { t } from "./i18n.js";
 
@@ -70,8 +71,12 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
   const outcome = await agent.run(task);
   console.log("\n");
   if (!outcome.completed) {
-    console.error(t("cli.incomplete", { answer: outcome.answer }));
-    process.exitCode = 2;
+    const gateway = consumeLastGatewayError();
+    const exit = gatewayExitCode(gateway);
+    if (!gateway) {
+      console.error(t("cli.incomplete", { answer: outcome.answer }));
+    }
+    process.exitCode = exit ?? 2;
   }
 }
 

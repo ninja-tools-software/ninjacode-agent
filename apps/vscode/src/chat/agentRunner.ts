@@ -50,7 +50,8 @@ interface AgentRunnerDeps {
   clearTodos(): Promise<void>;
   refreshTodos(sessionId: string): Promise<void>;
   pushSessions(): Promise<void>;
-  friendlyError(message: string): string;
+  /** Returns true when a typed gateway error was already posted for this run. */
+  consumeGatewayError?(sessionId: string): unknown;
   notifyIfNotFocused(sessionId: string, completed: boolean, answer: string): void;
 }
 
@@ -196,15 +197,17 @@ export class AgentRunner {
       const outcome = await agent.run(
         task.images.length > 0 ? { text: task.text, images: task.images } : task.text,
       );
-      if (!outcome.completed) {
-        this.deps.post(sid, { type: "error", text: this.deps.friendlyError(outcome.answer) });
+      if (!outcome.completed && !this.deps.consumeGatewayError?.(sid)) {
+        this.deps.post(sid, { type: "error", text: outcome.answer });
       }
       this.deps.post(sid, { type: "assistant_done" });
       await this.deps.refreshTodos(sid);
       await this.deps.pushSessions();
       this.deps.notifyIfNotFocused(sid, outcome.completed, outcome.answer);
     } catch (e) {
-      this.deps.post(sid, { type: "error", text: this.deps.friendlyError((e as Error).message) });
+      if (!this.deps.consumeGatewayError?.(sid)) {
+        this.deps.post(sid, { type: "error", text: (e as Error).message });
+      }
     } finally {
       await this.deps.runtimes.processQueueIfIdle(sid);
     }

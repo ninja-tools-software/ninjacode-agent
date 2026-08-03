@@ -3,5 +3,13 @@
   "acp.unknownSession": "Unknown session",
   "acp.debugUnsupported": "Debug mode is not supported in the ACP agent yet. Use the VS Code extension or CLI.",
   "acp.modeUnsupported": "Mode switching is not supported over ACP (requested: {mode}).",
-  "acp.methodNotFound": "Method not found: {method}"
+  "acp.methodNotFound": "Method not found: {method}",
+  "acp.gateway.credits": "You're out of credits — your NinjaCode balance is empty for this cycle.",
+  "acp.gateway.creditsPartial": "Answer stopped — out of credits. The response above is incomplete.",
+  "acp.gateway.rateLimited": "Too many requests — the gateway is throttling this key.",
+  "acp.gateway.modelNotPriced": "{model} is unavailable — no active price on the gateway.",
+  "acp.gateway.modelNotInCatalog": "{model} isn't in your {catalog} catalog.",
+  "acp.gateway.accountSuspended": "Your account is suspended — contact support to restore access.",
+  "acp.gateway.unauthorized": "Your session expired — sign in again to keep using NinjaCode.",
+  "acp.gateway.upstreamTimeout": "The model stopped responding — the provider went silent mid-answer."
 }

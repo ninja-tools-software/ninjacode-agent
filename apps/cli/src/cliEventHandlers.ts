@@ -1,6 +1,17 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import type { GatewayErrorInfo } from "@ninjacode/providers";
+import { gatewayErrorLines } from "./gatewayErrorLines.js";
 import { t } from "./i18n.js";
+
+/** Last typed gateway error seen during the current run (for exit codes). */
+let lastGatewayError: GatewayErrorInfo | undefined;
+
+export function consumeLastGatewayError(): GatewayErrorInfo | undefined {
+  const info = lastGatewayError;
+  lastGatewayError = undefined;
+  return info;
+}
 
 export async function promptApproval(
   toolName: string,
@@ -40,5 +51,15 @@ export async function handleAgentEvent(ev: { type: string; payload: unknown }): 
     const p = ev.payload as { model: string; label?: string; reason?: string };
     const reason = p.reason ? ` (${p.reason})` : "";
     process.stderr.write(t("cli.routing", { model: p.label ?? p.model, reason }));
+  } else if (ev.type === "error") {
+    const p = ev.payload as { message: string; gateway?: GatewayErrorInfo };
+    if (p.gateway) {
+      lastGatewayError = p.gateway;
+      for (const line of gatewayErrorLines(p.gateway)) {
+        process.stderr.write(`${line}\n`);
+      }
+      return;
+    }
+    process.stderr.write(`\n⚠ ${p.message}\n`);
   }
 }

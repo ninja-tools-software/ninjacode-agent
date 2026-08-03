@@ -5,6 +5,7 @@ import type {
   StreamSink,
   ToolSpec,
 } from "@ninjacode/providers";
+import { gatewayErrorInfo } from "@ninjacode/providers";
 import { compactHistory, toolOutputLimit, truncateToolOutput } from "./context.js";
 import { buildVolatileContextMessage, volatileContextChanged } from "./volatileContext.js";
 import type { AgentTurnDeps } from "./agentTurnTypes.js";
@@ -166,7 +167,7 @@ export async function callLlmForTurn(
     }
     const msg = (e as Error).message;
     deps.logAgentEvent("error", `turn ${turn + 1}: LLM error`, msg);
-    await deps.emit("error", { message: msg });
+    await deps.emit("error", { message: msg, gateway: gatewayErrorInfo(e) });
     await deps.persist();
     await deps.setState("failed");
     return { kind: "failed", message: `LLM error: ${msg}` };

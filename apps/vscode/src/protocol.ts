@@ -79,6 +79,24 @@ export interface UiQuestionAnswer {
   freeText?: string;
 }
 
+/** Typed NinjaCode gateway failure surfaced to the chat UI. */
+export interface GatewayErrorInfo {
+  code:
+    | "insufficient_credits"
+    | "rate_limited"
+    | "model_not_priced"
+    | "model_not_in_catalog"
+    | "account_suspended"
+    | "unauthorized"
+    | "upstream_timeout";
+  renewsAt?: string;
+  planTier?: string;
+  model?: string;
+  catalog?: string;
+  /** Output already reached the user: the answer above is truncated. */
+  partial?: boolean;
+}
+
 export type UiLogItem =
   | { kind: "user"; text: string; refs?: ContextRef[] }
   | { kind: "assistant"; text: string }
@@ -94,6 +112,7 @@ export type UiLogItem =
       estimatedCredits?: number;
     }
   | { kind: "error"; text: string }
+  | ({ kind: "gateway_error" } & GatewayErrorInfo)
   | {
       kind: "approval";
       requestId: string;
@@ -472,7 +491,12 @@ export type ChatToHost =
   | { type: "voice_stop" }
   | { type: "voice_cancel" }
   // prompt enhancement (gateway only)
-  | { type: "enhance_prompt"; requestId: string; text: string; mode?: AgentMode };
+  | { type: "enhance_prompt"; requestId: string; text: string; mode?: AgentMode }
+  // gateway error CTAs
+  | { type: "gateway_upgrade"; tier?: string }
+  | { type: "gateway_open_account" }
+  | { type: "gateway_change_model" }
+  | { type: "gateway_sign_in" };
 
 export type WebviewToHost = ChatToHost | SettingsToHost;
 
@@ -522,6 +546,8 @@ export type HostToWebview =
       estimatedCredits?: number;
     }
   | { type: "error"; text: string }
+  | { type: "gateway_error"; info: GatewayErrorInfo }
+  | { type: "open_model_menu" }
   | { type: "run_state"; state: RunState }
   | { type: "queue"; queue: QueuedMessage[] }
   | ({ type: "context_usage" } & ContextUsage)

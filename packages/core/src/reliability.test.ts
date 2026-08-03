@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Completion, CompletionRequest, LlmProvider, StreamSink } from "@ninjacode/providers";
-import { LlmError } from "@ninjacode/providers";
+import { GatewayError, LlmError } from "@ninjacode/providers";
 import { BudgetTracker, ToolCircuitBreaker, withRetry } from "./reliability.js";
 import type { Clock } from "./ports.js";
 
@@ -86,6 +86,38 @@ describe("withRetry", () => {
       provider.complete({ messages: [{ role: "user", content: "hi" }] }),
     ).rejects.toMatchObject({ status: 400 });
     expect(inner.attempts).toHaveLength(1);
+  });
+
+  it("does not retry a terminal GatewayError even on HTTP 503", async () => {
+    const inner = new FlakyProvider([
+      new GatewayError("model_not_priced", "model_not_priced: claude-opus-4", {
+        status: 503,
+        model: "claude-opus-4",
+      }),
+    ]);
+    const provider = withRetry(inner, {
+      maxRetries: 4,
+      sleep: async () => undefined,
+    });
+
+    await expect(
+      provider.complete({ messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toMatchObject({ code: "model_not_priced", status: 503 });
+    expect(inner.attempts).toHaveLength(1);
+  });
+
+  it("retries a non-terminal GatewayError (rate_limited)", async () => {
+    const inner = new FlakyProvider([
+      new GatewayError("rate_limited", "rate_limited", { status: 429 }),
+    ]);
+    const provider = withRetry(inner, {
+      maxRetries: 3,
+      sleep: async () => undefined,
+    });
+
+    const result = await provider.complete({ messages: [{ role: "user", content: "hi" }] });
+    expect(result.text).toBe("ok");
+    expect(inner.attempts).toHaveLength(2);
   });
 
   it("uses clock-driven jitter without real delays", async () => {

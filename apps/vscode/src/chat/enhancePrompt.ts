@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { AgentMode } from "@ninjacode/core";
+import { parseGatewayError } from "@ninjacode/providers";
 import type { HostToWebview } from "../protocol.js";
 import { t } from "../locale.js";
 import { gatewayApiBase } from "../providerHelper.js";
@@ -44,13 +45,14 @@ async function callEnrichEndpoint(opts: {
 }
 
 function httpFailureMessage(status: number, body: { error?: string; message?: string }): string {
-  if (status === 401) {
+  const gatewayErr = parseGatewayError(JSON.stringify(body), { status });
+  if (gatewayErr?.code === "unauthorized") {
     return t("Prompt enhancement failed — sign in to the gateway first.");
   }
-  if (status === 402) {
+  if (gatewayErr?.code === "insufficient_credits") {
     return t(
       "Prompt enhancement failed: {0}",
-      body.message ?? "insufficient credits",
+      gatewayErr.message || body.message || "insufficient credits",
     );
   }
   return t(

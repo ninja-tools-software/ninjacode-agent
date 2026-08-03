@@ -11,6 +11,7 @@ import type {
   ContextSuggestion,
   ContextUsage,
   DropItem,
+  GatewayErrorInfo,
   HostToWebview,
   HunkItem,
   Hypothesis,
@@ -35,6 +36,7 @@ export type {
   ContextSuggestion,
   ContextUsage,
   DropItem,
+  GatewayErrorInfo,
   HostToWebview,
   HunkItem,
   Hypothesis,
@@ -109,6 +111,7 @@ export type LogItem =
       estimatedCredits?: number;
     }
   | { kind: "error"; text: string }
+  | ({ kind: "gateway_error" } & GatewayErrorInfo)
   | ApprovalLogItem
   | QuestionLogItem
   | UserActionLogItem;

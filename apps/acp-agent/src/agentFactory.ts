@@ -1,7 +1,12 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Agent, buildAgentRuntime, loadMcpConfig, loadMcpTools } from "@ninjacode/core";
-import { createProvider, type ProviderKind } from "@ninjacode/providers";
+import {
+  createProvider,
+  type GatewayErrorInfo,
+  type ProviderKind,
+} from "@ninjacode/providers";
+import { t } from "./i18n.js";
 import type { Session } from "./sessionStore.js";
 import { notify } from "./rpcTransport.js";
 
@@ -10,6 +15,30 @@ function assertDebugModeUnsupported(mode: string | undefined): void {
     throw new Error(
       "Debug mode is not supported in the ACP agent yet. Use the VS Code extension or CLI (`--mode debug`).",
     );
+  }
+}
+
+function gatewayErrorText(info: GatewayErrorInfo): string {
+  switch (info.code) {
+    case "insufficient_credits":
+      return info.partial
+        ? t("acp.gateway.creditsPartial")
+        : t("acp.gateway.credits");
+    case "rate_limited":
+      return t("acp.gateway.rateLimited");
+    case "model_not_priced":
+      return t("acp.gateway.modelNotPriced", { model: info.model ?? "model" });
+    case "model_not_in_catalog":
+      return t("acp.gateway.modelNotInCatalog", {
+        model: info.model ?? "model",
+        catalog: info.catalog ?? "plan",
+      });
+    case "account_suspended":
+      return t("acp.gateway.accountSuspended");
+    case "unauthorized":
+      return t("acp.gateway.unauthorized");
+    case "upstream_timeout":
+      return t("acp.gateway.upstreamTimeout");
   }
 }
 
@@ -40,6 +69,16 @@ function createAgentEventHandler(sessionId: string) {
         update: {
           sessionUpdate: "tool_call_update",
           status: (ev.payload as { error?: string }).error ? "failed" : "completed",
+        },
+      });
+    } else if (ev.type === "error") {
+      const p = ev.payload as { message: string; gateway?: GatewayErrorInfo };
+      const text = p.gateway ? gatewayErrorText(p.gateway) : p.message;
+      notify("session/update", {
+        sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: `\n${text}\n` },
         },
       });
     }

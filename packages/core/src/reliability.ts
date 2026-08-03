@@ -5,7 +5,7 @@ import type {
   ModelPricing,
   StreamSink,
 } from "@ninjacode/providers";
-import { LlmError } from "@ninjacode/providers";
+import { GatewayError, isTerminalGatewayCode, LlmError } from "@ninjacode/providers";
 import { nodeClock } from "./nodePorts.js";
 import type { Clock } from "./ports.js";
 
@@ -110,6 +110,7 @@ function abortError(signal: AbortSignal): Error {
 }
 
 function isRetryable(e: unknown): boolean {
+  if (e instanceof GatewayError) return !isTerminalGatewayCode(e.code);
   if (e instanceof LlmError) {
     if (e.status === 429) return true;
     if (e.status && e.status >= 500) return true;

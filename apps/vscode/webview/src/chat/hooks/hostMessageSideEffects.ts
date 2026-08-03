@@ -19,6 +19,7 @@ export interface HostHandlers {
   ) => void;
   onEnhancePromptResult: (msg: MessageOf<"enhance_prompt_result">) => void;
   onEnhancePromptError: (msg: MessageOf<"enhance_prompt_error">) => void;
+  onOpenModelMenu: () => void;
   onClear: () => void;
   onHydrate: () => void;
 }
@@ -48,6 +49,7 @@ const sideEffectByType: Partial<Record<HostToWebview["type"], SideEffectHandler>
     h.onEnhancePromptResult(msg as MessageOf<"enhance_prompt_result">),
   enhance_prompt_error: (msg, h) =>
     h.onEnhancePromptError(msg as MessageOf<"enhance_prompt_error">),
+  open_model_menu: (_msg, h) => h.onOpenModelMenu(),
 };
 
 /** Side effects outside the reducer for a host → webview message. */

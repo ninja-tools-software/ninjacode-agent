@@ -11,5 +11,14 @@
   "cli.manualAction": "\n⏸ Action manuelle requise : {action}",
   "cli.reason": "   Raison : {reason}",
   "cli.pressEnter": "Appuyez sur Entrée une fois terminé (commentaire optionnel) : ",
-  "cli.approvePrompt": "\n⚠️  Approuver {tool} ({target}) ? [{reason}]\n  [y] oui / [n] non / [a] toujours pour cet outil : "
+  "cli.approvePrompt": "\n⚠️  Approuver {tool} ({target}) ? [{reason}]\n  [y] oui / [n] non / [a] toujours pour cet outil : ",
+  "cli.gateway.credits": "⚠ Crédits épuisés — votre solde est vide pour ce cycle.",
+  "cli.gateway.creditsPartial": "⚠ Réponse interrompue — crédits épuisés (le texte ci-dessus est incomplet).",
+  "cli.gateway.creditsRenew": "  Renouvellement le {date} · {url}",
+  "cli.gateway.rateLimited": "⚠ Limite de débit — la gateway a limité cette clé (déjà retenté).",
+  "cli.gateway.modelNotPriced": "⚠ {model} est indisponible — aucun tarif actif sur la gateway.",
+  "cli.gateway.modelNotInCatalog": "⚠ {model} n'est pas dans votre catalogue {catalog}.",
+  "cli.gateway.accountSuspended": "⚠ Compte suspendu — contactez le support pour rétablir l'accès.",
+  "cli.gateway.unauthorized": "⚠ Session expirée — reconnectez-vous pour continuer avec NinjaCode.",
+  "cli.gateway.upstreamTimeout": "⚠ Le modèle a cessé de répondre — le fournisseur est resté silencieux."
 }

@@ -48,6 +48,7 @@ export function AppComposerArea(props: AppComposerAreaProps) {
           onStartVoice={props.onStartVoice}
           onFinishVoice={props.onFinishVoice}
           vscode={props.vscode}
+          openModelMenuNonce={props.openModelMenuNonce}
         />
       </Composer>
     </footer>

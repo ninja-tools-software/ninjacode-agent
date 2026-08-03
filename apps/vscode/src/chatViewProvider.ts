@@ -16,7 +16,6 @@ import { ChatCore } from "./chat/chatCore.js";
 import { CodebaseIndexService } from "./chat/codebaseIndexService.js";
 import { PlanEditorProvider } from "./planEditorProvider.js";
 import { wireChatView } from "./chat/chatViewWiring.js";
-import { isGatewayCreditsError } from "./chat/gatewayCreditsError.js";
 
 /** Built-in slash commands always offered in the composer's `/` autocomplete,
  * on top of any project/user prompts discovered via `loadPrompts`. */
@@ -65,7 +64,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       proposedEdits: this.proposedEdits,
       recentFiles: () => this.recentFiles,
       codebaseIndex: (root) => this.codebaseIndex(root),
-      friendlyRunError: (m) => this.friendlyRunError(m),
       pushSettings: () => this.pushSettings(),
       pushExtras: () => this.pushExtras(),
       stopActiveSession: () => {
@@ -134,17 +132,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.withActiveSession((sid) =>
       this.core.runtimes.resolveApproval(sid, requestId, { approved, remember }),
     );
-  }
-
-  /** Turn a gateway insufficient_credits error into an actionable message. */
-  private friendlyRunError(message: string): string {
-    if (!isGatewayCreditsError(message)) return message;
-    void vscode.window
-      .showWarningMessage(t("NinjaCode: you're out of credits for this billing cycle."), t("Upgrade plan"))
-      .then((choice) => {
-        if (choice === t("Upgrade plan")) void this.settingsService.openSubscribe("pro");
-      });
-    return t("You've used all your monthly credits. They come back at your next renewal — or upgrade your plan to keep going now (Settings → Account).");
   }
 
   private trackRecentFile(editor: vscode.TextEditor | undefined): void {

@@ -31,6 +31,8 @@ interface ChatHandlersDeps {
   withActiveSession: (fn: (sessionId: string) => void) => void;
   pushSettings: () => Promise<void>;
   pushExtras: () => Promise<void>;
+  openSubscribe: (tier: string) => Promise<void>;
+  startBrowserLogin: () => Promise<void>;
 }
 
 /** One entry per chat message type — exhaustiveness is enforced by the type. */

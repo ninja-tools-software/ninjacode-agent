@@ -7,6 +7,7 @@ import { PlanCard, PlanCompactRow } from "../panels/PlanCard.js";
 import { t } from "../../i18n.js";
 import type { LogItem, PlanState, SettingsState, TodoItem, VsCodeApi } from "../types.js";
 import { ApprovalCard } from "./ApprovalCard.js";
+import { GatewayErrorCard } from "./GatewayErrorCard.js";
 import { QuestionCard } from "./QuestionCard.js";
 import { ToolCard } from "./ToolCard.js";
 import { TodoToolCard } from "./TodoToolCard.js";
@@ -342,6 +343,8 @@ export function LogEntry(props: LogEntryProps) {
       return <UserActionCard item={item} vscode={vscode} />;
     case "error":
       return <div className="msg error msg-enter">{item.text}</div>;
+    case "gateway_error":
+      return <GatewayErrorCard item={item} vscode={vscode} />;
     case "status":
       return <StatusLogEntry item={item} index={index} marks={marks} />;
     case "routing":

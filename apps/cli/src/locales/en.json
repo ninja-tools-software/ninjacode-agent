@@ -11,5 +11,14 @@
   "cli.manualAction": "\n⏸ Manual action required: {action}",
   "cli.reason": "   Reason: {reason}",
   "cli.pressEnter": "Press Enter when done (optional comment): ",
-  "cli.approvePrompt": "\n⚠️  Approve {tool} ({target})? [{reason}]\n  [y]es / [n]o / [a]lways for this tool: "
+  "cli.approvePrompt": "\n⚠️  Approve {tool} ({target})? [{reason}]\n  [y]es / [n]o / [a]lways for this tool: ",
+  "cli.gateway.credits": "⚠ Out of credits — your balance is empty for this cycle.",
+  "cli.gateway.creditsPartial": "⚠ Answer stopped — out of credits (response above is incomplete).",
+  "cli.gateway.creditsRenew": "  Credits renew {date} · {url}",
+  "cli.gateway.rateLimited": "⚠ Rate limited — the gateway throttled this key (retries already attempted).",
+  "cli.gateway.modelNotPriced": "⚠ {model} is unavailable — no active price on the gateway.",
+  "cli.gateway.modelNotInCatalog": "⚠ {model} isn't in your {catalog} catalog.",
+  "cli.gateway.accountSuspended": "⚠ Your account is suspended — contact support to restore access.",
+  "cli.gateway.unauthorized": "⚠ Session expired — sign in again to keep using NinjaCode.",
+  "cli.gateway.upstreamTimeout": "⚠ The model stopped responding — the provider went silent mid-answer."
 }

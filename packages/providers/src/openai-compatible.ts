@@ -6,6 +6,7 @@ import type {
   StreamSink,
   ToolSpec,
 } from "./types.js";
+import { parseGatewayError } from "./gatewayErrors.js";
 import { LlmError } from "./types.js";
 import { consumeOpenAIStream } from "./openaiStream.js";
 
@@ -85,6 +86,11 @@ export class OpenAICompatibleProvider implements LlmProvider {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText);
+      const gatewayErr = parseGatewayError(errText, {
+        status: res.status,
+        provider: this.name,
+      });
+      if (gatewayErr) throw gatewayErr;
       throw new LlmError(`${this.name} error ${res.status}: ${errText}`, res.status, this.name);
     }
 

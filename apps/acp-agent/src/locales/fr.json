@@ -3,5 +3,13 @@
   "acp.unknownSession": "Session inconnue",
   "acp.debugUnsupported": "Le mode debug n'est pas encore pris en charge dans l'agent ACP. Utilisez l'extension VS Code ou la CLI.",
   "acp.modeUnsupported": "Le changement de mode n'est pas pris en charge via ACP (demandé : {mode}).",
-  "acp.methodNotFound": "Méthode introuvable : {method}"
+  "acp.methodNotFound": "Méthode introuvable : {method}",
+  "acp.gateway.credits": "Crédits épuisés — votre solde NinjaCode est vide pour ce cycle.",
+  "acp.gateway.creditsPartial": "Réponse interrompue — crédits épuisés. Le texte ci-dessus est incomplet.",
+  "acp.gateway.rateLimited": "Trop de requêtes — la gateway limite cette clé.",
+  "acp.gateway.modelNotPriced": "{model} est indisponible — aucun tarif actif sur la gateway.",
+  "acp.gateway.modelNotInCatalog": "{model} n'est pas dans votre catalogue {catalog}.",
+  "acp.gateway.accountSuspended": "Compte suspendu — contactez le support pour rétablir l'accès.",
+  "acp.gateway.unauthorized": "Session expirée — reconnectez-vous pour continuer avec NinjaCode.",
+  "acp.gateway.upstreamTimeout": "Le modèle a cessé de répondre — le fournisseur est resté silencieux."
 }

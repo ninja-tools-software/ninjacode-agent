@@ -1,3 +1,53 @@
+.gw-error {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--warn);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin: 8px 0;
+  background: var(--surface-1);
+}
+.gw-error.sev-block { border-left-color: var(--danger); }
+.gw-error.sev-warn { border-left-color: var(--warn); }
+.gw-error-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gw-error-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+}
+.gw-error.sev-block .gw-error-badge {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+.gw-error-head strong { font-size: 13px; }
+.gw-error-body {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.gw-error-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+.gw-error-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
 .approval {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

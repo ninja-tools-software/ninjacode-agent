@@ -192,6 +192,8 @@ export function createLifecycleHandlers(deps: {
   context: vscode.ExtensionContext;
   pushSettings: () => Promise<void>;
   pushExtras: () => Promise<void>;
+  openSubscribe: (tier: string) => Promise<void>;
+  startBrowserLogin: () => Promise<void>;
 }): Pick<
   ChatMessageHandlers,
   | "ready"
@@ -201,6 +203,10 @@ export function createLifecycleHandlers(deps: {
   | "copy_to_clipboard"
   | "open_mermaid"
   | "enhance_prompt"
+  | "gateway_upgrade"
+  | "gateway_open_account"
+  | "gateway_change_model"
+  | "gateway_sign_in"
 > {
   const { core, sessions, plan } = deps;
   return {
@@ -224,5 +230,12 @@ export function createLifecycleHandlers(deps: {
     open_mermaid: (m) => MermaidPanel.show(deps.context, m.source),
     enhance_prompt: (m) =>
       handleEnhancePrompt(deps.context, m, (payload) => core.post(undefined, payload)),
+    gateway_upgrade: (m) => void deps.openSubscribe(m.tier ?? "pro"),
+    gateway_open_account: () => void vscode.commands.executeCommand("ninjacode.openSettings"),
+    gateway_change_model: () => {
+      void deps.core.focusChat();
+      deps.core.post(undefined, { type: "open_model_menu" });
+    },
+    gateway_sign_in: () => void deps.startBrowserLogin(),
   };
 }

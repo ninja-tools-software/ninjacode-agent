@@ -79,6 +79,7 @@ function buildComposerAreaProps(vm: AppViewModel, onDismissDragTip: () => void):
       vm.voice.start(vm.composer.doc, vm.composer.composerRef.current?.caret() ?? docLength(vm.composer.doc)),
     onFinishVoice: vm.voice.finish,
     vscode: vm.vscode,
+    openModelMenuNonce: vm.openModelMenuNonce,
   };
 }
 

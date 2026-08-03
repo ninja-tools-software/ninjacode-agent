@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ModelInfo, SettingsState, VsCodeApi } from "../types.js";
 import { ModelMenu } from "./ModelMenu.js";
 import { ModelSettingsMenu } from "./ModelSettingsMenu.js";
@@ -9,13 +9,20 @@ export function ModelControls({
   modelInfo,
   vscode,
   setSettings,
+  openModelMenuNonce = 0,
 }: {
   settings: SettingsState;
   modelInfo?: ModelInfo;
   vscode: VsCodeApi;
   setSettings: (s: SettingsState) => void;
+  /** Incremented by the host when a gateway error CTA asks to pick another model. */
+  openModelMenuNonce?: number;
 }) {
   const [openMenu, setOpenMenu] = useState<"model" | "settings" | null>(null);
+
+  useEffect(() => {
+    if (openModelMenuNonce > 0) setOpenMenu("model");
+  }, [openModelMenuNonce]);
 
   return (
     <>

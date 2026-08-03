@@ -65,6 +65,7 @@ export function useAppViewModel(vscode: VsCodeApi) {
     applyDoc: applyEnhancedDoc,
     onError: onEnhanceError,
   });
+  const [openModelMenuNonce, setOpenModelMenuNonce] = useState(0);
 
   useAppHostHandlers({
     vscode,
@@ -78,6 +79,7 @@ export function useAppViewModel(vscode: VsCodeApi) {
     setExpandedHunksPath: editsUi.setExpandedHunksPath,
     setFeedbackForPath: editsUi.setFeedbackForPath,
     onLocale: applyLocale,
+    onOpenModelMenu: () => setOpenModelMenuNonce((n) => n + 1),
   });
 
   const panelChanges: ChangeItem[] =
@@ -110,6 +112,7 @@ export function useAppViewModel(vscode: VsCodeApi) {
     panelChanges,
     autoAcceptRemaining,
     composerRef: composer.composerRef as RefObject<ComposerHandle>,
+    openModelMenuNonce,
     ...editsUi,
   };
 }

@@ -1,3 +1,4 @@
+import { parseGatewayError } from "./gatewayErrors.js";
 import type { Completion, StreamSink, TokenUsage, ToolCall } from "./types.js";
 import { LlmError } from "./types.js";
 import { parseSseJson, parseToolArguments, sseDataLines } from "./sse.js";
@@ -148,7 +149,13 @@ async function processOpenAIChunk(
   if (data === "[DONE]") return;
   const parsed = parseSseJson<OpenAIChunk>(data);
   if (!parsed) return;
-  if (parsed.error) throw new LlmError(sseErrorMessage(parsed.error), undefined, model);
+  if (parsed.error) {
+    const raw = sseErrorMessage(parsed.error);
+    const partial = state.text.value.length > 0 || state.reasoning.text.length > 0;
+    throw (
+      parseGatewayError(raw, { provider: model, partial }) ?? new LlmError(raw, undefined, model)
+    );
+  }
 
   if (parsed.object === "ninjacode.routing" && typeof parsed.model === "string") {
     state.resolvedModel = parsed.model;

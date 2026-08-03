@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { AgentLogEntry, AgentMode, Checkpoint, RunState } from "@ninjacode/core";
-import type { HostToWebview } from "../protocol.js";
+import type { GatewayErrorInfo, HostToWebview } from "../protocol.js";
 import type { ProposedEditsStore } from "../proposedEdits.js";
 import type { SessionRuntimeManager } from "../sessionRuntime.js";
 import { formatArgsPreview, formatToolLineRange, inferToolTarget, isInteractiveUserTool, toolLabel } from "../toolUi.js";
@@ -46,7 +46,6 @@ interface AgentEventBridgeDeps {
   runtimes: SessionRuntimeManager;
   proposedEdits: ProposedEditsStore;
   logAgentEntry(sessionId: string, entry: AgentLogEntry): void;
-  friendlyError(message: string): string;
   refreshTodos(sessionId: string): void;
   refreshScratchpad(sessionId: string): void;
   syncTodosIntoPlan(sessionId: string): void;
@@ -54,6 +53,10 @@ interface AgentEventBridgeDeps {
   pushPlansList(sessionId: string): void;
   syncPlanEditor(): void;
   markCompacted(sessionId: string): void;
+  /** True when the chat webview is visible for this session. */
+  isShowing(sessionId: string): boolean;
+  /** Offline toast for gateway errors when the chat is not visible. */
+  notifyGatewayError?(sessionId: string, info: GatewayErrorInfo): void;
 }
 
 /**
@@ -62,6 +65,7 @@ interface AgentEventBridgeDeps {
  */
 export class AgentEventBridge {
   private readonly tools = new ToolCallTracker();
+  private readonly gatewayErrors = new Map<string, GatewayErrorInfo>();
   private readonly dispatch: Record<string, (sessionId: string, payload: unknown) => void>;
 
   constructor(private readonly deps: AgentEventBridgeDeps) {
@@ -99,11 +103,7 @@ export class AgentEventBridge {
         if (text) this.deps.post(sid, { type: "status", text });
       },
       checkpoint: (sid, p) => this.onCheckpoint(sid, p as Checkpoint),
-      error: (sid, p) =>
-        this.deps.post(sid, {
-          type: "error",
-          text: this.deps.friendlyError((p as { message: string }).message),
-        }),
+      error: (sid, p) => this.onError(sid, p as { message: string; gateway?: GatewayErrorInfo }),
       context_usage: (sid, p) =>
         this.deps.post(sid, {
           type: "context_usage",
@@ -119,6 +119,25 @@ export class AgentEventBridge {
 
   handle(sessionId: string, ev: AgentEvent): void {
     this.dispatch[ev.type]?.(sessionId, ev.payload);
+  }
+
+  /** Consume a gateway error posted for this session during the current run (dedup). */
+  consumeGatewayError(sessionId: string): GatewayErrorInfo | undefined {
+    const info = this.gatewayErrors.get(sessionId);
+    this.gatewayErrors.delete(sessionId);
+    return info;
+  }
+
+  private onError(sessionId: string, p: { message: string; gateway?: GatewayErrorInfo }): void {
+    if (p.gateway) {
+      this.gatewayErrors.set(sessionId, p.gateway);
+      this.deps.post(sessionId, { type: "gateway_error", info: p.gateway });
+      if (!this.deps.isShowing(sessionId)) {
+        this.deps.notifyGatewayError?.(sessionId, p.gateway);
+      }
+      return;
+    }
+    this.deps.post(sessionId, { type: "error", text: p.message });
   }
 
   private onToolStart(sessionId: string, p: ToolStartPayload): void {

@@ -26,6 +26,7 @@ interface ComposerToolbarProps {
   onStartVoice: () => void;
   onFinishVoice: () => void;
   vscode: VsCodeApi;
+  openModelMenuNonce?: number;
 }
 
 export function ComposerToolbar(props: ComposerToolbarProps) {
@@ -48,6 +49,7 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
             modelInfo={modelInfo}
             vscode={vscode}
             setSettings={setSettings}
+            openModelMenuNonce={props.openModelMenuNonce}
           />
         )}
       </div>

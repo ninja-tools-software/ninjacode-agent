@@ -120,5 +120,13 @@ export type { MockScript } from "./mock.js";
 export { NinjaCodeGatewayProvider } from "./gateway.js";
 export type { GatewayConfig } from "./gateway.js";
 
+export {
+  GatewayError,
+  parseGatewayError,
+  isTerminalGatewayCode,
+  gatewayErrorInfo,
+} from "./gatewayErrors.js";
+export type { GatewayErrorCode, GatewayErrorInfo } from "./gatewayErrors.js";
+
 export type { ProviderFactoryOptions } from "./providerFactory.js";
 export { buildProvider as createProvider } from "./providerFactory.js";
