@@ -4,7 +4,13 @@ import { mapGatewayModel, type GatewayModelWire } from "./gatewayModelMap.js";
 import { resolveGatewayBase, resolveWebUrl } from "./providerHelper.js";
 
 export type GatewayModelsResult =
-  | { ok: true; models: ModelInfo[]; catalog?: string }
+  | {
+      ok: true;
+      models: ModelInfo[];
+      catalog?: string;
+      /** Contractual attribution string from Artificial Analysis / Design Arena. */
+      benchmarkAttribution?: string | null;
+    }
   | { ok: false; models: [] };
 
 export interface AccountInfo {
@@ -38,6 +44,7 @@ export async function fetchGatewayModels(
     const data = (await res.json()) as {
       catalog?: string;
       models?: GatewayModelWire[];
+      benchmarkAttribution?: string | null;
     };
     const catalog = getProviderCatalog("gateway");
     const models = (data.models ?? []).map((m) =>
@@ -47,7 +54,13 @@ export async function fetchGatewayModels(
         data.catalog,
       ),
     );
-    return { ok: true, models, catalog: data.catalog };
+    return {
+      ok: true,
+      models,
+      catalog: data.catalog,
+      benchmarkAttribution:
+        typeof data.benchmarkAttribution === "string" ? data.benchmarkAttribution : null,
+    };
   } catch {
     return { ok: false, models: [] };
   }

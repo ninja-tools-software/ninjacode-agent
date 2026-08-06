@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ModelInfo } from "@ninjacode/providers";
 import {
   mapGatewayModel,
+  normalizeArenaScores,
+  normalizeBenchmark,
   normalizeFavoriteModels,
   resolveSelectedModel,
 } from "./gatewayModelMap.js";
@@ -80,7 +82,111 @@ describe("mapGatewayModel", () => {
       catalog: "free",
       tags: [],
       costIndex: 5,
+      benchmark: null,
+      arenaScores: [],
     });
+  });
+
+  it("passes through normalized benchmark and arenaScores from the wire", () => {
+    const mapped = mapGatewayModel(
+      {
+        id: "gpt-5",
+        benchmark: {
+          intelligenceIndex: 88,
+          codingIndex: 91,
+          agenticIndex: 70,
+          strengths: ["coding", "coding", "unknown"],
+          weaknesses: ["agentic"],
+        },
+        arenaScores: [
+          { arena: "Design Arena", category: "codecategories", elo: 1200, winRate: 0.62 },
+          { arena: "Design Arena", category: "bad", elo: "x", winRate: 0.1 },
+        ],
+      },
+      known,
+    );
+    expect(mapped.benchmark).toEqual({
+      intelligenceIndex: 88,
+      codingIndex: 91,
+      agenticIndex: 70,
+      strengths: ["coding"],
+      weaknesses: ["agentic"],
+    });
+    expect(mapped.arenaScores).toEqual([
+      { arena: "Design Arena", category: "codecategories", elo: 1200, winRate: 0.62 },
+    ]);
+  });
+
+  it("attaches benchmark data on remote-only models", () => {
+    const mapped = mapGatewayModel(
+      {
+        id: "remote",
+        label: "Remote",
+        benchmark: {
+          intelligenceIndex: 50,
+          codingIndex: null,
+          agenticIndex: null,
+          strengths: [],
+          weaknesses: [],
+        },
+        arenaScores: [],
+      },
+      undefined,
+    );
+    expect(mapped.benchmark?.intelligenceIndex).toBe(50);
+    expect(mapped.arenaScores).toEqual([]);
+  });
+});
+
+describe("normalizeBenchmark", () => {
+  it("returns null for absent or empty payloads", () => {
+    expect(normalizeBenchmark(undefined)).toBeNull();
+    expect(normalizeBenchmark(null)).toBeNull();
+    expect(normalizeBenchmark({})).toBeNull();
+    expect(
+      normalizeBenchmark({
+        intelligenceIndex: null,
+        codingIndex: null,
+        agenticIndex: null,
+        strengths: [],
+        weaknesses: [],
+      }),
+    ).toBeNull();
+  });
+
+  it("clamps out-of-range indices to null and filters domains", () => {
+    expect(
+      normalizeBenchmark({
+        intelligenceIndex: 120,
+        codingIndex: -1,
+        agenticIndex: 55.5,
+        strengths: ["intelligence", "nope"],
+        weaknesses: ["coding"],
+      }),
+    ).toEqual({
+      intelligenceIndex: null,
+      codingIndex: null,
+      agenticIndex: 55.5,
+      strengths: ["intelligence"],
+      weaknesses: ["coding"],
+    });
+  });
+});
+
+describe("normalizeArenaScores", () => {
+  it("returns [] for non-arrays and drops entries without numeric elo", () => {
+    expect(normalizeArenaScores(null)).toEqual([]);
+    expect(normalizeArenaScores({})).toEqual([]);
+    expect(
+      normalizeArenaScores([
+        { arena: "A", category: "c", elo: 100, winRate: null },
+        { arena: "A", category: "c", elo: "bad", winRate: 0.5 },
+        { arena: "A", category: "c", elo: 200, winRate: "x" },
+      ]),
+    ).toEqual([
+      { arena: "A", category: "c", elo: 100, winRate: null },
+      { arena: "A", category: "c", elo: 200, winRate: null },
+    ]);
   });
 });
 

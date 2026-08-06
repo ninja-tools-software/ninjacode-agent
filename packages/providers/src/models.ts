@@ -9,6 +9,26 @@ export type ReasoningSupport =
   | { kind: "levels"; levels: ReasoningEffort[]; default?: ReasoningEffort }
   | { kind: "budget"; min: number; max: number; default: number };
 
+/** Artificial Analysis benchmark domain, used as a key for strengths/weaknesses chips. */
+export type BenchmarkDomain = "intelligence" | "coding" | "agentic";
+
+/** Artificial Analysis indices (0-100) for a model, surfaced in the benchmark panel. */
+export interface ModelBenchmark {
+  intelligenceIndex: number | null;
+  codingIndex: number | null;
+  agenticIndex: number | null;
+  strengths: BenchmarkDomain[];
+  weaknesses: BenchmarkDomain[];
+}
+
+/** Design Arena ELO / win-rate for a model, broken down per category. */
+export interface ArenaScore {
+  arena: string;
+  category: string;
+  elo: number;
+  winRate: number | null;
+}
+
 /** Per-million-token list price in USD, for BYOK providers that publish one. */
 export interface ModelPricing {
   input: number;
@@ -49,6 +69,10 @@ export interface ModelInfo {
   /** Gateway Pass: catalog slug this model was listed from. */
   catalog?: string;
   tags?: string[];
+  /** Gateway Pass: Artificial Analysis benchmark indices, null when not synced yet. */
+  benchmark?: ModelBenchmark | null;
+  /** Gateway Pass: Design Arena ELO/win-rate per category. */
+  arenaScores?: ArenaScore[];
 }
 
 export interface ProviderCatalog {

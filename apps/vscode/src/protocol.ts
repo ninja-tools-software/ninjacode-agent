@@ -14,7 +14,12 @@ import type {
   RunState,
   SessionSummary,
 } from "@ninjacode/core";
-import type { ProviderKind, ReasoningEffort } from "@ninjacode/providers";
+import type {
+  ArenaScore,
+  ModelBenchmark,
+  ProviderKind,
+  ReasoningEffort,
+} from "@ninjacode/providers";
 
 // ---------------------------------------------------------------------------
 // Shared data shapes
@@ -313,6 +318,10 @@ export interface WireModelInfo {
   tags?: string[];
   /** Relative cost signal (USD/M input+output). null for Auto / unpriced. */
   costIndex?: number | null;
+  /** Artificial Analysis indices; null when not synced yet. */
+  benchmark?: ModelBenchmark | null;
+  /** Design Arena ELO/win-rate per category. */
+  arenaScores?: ArenaScore[];
 }
 
 export interface ProviderCatalogItem {
@@ -370,6 +379,11 @@ export interface SettingsPayload {
   account: AccountInfoPayload | null;
   usage: UsageRowPayload[];
   gatewayConfigured: boolean;
+  /**
+   * Contractual attribution for Artificial Analysis / Design Arena data.
+   * Displayed verbatim in the benchmark panel when a model has data.
+   */
+  benchmarkAttribution?: string | null;
   /** Effective UI locale after resolving `ninjacode.locale` (auto → VS Code language). */
   locale: "en" | "fr";
   /** Raw `ninjacode.locale` setting value (before auto-resolution). */

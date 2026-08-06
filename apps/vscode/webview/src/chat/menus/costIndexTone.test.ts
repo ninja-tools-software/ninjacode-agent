@@ -30,6 +30,7 @@ describe("costIndexTone", () => {
     expect(formatCostIndex(14.4)).toBe("14.4");
     expect(formatCostIndex(0.3)).toBe("0.3");
     expect(formatCostIndex(10)).toBe("10");
-    expect(formatCostIndex(1.25)).toBe("1.25");
+    expect(formatCostIndex(1.25)).toBe("1.3");
+    expect(formatCostIndex(4.95)).toBe("5");
   });
 });

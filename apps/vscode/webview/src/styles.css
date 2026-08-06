@@ -15,6 +15,7 @@
 @import "./styles/composer.css";
 @import "./styles/badges.css";
 @import "./styles/toolbar.css";
+@import "./styles/model-benchmark.css";
 @import "./styles/context-meter.css";
 @import "./styles/picker.css";
 @import "./styles/todos.css";

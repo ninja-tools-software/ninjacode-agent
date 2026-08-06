@@ -15,8 +15,8 @@ export function costIndexColor(costIndex: number, ref = COST_INDEX_REF): string 
   return `hsl(${hue.toFixed(1)} 65% 42%)`;
 }
 
-/** Numeric label only — no currency symbol. */
+/** Numeric label only — no currency symbol. At most one decimal place. */
 export function formatCostIndex(costIndex: number): string {
-  const fixed = costIndex.toFixed(2);
-  return fixed.replace(/\.?0+$/, "");
+  const fixed = costIndex.toFixed(1);
+  return fixed.replace(/\.0$/, "");
 }

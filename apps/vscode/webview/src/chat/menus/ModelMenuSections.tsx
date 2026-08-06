@@ -4,6 +4,7 @@ import { t } from "../../i18n.js";
 import { animCls, useAnimatedPresence } from "../hooks/useAnimatedPresence.js";
 import { useDismiss } from "../hooks/useDismiss.js";
 import type { ModelInfo, SettingsState } from "../types.js";
+import { ModelBenchmarkPanel } from "./ModelBenchmarkPanel.js";
 import {
   defaultContextWindow,
   effectiveContextWindow,
@@ -21,6 +22,8 @@ type ModelMenuPopoverProps = {
   selectModel: (id: string) => void;
   toggleFavorite: (id: string) => void;
   setOpen: (open: boolean) => void;
+  benchModelId: string | null;
+  setBenchModelId: (id: string | null) => void;
   closing?: boolean;
 };
 
@@ -34,25 +37,33 @@ export function ModelMenuPopover({
   selectModel,
   toggleFavorite,
   setOpen,
+  benchModelId,
+  setBenchModelId,
   closing,
 }: ModelMenuPopoverProps) {
+  const benchModel = benchModelId ? models.find((m) => m.id === benchModelId) : undefined;
   return (
-    <div
-      className={animCls("model-menu anim-pop anim-pop-origin-bottom", closing && "anim-closing")}
-      role="listbox"
-      aria-label={t("Model")}
-    >
-      <ModelMenuListSection
-        models={models}
-        favorites={favorites}
-        favoriteCount={favoriteCount}
-        highlight={highlight}
-        settings={settings}
-        setHighlight={setHighlight}
-        selectModel={selectModel}
-        toggleFavorite={toggleFavorite}
-        setOpen={setOpen}
-      />
+    <div className={animCls("model-menu anim-pop anim-pop-origin-bottom", closing && "anim-closing")}>
+      {benchModel ? (
+        <ModelBenchmarkPanel
+          model={benchModel}
+          attribution={settings.benchmarkAttribution}
+          onBack={() => setBenchModelId(null)}
+        />
+      ) : (
+        <ModelMenuListSection
+          models={models}
+          favorites={favorites}
+          favoriteCount={favoriteCount}
+          highlight={highlight}
+          settings={settings}
+          setHighlight={setHighlight}
+          selectModel={selectModel}
+          toggleFavorite={toggleFavorite}
+          setOpen={setOpen}
+          openBenchmark={setBenchModelId}
+        />
+      )}
     </div>
   );
 }
@@ -113,9 +124,11 @@ export function useModelMenuState(
 ) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
+  const [benchModelId, setBenchModelId] = useState<string | null>(null);
   const setOpen = (next: boolean | ((v: boolean) => boolean)) => {
     const value = typeof next === "function" ? next(open) : next;
     if (controlledOpen === undefined) setInternalOpen(value);
+    if (!value) setBenchModelId(null);
     onOpenChange?.(value);
   };
   const [highlight, setHighlight] = useState(-1);
@@ -123,15 +136,48 @@ export function useModelMenuState(
   const rootRef = useDismiss<HTMLDivElement>(open, () => setOpen(false));
 
   useEffect(() => {
-    if (controlledOpen === false) setInternalOpen(false);
+    if (controlledOpen === false) {
+      setInternalOpen(false);
+      setBenchModelId(null);
+    }
   }, [controlledOpen]);
+
+  useEffect(() => {
+    if (open) setBenchModelId(null);
+  }, [open]);
+
+  // Capture Escape before useDismiss so drill-down goes back instead of closing.
+  useEffect(() => {
+    if (!open || !benchModelId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      setBenchModelId(null);
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [open, benchModelId]);
 
   const favorites = settings.favoriteModels ?? [];
   const models = useMemo(() => orderModels(settings.models, favorites), [settings.models, favorites]);
   const favoriteCount = models.filter((m) => favorites.includes(m.id)).length;
   const active = settings.models.find((m) => m.id === settings.model);
 
-  return { open, setOpen, highlight, setHighlight, menuPresence, rootRef, favorites, models, favoriteCount, active };
+  return {
+    open,
+    setOpen,
+    highlight,
+    setHighlight,
+    menuPresence,
+    rootRef,
+    favorites,
+    models,
+    favoriteCount,
+    active,
+    benchModelId,
+    setBenchModelId,
+  };
 }
 
 export function contextWindowOptions(settings: SettingsState, modelInfo?: ModelInfo): number[] {

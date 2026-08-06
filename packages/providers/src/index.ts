@@ -23,7 +23,15 @@ export {
 } from "./catalog.js";
 
 export { contextPresetsFor } from "./models.js";
-export type { ModelInfo, ModelPricing, ProviderCatalog, ReasoningSupport } from "./models.js";
+export type {
+  ArenaScore,
+  BenchmarkDomain,
+  ModelBenchmark,
+  ModelInfo,
+  ModelPricing,
+  ProviderCatalog,
+  ReasoningSupport,
+} from "./models.js";
 
 export { catalogCostIndex, sortModelsByCostIndex } from "./catalogCostIndex.js";
 

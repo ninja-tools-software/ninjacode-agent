@@ -44,6 +44,8 @@ export function ModelMenu({
           selectModel={selectModel}
           toggleFavorite={toggleFavorite}
           setOpen={state.setOpen}
+          benchModelId={state.benchModelId}
+          setBenchModelId={state.setBenchModelId}
           closing={state.menuPresence.closing}
         />
       )}

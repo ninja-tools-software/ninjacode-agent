@@ -1,4 +1,15 @@
-import { CheckIcon, StarIcon } from "../../icons.js";
+import {
+  BrainIcon,
+  ChartIcon,
+  CheckIcon,
+  CoinsIcon,
+  EyeIcon,
+  FlagCnIcon,
+  FlagEuIcon,
+  FlagUsIcon,
+  SearchIcon,
+  StarIcon,
+} from "../../icons.js";
 import { formatContext } from "../format.js";
 import type { ModelInfo, SettingsState, VsCodeApi } from "../types.js";
 import {
@@ -12,6 +23,12 @@ import {
   labelForBudgetOption,
 } from "./modelMenuHelpers.js";
 import { costIndexColor, formatCostIndex } from "./costIndexTone.js";
+import {
+  formatPerformanceScore,
+  performanceScore,
+  performanceScoreColor,
+  regionLabel,
+} from "./modelBenchmark.js";
 import { t } from "../../i18n.js";
 
 export function ModelCostBadge({ costIndex }: { costIndex: number }) {
@@ -19,12 +36,138 @@ export function ModelCostBadge({ costIndex }: { costIndex: number }) {
   return (
     <span
       className="model-menu-cost"
-      style={{ color: costIndexColor(costIndex) }}
+      style={{ ["--pill-tone" as string]: costIndexColor(costIndex) }}
       aria-label={t("Cost index {0}", label)}
       data-tooltip={t("Cost index {0}", label)}
     >
-      {label}
+      <CoinsIcon size={10} />
+      <span className="model-menu-cost-value">{label}</span>
     </span>
+  );
+}
+
+function RegionFlag({ region }: { region: string }) {
+  const code = region.toUpperCase();
+  const label = regionLabel(code);
+  const icon =
+    code === "US" ? (
+      <FlagUsIcon />
+    ) : code === "CN" ? (
+      <FlagCnIcon />
+    ) : code === "EU" ? (
+      <FlagEuIcon />
+    ) : null;
+  if (!icon) {
+    return <span className="model-menu-badge region">{region}</span>;
+  }
+  return (
+    <span className="model-menu-flag" aria-label={t(label)} data-tooltip={t(label)}>
+      {icon}
+    </span>
+  );
+}
+
+function ModelCapabilityIcons({ model }: { model: ModelInfo }) {
+  return (
+    <>
+      {model.reasoning ? (
+        <span
+          className="model-menu-cap"
+          aria-label={t("Reasoning")}
+          data-tooltip={t("Reasoning")}
+        >
+          <BrainIcon size={12} />
+        </span>
+      ) : null}
+      {model.vision ? (
+        <span className="model-menu-cap" aria-label={t("Vision")} data-tooltip={t("Vision")}>
+          <EyeIcon size={12} />
+        </span>
+      ) : null}
+      {model.hostingRegion ? <RegionFlag region={model.hostingRegion} /> : null}
+    </>
+  );
+}
+
+function DetailHintIcons({ size }: { size: number }) {
+  return (
+    <span className="model-menu-detail-icons" aria-hidden="true">
+      <ChartIcon size={size} />
+      <SearchIcon size={size} />
+    </span>
+  );
+}
+
+function ModelPerfButton({
+  model,
+  onOpenBenchmark,
+}: {
+  model: ModelInfo;
+  onOpenBenchmark: () => void;
+}) {
+  const score = performanceScore(model.benchmark);
+  if (score === null) {
+    return (
+      <button
+        type="button"
+        className="model-menu-bench"
+        aria-label={t("Benchmark details for {0}", model.label)}
+        data-tooltip={t("Benchmark details")}
+        onClick={onOpenBenchmark}
+      >
+        <DetailHintIcons size={12} />
+      </button>
+    );
+  }
+  const label = formatPerformanceScore(score);
+  return (
+    <button
+      type="button"
+      className="model-menu-perf"
+      style={{ ["--pill-tone" as string]: performanceScoreColor(score) }}
+      aria-label={t("Performance index {0}", label)}
+      data-tooltip={t("Performance index {0}", label)}
+      onClick={onOpenBenchmark}
+    >
+      <DetailHintIcons size={10} />
+      <span className="model-menu-perf-value">{label}</span>
+    </button>
+  );
+}
+
+function ModelRowActions({
+  model,
+  favorite,
+  onToggleFavorite,
+  onOpenBenchmark,
+}: {
+  model: ModelInfo;
+  favorite: boolean;
+  onToggleFavorite: () => void;
+  onOpenBenchmark: () => void;
+}) {
+  const hasCost = typeof model.costIndex === "number";
+  return (
+    <>
+      <div className="model-menu-metrics">
+        <span className="model-menu-metrics-cost">
+          {hasCost ? <ModelCostBadge costIndex={model.costIndex as number} /> : null}
+        </span>
+        <span className="model-menu-metrics-perf">
+          <ModelPerfButton model={model} onOpenBenchmark={onOpenBenchmark} />
+        </span>
+      </div>
+      <button
+        type="button"
+        className={`model-menu-star${favorite ? " active" : ""}`}
+        aria-pressed={favorite}
+        aria-label={favorite ? t("Unstar {0}", model.label) : t("Star {0}", model.label)}
+        data-tooltip={favorite ? t("Remove from favorites") : t("Pin to the top")}
+        onClick={onToggleFavorite}
+      >
+        <StarIcon size={12} filled={favorite} />
+      </button>
+    </>
   );
 }
 
@@ -37,6 +180,7 @@ function ModelRow({
   onSelect,
   onHover,
   onToggleFavorite,
+  onOpenBenchmark,
 }: {
   model: ModelInfo;
   selected: boolean;
@@ -46,8 +190,8 @@ function ModelRow({
   onSelect: () => void;
   onHover: () => void;
   onToggleFavorite: () => void;
+  onOpenBenchmark: () => void;
 }) {
-  const hasCost = typeof model.costIndex === "number";
   return (
     <div
       className={`model-menu-row${highlighted ? " highlighted" : ""}${
@@ -59,7 +203,7 @@ function ModelRow({
         type="button"
         role="option"
         aria-selected={selected}
-        className={`model-menu-item${selected ? " selected" : ""}${hasCost ? " has-cost" : ""}`}
+        className={`model-menu-item${selected ? " selected" : ""}`}
         onClick={onSelect}
       >
         <span className="model-menu-check">{selected && <CheckIcon size={13} />}</span>
@@ -67,25 +211,16 @@ function ModelRow({
           <span className="model-menu-label" data-tooltip={model.label}>
             {model.label}
           </span>
-          {model.reasoning && <span className="model-menu-badge">{t("reasoning")}</span>}
-          {model.vision && <span className="model-menu-badge">{t("vision")}</span>}
-          {model.hostingRegion && (
-            <span className="model-menu-badge region">{model.hostingRegion}</span>
-          )}
+          <ModelCapabilityIcons model={model} />
         </span>
-        {hasCost ? <ModelCostBadge costIndex={model.costIndex as number} /> : null}
         <span className="model-menu-meta">{formatContext(model.contextWindow)} ctx</span>
       </button>
-      <button
-        type="button"
-        className={`model-menu-star${favorite ? " active" : ""}`}
-        aria-pressed={favorite}
-        aria-label={favorite ? t("Unstar {0}", model.label) : t("Star {0}", model.label)}
-        data-tooltip={favorite ? t("Remove from favorites") : t("Pin to the top")}
-        onClick={onToggleFavorite}
-      >
-        <StarIcon size={12} filled={favorite} />
-      </button>
+      <ModelRowActions
+        model={model}
+        favorite={favorite}
+        onToggleFavorite={onToggleFavorite}
+        onOpenBenchmark={onOpenBenchmark}
+      />
     </div>
   );
 }
@@ -237,6 +372,7 @@ export function ModelMenuListSection({
   selectModel,
   toggleFavorite,
   setOpen,
+  openBenchmark,
 }: {
   models: ModelInfo[];
   favorites: string[];
@@ -247,9 +383,10 @@ export function ModelMenuListSection({
   selectModel: (id: string) => void;
   toggleFavorite: (id: string) => void;
   setOpen: (open: boolean) => void;
+  openBenchmark: (id: string) => void;
 }) {
   return (
-    <div className="model-menu-section">
+    <div className="model-menu-section" role="listbox" aria-label={t("Model")}>
       {models.map((m, i) => (
         <ModelRow
           key={m.id}
@@ -264,6 +401,7 @@ export function ModelMenuListSection({
             setOpen(false);
           }}
           onToggleFavorite={() => toggleFavorite(m.id)}
+          onOpenBenchmark={() => openBenchmark(m.id)}
         />
       ))}
     </div>

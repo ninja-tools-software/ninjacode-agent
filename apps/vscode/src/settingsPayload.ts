@@ -68,23 +68,29 @@ async function resolveModels(
   provider: ProviderKind,
   cfg: vscode.WorkspaceConfiguration,
   gatewayKey?: string,
-): Promise<ModelInfo[]> {
+): Promise<{ models: ModelInfo[]; benchmarkAttribution?: string | null }> {
   const fallback = getProviderCatalog(provider)?.models ?? [];
   if (provider === "gateway") {
     // Successful fetch wins even when empty — the account catalog is the truth.
     // Static catalog is only a fallback when the key is missing or the request fails.
     const remote = await fetchGatewayModels(resolveGatewayBase(cfg), gatewayKey);
-    return remote.ok ? remote.models : fallback;
+    if (remote.ok) {
+      return {
+        models: remote.models,
+        benchmarkAttribution: remote.benchmarkAttribution ?? null,
+      };
+    }
+    return { models: fallback };
   }
   if (provider === "local") {
     const remote = await fetchLocalModels(resolveLocalBase(cfg));
-    return remote.length ? remote : fallback;
+    return { models: remote.length ? remote : fallback };
   }
   if (provider === "mammouth") {
     const remote = await fetchMammouthModels();
-    return remote.length ? remote : fallback;
+    return { models: remote.length ? remote : fallback };
   }
-  return fallback;
+  return { models: fallback };
 }
 
 async function loadAccountBlock(
@@ -119,6 +125,8 @@ function toWireModel(m: ModelInfo): WireModelInfo {
     catalog: m.catalog,
     tags: m.tags,
     costIndex: m.costIndex,
+    benchmark: m.benchmark,
+    arenaScores: m.arenaScores,
   };
 }
 
@@ -127,7 +135,7 @@ export async function buildSettingsPayload(input: BuildPayloadInput): Promise<Se
   const cfg = vscode.workspace.getConfiguration("ninjacode");
   const { provider, providers, model } = readProviderConfig(cfg);
   const gatewayKey = await input.getGatewayKey();
-  const models = await resolveModels(provider, cfg, gatewayKey);
+  const { models, benchmarkAttribution } = await resolveModels(provider, cfg, gatewayKey);
   // Prefer the live provider list over the static catalog — gateway catalogs
   // vary by Pass tier and can include ids unknown to the compiled package.
   const selected = resolveSelectedModel(model, models);
@@ -148,6 +156,7 @@ export async function buildSettingsPayload(input: BuildPayloadInput): Promise<Se
     accountUsage: await loadAccountBlock(gatewayKey, resolveGatewayBase(cfg)),
     chatLocation: getChatLocation(),
     primarySidebarSide: getPrimarySidebarSide(),
+    benchmarkAttribution,
   });
 }
 
@@ -163,6 +172,7 @@ function assembleSettingsPayload(parts: {
   accountUsage: Awaited<ReturnType<typeof loadAccountBlock>>;
   chatLocation: ReturnType<typeof getChatLocation>;
   primarySidebarSide: ReturnType<typeof getPrimarySidebarSide>;
+  benchmarkAttribution?: string | null;
 }): SettingsPayload {
   const catalogs = listProviderCatalogs()
     .filter((c) => parts.providers.includes(c.kind) || c.kind === parts.provider)
@@ -201,6 +211,7 @@ function assembleSettingsPayload(parts: {
     account,
     usage,
     gatewayConfigured: Boolean(parts.gatewayKey),
+    benchmarkAttribution: parts.benchmarkAttribution ?? null,
     locale: resolveEffectiveLocale(),
     localeSetting: resolveLocaleSetting(),
   };

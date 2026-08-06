@@ -160,6 +160,122 @@ export function ChevronUpIcon({ size }: { size?: number }) {
   );
 }
 
+export function ChevronLeftIcon({ size }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <path d="m15 18-6-6 6-6" />
+    </Svg>
+  );
+}
+
+export function ChartIcon({ size }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <path d="M3 3v18h18" />
+      <path d="M7 16V9" />
+      <path d="M12 16V5" />
+      <path d="M17 16v-3" />
+    </Svg>
+  );
+}
+
+export function SearchIcon({ size }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </Svg>
+  );
+}
+
+export function BrainIcon({ size }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
+      <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
+      <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
+      <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" />
+      <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" />
+      <path d="M3.923 14.5a4 4 0 0 1 .172-1.5" />
+      <path d="M20.077 14.5a4 4 0 0 0-.172-1.5" />
+      <path d="M8.5 21c1.5 0 2-1 3-1s1.5 1 3 1" />
+    </Svg>
+  );
+}
+
+export function EyeIcon({ size }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+      <circle cx="12" cy="12" r="3" />
+    </Svg>
+  );
+}
+
+/** Stacked coins — cost signal without a currency glyph. */
+export function CoinsIcon({ size }: { size?: number }) {
+  return (
+    <Svg size={size}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+      <path d="M7 6h1v4" />
+      <path d="m16.71 13.88.7.71-2.82 2.82" />
+    </Svg>
+  );
+}
+
+/** Tiny filled flag pictograms (14×10) — hosting region, not emoji. */
+function FlagSvg({ children }: { children: React.ReactNode }) {
+  return (
+    <svg width={14} height={10} viewBox="0 0 14 10" aria-hidden="true" focusable="false">
+      {children}
+    </svg>
+  );
+}
+
+export function FlagUsIcon() {
+  return (
+    <FlagSvg>
+      <rect width="14" height="10" fill="#B22234" rx="1" />
+      <rect y="1.1" width="14" height="1.1" fill="#fff" />
+      <rect y="3.3" width="14" height="1.1" fill="#fff" />
+      <rect y="5.5" width="14" height="1.1" fill="#fff" />
+      <rect y="7.7" width="14" height="1.1" fill="#fff" />
+      <rect width="6" height="5.5" fill="#3C3B6E" rx="1" />
+    </FlagSvg>
+  );
+}
+
+export function FlagCnIcon() {
+  return (
+    <FlagSvg>
+      <rect width="14" height="10" fill="#DE2910" rx="1" />
+      <path
+        fill="#FFDE00"
+        d="M3.2 2.2 3.5 3.2H4.5L3.7 3.8l.3 1-.8-.6-.8.6.3-1-.8-.6h1z"
+      />
+    </FlagSvg>
+  );
+}
+
+export function FlagEuIcon() {
+  return (
+    <FlagSvg>
+      <rect width="14" height="10" fill="#003399" rx="1" />
+      <g fill="#FFCC00">
+        <circle cx="7" cy="2.2" r="0.45" />
+        <circle cx="9.2" cy="3" r="0.45" />
+        <circle cx="10" cy="5" r="0.45" />
+        <circle cx="9.2" cy="7" r="0.45" />
+        <circle cx="7" cy="7.8" r="0.45" />
+        <circle cx="4.8" cy="7" r="0.45" />
+        <circle cx="4" cy="5" r="0.45" />
+        <circle cx="4.8" cy="3" r="0.45" />
+      </g>
+    </FlagSvg>
+  );
+}
+
 export function CheckIcon({ size, className }: { size?: number; className?: string }) {
   return (
     <Svg size={size} className={className}>
