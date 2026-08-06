@@ -105,7 +105,7 @@ function baseUrlForProvider(provider: ProviderKind, cfg: vscode.WorkspaceConfigu
   return cfg.get<string>("baseUrl") ?? "";
 }
 
-/** Agent wire models omit rates — pricing is not communicated in the extension UI. */
+/** Agent wire models carry costIndex only — full rate tables stay off the UI. */
 function toWireModel(m: ModelInfo): WireModelInfo {
   return {
     id: m.id,
@@ -118,6 +118,7 @@ function toWireModel(m: ModelInfo): WireModelInfo {
     hostingRegion: m.hostingRegion,
     catalog: m.catalog,
     tags: m.tags,
+    costIndex: m.costIndex,
   };
 }
 

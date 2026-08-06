@@ -28,8 +28,9 @@ describe("mapGatewayModel", () => {
         vision: true,
         hostingRegion: "EU",
         tags: ["pass"],
+        costIndex: 22.5,
       },
-      known,
+      { ...known, costIndex: 3 },
       "pro",
     );
     expect(mapped).toMatchObject({
@@ -42,13 +43,30 @@ describe("mapGatewayModel", () => {
       catalog: "pro",
       tags: ["pass"],
       reasoning: known.reasoning,
+      costIndex: 22.5,
     });
     expect(mapped.price).toBeUndefined();
   });
 
+  it("keeps API null costIndex over a catalog fallback", () => {
+    const mapped = mapGatewayModel(
+      { id: "auto", label: "Auto", costIndex: null },
+      { ...known, id: "auto", costIndex: 1 },
+    );
+    expect(mapped.costIndex).toBeNull();
+  });
+
+  it("falls back to catalog costIndex when the wire omits it", () => {
+    const mapped = mapGatewayModel(
+      { id: "gpt-5", label: "GPT-5" },
+      { ...known, costIndex: 10 },
+    );
+    expect(mapped.costIndex).toBe(10);
+  });
+
   it("builds a remote-only model when absent from the static catalog", () => {
     const mapped = mapGatewayModel(
-      { id: "new-model", label: "New", contextWindow: 64_000 },
+      { id: "new-model", label: "New", contextWindow: 64_000, costIndex: 5 },
       undefined,
       "free",
     );
@@ -61,6 +79,7 @@ describe("mapGatewayModel", () => {
       hostingRegion: null,
       catalog: "free",
       tags: [],
+      costIndex: 5,
     });
   });
 });

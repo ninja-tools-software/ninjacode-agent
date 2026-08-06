@@ -12,6 +12,8 @@ export interface GatewayModelWire {
   hostingRegion?: string | null;
   catalog?: string;
   tags?: string[];
+  /** Relative cost signal from the gateway; null for Auto / unpriced. */
+  costIndex?: number | null;
 }
 
 /** Merge a gateway `/v1/models` entry with the static catalog entry when present. */
@@ -20,6 +22,8 @@ export function mapGatewayModel(
   known: ModelInfo | undefined,
   catalogSlug?: string,
 ): ModelInfo {
+  const costIndex =
+    m.costIndex !== undefined ? m.costIndex : (known?.costIndex ?? null);
   if (!known) {
     return {
       id: m.id,
@@ -30,11 +34,12 @@ export function mapGatewayModel(
       hostingRegion: m.hostingRegion ?? null,
       catalog: m.catalog ?? catalogSlug,
       tags: m.tags ?? [],
+      costIndex,
     };
   }
   // API fields win for anything the server can vary per catalog; static fills
   // capabilities the wire format does not carry (reasoning, editFormat, …).
-  // Never surface per-model rates (price/credits) in the agent catalog.
+  // costIndex is the only cost signal on the wire — full rate tables stay off.
   return {
     ...known,
     label: m.label ?? known.label,
@@ -44,6 +49,7 @@ export function mapGatewayModel(
     hostingRegion: m.hostingRegion ?? known.hostingRegion,
     catalog: m.catalog ?? catalogSlug,
     tags: m.tags ?? known.tags,
+    costIndex,
     price: undefined,
   };
 }

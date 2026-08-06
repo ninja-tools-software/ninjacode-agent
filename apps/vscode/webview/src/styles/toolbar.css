@@ -305,8 +305,9 @@ textarea {
   bottom: calc(100% + 6px);
   left: 0;
   z-index: 30;
-  min-width: 340px;
-  max-width: 400px;
+  min-width: 460px;
+  max-width: min(560px, calc(100vw - 24px));
+  width: max-content;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--bg);
@@ -368,6 +369,12 @@ textarea {
     color var(--dur-fast) ease,
     transform var(--dur-fast) var(--ease-out);
 }
+.model-menu-item.has-cost {
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "check main cost"
+    ".     meta .";
+}
 .model-menu-item:active:not(:disabled) { transform: scale(0.98); }
 .model-menu-item:hover { background: var(--list-hover); }
 .model-menu-item.selected { font-weight: 600; }
@@ -391,6 +398,21 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.model-menu-cost {
+  grid-area: cost;
+  justify-self: end;
+  align-self: center;
+  font-size: 10px;
+  font-family: var(--code-font);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.5;
+  border-radius: var(--radius-full);
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 .model-menu-meta {
   grid-area: meta;

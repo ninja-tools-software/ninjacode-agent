@@ -1,3 +1,4 @@
+import { catalogCostIndex, sortModelsByCostIndex } from "./catalogCostIndex.js";
 import { creditRateFromCost } from "./gatewayPlans.js";
 import type { GatewayCreditRate } from "./gatewayPlans.js";
 import type { ModelInfo, ReasoningSupport } from "./models.js";
@@ -340,18 +341,21 @@ export function listRoutableGatewayModels(): GatewayModelEntry[] {
 }
 
 export function listGatewayModelInfos(): ModelInfo[] {
-  return GATEWAY_MODELS.map((m) => ({
-    id: m.id,
-    label: m.label,
-    contextWindow: m.contextWindow,
-    maxOutput: m.maxOutput,
-    // No per-model rates in the agent catalog — pricing lives on the web / admin.
-    reasoning: m.reasoning,
-    defaultContextWindow: m.defaultContextWindow,
-    vision: m.vision,
-    editFormat: m.editFormat,
-    tags: m.virtual ? ["auto"] : undefined,
-  }));
+  return sortModelsByCostIndex(
+    GATEWAY_MODELS.map((m) => ({
+      id: m.id,
+      label: m.label,
+      contextWindow: m.contextWindow,
+      maxOutput: m.maxOutput,
+      // costIndex only — full rate tables stay off the agent catalog wire.
+      costIndex: m.virtual ? null : catalogCostIndex(m.costPrice),
+      reasoning: m.reasoning,
+      defaultContextWindow: m.defaultContextWindow,
+      vision: m.vision,
+      editFormat: m.editFormat,
+      tags: m.virtual ? ["auto"] : undefined,
+    })),
+  );
 }
 
 export function buildGatewayPriceTables(): {

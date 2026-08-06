@@ -25,6 +25,8 @@ export {
 export { contextPresetsFor } from "./models.js";
 export type { ModelInfo, ModelPricing, ProviderCatalog, ReasoningSupport } from "./models.js";
 
+export { catalogCostIndex, sortModelsByCostIndex } from "./catalogCostIndex.js";
+
 export { resolveModelPricing } from "./pricing.js";
 
 export {

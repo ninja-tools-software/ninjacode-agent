@@ -29,6 +29,11 @@ export interface ModelInfo {
    * Not shown in the agent UI — kept for bench / internal tooling.
    */
   price?: ModelPricing;
+  /**
+   * Relative cost signal (USD/M input+output). null for Auto / unpriced.
+   * Surfaced in the model picker; full rate tables stay off the wire.
+   */
+  costIndex?: number | null;
   reasoning?: ReasoningSupport;
   /**
    * Recommended context cap for the UI "Default" label.

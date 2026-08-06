@@ -11,7 +11,22 @@ import {
   isDefaultContextSelected,
   labelForBudgetOption,
 } from "./modelMenuHelpers.js";
+import { costIndexColor, formatCostIndex } from "./costIndexTone.js";
 import { t } from "../../i18n.js";
+
+export function ModelCostBadge({ costIndex }: { costIndex: number }) {
+  const label = formatCostIndex(costIndex);
+  return (
+    <span
+      className="model-menu-cost"
+      style={{ color: costIndexColor(costIndex) }}
+      aria-label={t("Cost index {0}", label)}
+      data-tooltip={t("Cost index {0}", label)}
+    >
+      {label}
+    </span>
+  );
+}
 
 function ModelRow({
   model,
@@ -32,6 +47,7 @@ function ModelRow({
   onHover: () => void;
   onToggleFavorite: () => void;
 }) {
+  const hasCost = typeof model.costIndex === "number";
   return (
     <div
       className={`model-menu-row${highlighted ? " highlighted" : ""}${
@@ -43,18 +59,21 @@ function ModelRow({
         type="button"
         role="option"
         aria-selected={selected}
-        className={`model-menu-item${selected ? " selected" : ""}`}
+        className={`model-menu-item${selected ? " selected" : ""}${hasCost ? " has-cost" : ""}`}
         onClick={onSelect}
       >
         <span className="model-menu-check">{selected && <CheckIcon size={13} />}</span>
         <span className="model-menu-main">
-          <span className="model-menu-label">{model.label}</span>
+          <span className="model-menu-label" data-tooltip={model.label}>
+            {model.label}
+          </span>
           {model.reasoning && <span className="model-menu-badge">{t("reasoning")}</span>}
           {model.vision && <span className="model-menu-badge">{t("vision")}</span>}
           {model.hostingRegion && (
             <span className="model-menu-badge region">{model.hostingRegion}</span>
           )}
         </span>
+        {hasCost ? <ModelCostBadge costIndex={model.costIndex as number} /> : null}
         <span className="model-menu-meta">{formatContext(model.contextWindow)} ctx</span>
       </button>
       <button

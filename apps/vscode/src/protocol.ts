@@ -311,6 +311,8 @@ export interface WireModelInfo {
   hostingRegion?: string | null;
   catalog?: string;
   tags?: string[];
+  /** Relative cost signal (USD/M input+output). null for Auto / unpriced. */
+  costIndex?: number | null;
 }
 
 export interface ProviderCatalogItem {

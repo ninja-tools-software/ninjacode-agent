@@ -27,17 +27,25 @@ describe("gatewayRegistry", () => {
     expect(listRoutableGatewayModels().map((m) => m.id)).not.toContain("auto");
   });
 
-  it("omits per-model rates from agent-facing model infos", () => {
-    const sonnet = listGatewayModelInfos().find((m) => m.id === "claude-sonnet-4-20250514");
+  it("omits per-model rate tables but exposes costIndex", () => {
+    const infos = listGatewayModelInfos();
+    const sonnet = infos.find((m) => m.id === "claude-sonnet-4-20250514");
     expect(sonnet?.price).toBeUndefined();
+    expect(sonnet?.costIndex).toBe(14.4);
     expect(sonnet?.label).toBe("Claude Sonnet 4");
 
-    const gpt4o = listGatewayModelInfos().find((m) => m.id === "gpt-4o");
+    const gpt4o = infos.find((m) => m.id === "gpt-4o");
     expect(gpt4o?.price).toBeUndefined();
+    expect(gpt4o?.costIndex).toBe(10);
 
-    const auto = listGatewayModelInfos().find((m) => m.id === "auto");
+    const auto = infos.find((m) => m.id === "auto");
     expect(auto?.price).toBeUndefined();
+    expect(auto?.costIndex).toBeNull();
     expect(auto?.tags).toContain("auto");
+
+    expect(infos[0]?.id).toBe("auto");
+    const priced = infos.filter((m) => m.costIndex != null).map((m) => m.costIndex as number);
+    expect(priced).toEqual([...priced].sort((a, b) => b - a));
   });
 
   it("routes deepseek-v4-pro natively when DEEPSEEK_API_KEY is set", () => {

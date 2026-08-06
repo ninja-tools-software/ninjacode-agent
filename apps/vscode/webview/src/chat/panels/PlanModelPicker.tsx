@@ -4,8 +4,10 @@ import { CheckIcon, ChevronDownIcon } from "../../icons.js";
 import { formatContext } from "../format.js";
 import { animCls, useAnimatedPresence } from "../hooks/useAnimatedPresence.js";
 import type { SettingsState, VsCodeApi } from "../types.js";
+import { ModelCostBadge } from "../menus/modelMenuRows.js";
+import { t } from "../../i18n.js";
 
-const MENU_WIDTH = 340;
+const MENU_WIDTH = 460;
 const MENU_MAX_HEIGHT = 320;
 const MENU_GAP = 6;
 
@@ -118,25 +120,33 @@ function PlanModelMenuList({
       aria-label="Execute with model"
     >
       <div className="model-menu-section">
-        {models.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            role="option"
-            aria-selected={m.id === selectedModel}
-            className={`model-menu-item${m.id === selectedModel ? " selected" : ""}`}
-            onClick={() => onSelect(m.id)}
-          >
-            <span className="model-menu-check">
-              {m.id === selectedModel && <CheckIcon size={13} />}
-            </span>
-            <span className="model-menu-main">
-              <span className="model-menu-label">{m.label}</span>
-              {m.reasoning && <span className="model-menu-badge">reasoning</span>}
-            </span>
-            <span className="model-menu-meta">{formatContext(m.contextWindow)} ctx</span>
-          </button>
-        ))}
+        {models.map((m) => {
+          const hasCost = typeof m.costIndex === "number";
+          return (
+            <button
+              key={m.id}
+              type="button"
+              role="option"
+              aria-selected={m.id === selectedModel}
+              className={`model-menu-item${m.id === selectedModel ? " selected" : ""}${
+                hasCost ? " has-cost" : ""
+              }`}
+              onClick={() => onSelect(m.id)}
+            >
+              <span className="model-menu-check">
+                {m.id === selectedModel && <CheckIcon size={13} />}
+              </span>
+              <span className="model-menu-main">
+                <span className="model-menu-label" data-tooltip={m.label}>
+                  {m.label}
+                </span>
+                {m.reasoning && <span className="model-menu-badge">{t("reasoning")}</span>}
+              </span>
+              {hasCost ? <ModelCostBadge costIndex={m.costIndex as number} /> : null}
+              <span className="model-menu-meta">{formatContext(m.contextWindow)} ctx</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

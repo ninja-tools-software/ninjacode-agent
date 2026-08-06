@@ -285,7 +285,7 @@
 }
 .plan-model-menu {
   /* Position is set inline when portaled; keep list styling only. */
-  min-width: 340px;
+  min-width: 460px;
 }
 .plan-model-menu-portal {
   bottom: auto;
