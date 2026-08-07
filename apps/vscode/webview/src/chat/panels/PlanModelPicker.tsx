@@ -4,7 +4,7 @@ import { BrainIcon, CheckIcon, ChevronDownIcon } from "../../icons.js";
 import { formatContext } from "../format.js";
 import { animCls, useAnimatedPresence } from "../hooks/useAnimatedPresence.js";
 import type { SettingsState, VsCodeApi } from "../types.js";
-import { ModelCostBadge } from "../menus/modelMenuRows.js";
+import { ModelCostBadge } from "../menus/modelMenuMetrics.js";
 import { t } from "../../i18n.js";
 
 const MENU_WIDTH = 360;

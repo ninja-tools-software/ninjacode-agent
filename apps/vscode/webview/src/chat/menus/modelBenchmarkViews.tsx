@@ -9,7 +9,7 @@ import {
   indexRows,
   LLM_STATS_MAX,
   llmStatsRows,
-  scoreTone,
+  scoreColor,
 } from "./modelBenchmark.js";
 
 function IndexGauge({
@@ -34,16 +34,21 @@ function IndexGauge({
       </div>
     );
   }
-  const tone = scoreTone(value, max);
+  const color = scoreColor(value, max);
   const width = gaugeBarWidth(value, max);
   return (
     <div className="model-bench-gauge">
       <div className="model-bench-gauge-top">
         <span className="model-bench-gauge-label">{t(label)}</span>
-        <span className={`model-bench-gauge-value tone-${tone}`}>{Math.round(value)}</span>
+        <span className="model-bench-gauge-value" style={{ color }}>
+          {Math.round(value)}
+        </span>
       </div>
       <div className="model-bench-gauge-bar">
-        <div className={`model-bench-gauge-fill tone-${tone}`} style={{ width: `${width}%` }} />
+        <div
+          className="model-bench-gauge-fill"
+          style={{ width: `${width}%`, background: color }}
+        />
       </div>
     </div>
   );

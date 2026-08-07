@@ -10,11 +10,16 @@ import {
   hasBenchmarkData,
   hasIndices,
   hasLlmStats,
+  performanceBarWidth,
   performanceScore,
-  performanceScoreColor,
   regionLabel,
-  scoreTone,
+  scoreColor,
 } from "./modelBenchmark.js";
+import { METRIC_GREEN, METRIC_RED, METRIC_YELLOW, lerpRgb } from "./metricGradient.js";
+
+const green = `rgb(${METRIC_GREEN[0]}, ${METRIC_GREEN[1]}, ${METRIC_GREEN[2]})`;
+const yellow = `rgb(${METRIC_YELLOW[0]}, ${METRIC_YELLOW[1]}, ${METRIC_YELLOW[2]})`;
+const red = `rgb(${METRIC_RED[0]}, ${METRIC_RED[1]}, ${METRIC_RED[2]})`;
 
 const base: ModelInfo = {
   id: "m",
@@ -84,20 +89,24 @@ describe("hasBenchmarkData", () => {
   });
 });
 
-describe("scoreTone", () => {
-  it("bands low / mid / high scores on a 0–100 scale", () => {
-    expect(scoreTone(10)).toBe("danger");
-    expect(scoreTone(39.9)).toBe("danger");
-    expect(scoreTone(40)).toBe("warn");
-    expect(scoreTone(69.9)).toBe("warn");
-    expect(scoreTone(70)).toBe("accent");
-    expect(scoreTone(100)).toBe("accent");
+describe("scoreColor", () => {
+  it("maps low / mid / high scores on a 0–100 scale", () => {
+    expect(scoreColor(10)).toBe(red);
+    expect(scoreColor(30)).toBe(red);
+    expect(scoreColor(50)).toBe(yellow);
+    expect(scoreColor(70)).toBe(green);
+    expect(scoreColor(100)).toBe(green);
+  });
+
+  it("interpolates between stops", () => {
+    expect(scoreColor(40)).toBe(lerpRgb(METRIC_RED, METRIC_YELLOW, 0.5));
+    expect(scoreColor(60)).toBe(lerpRgb(METRIC_YELLOW, METRIC_GREEN, 0.5));
   });
 
   it("scales bands proportionally when max is not 100", () => {
-    expect(scoreTone(20, 60)).toBe("danger");
-    expect(scoreTone(24, 60)).toBe("warn");
-    expect(scoreTone(42, 60)).toBe("accent");
+    expect(scoreColor(18, 60)).toBe(red);
+    expect(scoreColor(30, 60)).toBe(yellow);
+    expect(scoreColor(42, 60)).toBe(green);
   });
 });
 
@@ -174,11 +183,13 @@ describe("performanceScore", () => {
   });
 });
 
-describe("performanceScoreColor", () => {
-  it("maps high scores to green and low scores to red", () => {
-    expect(performanceScoreColor(100)).toBe("hsl(120.0 65% 42%)");
-    expect(performanceScoreColor(50)).toBe("hsl(60.0 65% 42%)");
-    expect(performanceScoreColor(0)).toBe("hsl(0.0 65% 42%)");
+describe("performanceBarWidth", () => {
+  it("clamps a 0–100 score to a bar percent", () => {
+    expect(performanceBarWidth(0)).toBe(0);
+    expect(performanceBarWidth(50)).toBe(50);
+    expect(performanceBarWidth(100)).toBe(100);
+    expect(performanceBarWidth(-10)).toBe(0);
+    expect(performanceBarWidth(140)).toBe(100);
   });
 });
 

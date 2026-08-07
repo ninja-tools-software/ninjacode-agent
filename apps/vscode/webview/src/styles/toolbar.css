@@ -371,7 +371,7 @@ textarea {
 }
 .model-menu-item.has-cost {
   /* PlanModelPicker still places cost inside the item grid. */
-  grid-template-columns: 16px minmax(0, 1fr) 3.6rem;
+  grid-template-columns: 16px minmax(0, 1fr) 2.8rem;
   grid-template-areas:
     "check main cost"
     ".     meta  cost";
@@ -400,6 +400,36 @@ textarea {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.model-menu-metrics-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 0 2px;
+  pointer-events: none;
+}
+.model-menu-metrics-head-spacer {
+  flex: 1;
+  min-width: 0;
+}
+.model-menu-metrics-head-cols {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.model-menu-metrics-head-star {
+  width: 26px;
+  flex-shrink: 0;
+}
+.model-menu-metrics-head .model-menu-metrics-cost,
+.model-menu-metrics-head .model-menu-metrics-perf {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 500;
+  justify-content: flex-end;
+}
 .model-menu-metrics {
   display: flex;
   align-items: center;
@@ -410,13 +440,13 @@ textarea {
 .model-menu-metrics-cost {
   display: inline-flex;
   justify-content: flex-end;
-  width: 3.2rem;
+  width: 2.8rem;
   flex-shrink: 0;
 }
 .model-menu-metrics-perf {
   display: inline-flex;
   justify-content: flex-end;
-  width: 2.8rem;
+  width: 2.4rem;
   flex-shrink: 0;
 }
 .model-menu-cost {
@@ -426,7 +456,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 4px;
   box-sizing: border-box;
   font-size: 10px;
   font-family: var(--code-font);
@@ -434,24 +464,30 @@ textarea {
   font-weight: 500;
   white-space: nowrap;
   line-height: 1.5;
-  border-radius: var(--radius-full);
-  padding: 0 4px;
-  /* Soft off-white for label/icons; tone comes from --pill-tone. */
-  --pill-fg: #ebebeb;
-  color: var(--pill-fg);
-  border: 1px solid var(--pill-tone);
-  background: color-mix(in srgb, var(--pill-tone) 32%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  --metric-tone: var(--muted);
+  transition: background-color var(--dur-fast) ease;
 }
-.model-menu-cost svg {
+.model-menu-cost-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--metric-tone);
   flex-shrink: 0;
-  color: var(--pill-fg);
-  stroke: var(--pill-fg);
-  opacity: 0.95;
 }
 .model-menu-cost-value {
   min-width: 1.6em;
   text-align: right;
-  color: var(--pill-fg);
+  color: var(--fg);
+}
+.model-menu-row:hover .model-menu-cost,
+.model-menu-row.highlighted .model-menu-cost,
+.model-menu-item.selected .model-menu-cost {
+  background: color-mix(in srgb, var(--metric-tone) 14%, transparent);
 }
 .model-menu-meta {
   grid-area: meta;

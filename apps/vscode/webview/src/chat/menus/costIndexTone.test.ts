@@ -1,31 +1,27 @@
 import { describe, expect, it } from "vitest";
-import {
-  costIndexColor,
-  costIndexTone,
-  formatCostIndex,
-} from "./costIndexTone.js";
+import { costIndexColor, formatCostIndex } from "./costIndexTone.js";
+import { METRIC_GREEN, METRIC_RED, METRIC_YELLOW, lerpRgb } from "./metricGradient.js";
 
-describe("costIndexTone", () => {
-  it("maps low values near green and high values near red", () => {
-    expect(costIndexTone(0)).toBe(0);
-    expect(costIndexTone(0.3)).toBeLessThan(0.15);
-    expect(costIndexTone(10)).toBeGreaterThan(0.4);
-    expect(costIndexTone(10)).toBeLessThan(0.7);
-    expect(costIndexTone(50)).toBeGreaterThan(0.85);
-    expect(costIndexTone(80)).toBe(1);
-    expect(costIndexTone(200)).toBe(1);
+const green = `rgb(${METRIC_GREEN[0]}, ${METRIC_GREEN[1]}, ${METRIC_GREEN[2]})`;
+const yellow = `rgb(${METRIC_YELLOW[0]}, ${METRIC_YELLOW[1]}, ${METRIC_YELLOW[2]})`;
+const red = `rgb(${METRIC_RED[0]}, ${METRIC_RED[1]}, ${METRIC_RED[2]})`;
+
+describe("costIndexColor", () => {
+  it("is green at or below 10 and red at or above 40", () => {
+    expect(costIndexColor(0)).toBe(green);
+    expect(costIndexColor(10)).toBe(green);
+    expect(costIndexColor(40)).toBe(red);
+    expect(costIndexColor(80)).toBe(red);
   });
 
-  it("returns a greenish hsl for cheap models and reddish for tip models", () => {
-    const cheap = costIndexColor(0.3);
-    const tip = costIndexColor(55);
-    expect(cheap).toMatch(/^hsl\(/);
-    const cheapHue = Number(cheap.match(/hsl\(([\d.]+)/)?.[1]);
-    const tipHue = Number(tip.match(/hsl\(([\d.]+)/)?.[1]);
-    expect(cheapHue).toBeGreaterThan(100);
-    expect(tipHue).toBeLessThan(30);
+  it("is yellow at the midpoint and interpolates between stops", () => {
+    expect(costIndexColor(25)).toBe(yellow);
+    expect(costIndexColor(17.5)).toBe(lerpRgb(METRIC_GREEN, METRIC_YELLOW, 0.5));
+    expect(costIndexColor(32.5)).toBe(lerpRgb(METRIC_YELLOW, METRIC_RED, 0.5));
   });
+});
 
+describe("formatCostIndex", () => {
   it("formats the numeric value without a currency symbol", () => {
     expect(formatCostIndex(14.4)).toBe("14.4");
     expect(formatCostIndex(0.3)).toBe("0.3");

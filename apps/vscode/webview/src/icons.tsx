@@ -212,18 +212,6 @@ export function EyeIcon({ size }: { size?: number }) {
   );
 }
 
-/** Stacked coins — cost signal without a currency glyph. */
-export function CoinsIcon({ size }: { size?: number }) {
-  return (
-    <Svg size={size}>
-      <circle cx="8" cy="8" r="6" />
-      <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
-      <path d="M7 6h1v4" />
-      <path d="m16.71 13.88.7.71-2.82 2.82" />
-    </Svg>
-  );
-}
-
 /** Tiny filled flag pictograms (14×10) — hosting region, not emoji. */
 function FlagSvg({ children }: { children: React.ReactNode }) {
   return (

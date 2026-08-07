@@ -52,49 +52,85 @@
 .model-menu-bench:hover,
 .model-menu-bench:focus-visible {
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   filter: brightness(1.08);
 }
 
 .model-menu-perf {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: auto;
+  justify-content: flex-end;
+  gap: 0;
+  width: 100%;
   box-sizing: border-box;
   flex-shrink: 0;
   align-self: center;
-  --pill-fg: #ebebeb;
-  color: var(--pill-fg);
-  background: color-mix(in srgb, var(--pill-tone) 32%, transparent);
-  border: 1px solid var(--pill-tone);
-  border-radius: var(--radius-full);
-  padding: 0 4px;
+  position: relative;
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
   font-size: 10px;
   font-family: var(--code-font);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    background-color var(--dur-fast) ease,
-    filter var(--dur-fast) ease;
+  --metric-tone: var(--success);
+  transition: background-color var(--dur-fast) ease;
 }
-.model-menu-perf .model-menu-detail-icons > svg {
-  color: var(--pill-fg);
-  stroke: var(--pill-fg);
+.model-menu-perf-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  transition: opacity var(--dur-fast) ease;
 }
 .model-menu-perf-value {
   min-width: 1.25em;
   text-align: right;
-  color: var(--pill-fg);
+  color: var(--metric-tone);
 }
-.model-menu-perf:hover,
+.model-menu-perf-bar {
+  display: block;
+  width: 1.6rem;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  overflow: hidden;
+}
+.model-menu-perf-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--metric-tone);
+  transition: width var(--dur-med) var(--ease-out);
+}
+.model-menu-perf .model-menu-detail-icons {
+  position: absolute;
+  inset: 0;
+  display: inline-grid;
+  place-items: center;
+  opacity: 0;
+  color: var(--accent);
+  pointer-events: none;
+  transition: opacity var(--dur-fast) ease;
+}
+.model-menu-perf:hover .model-menu-perf-body,
+.model-menu-perf:focus-visible .model-menu-perf-body {
+  opacity: 0;
+}
+.model-menu-perf:hover .model-menu-detail-icons,
+.model-menu-perf:focus-visible .model-menu-detail-icons {
+  opacity: 1;
+}
+.model-menu-row:hover .model-menu-perf,
+.model-menu-row.highlighted .model-menu-perf,
 .model-menu-perf:focus-visible {
-  background: color-mix(in srgb, var(--pill-tone) 42%, transparent);
-  filter: brightness(1.08);
+  background: color-mix(in srgb, var(--metric-tone) 14%, transparent);
 }
 
 .model-bench-panel {
@@ -195,9 +231,6 @@
   font-weight: 600;
   color: var(--muted);
 }
-.model-bench-gauge-value.tone-accent { color: var(--accent); }
-.model-bench-gauge-value.tone-warn { color: var(--warn); }
-.model-bench-gauge-value.tone-danger { color: var(--danger); }
 .model-bench-gauge-value.missing { opacity: 0.7; }
 
 .model-bench-gauge-bar {
@@ -223,9 +256,6 @@
   border-radius: var(--radius-full);
   transition: width var(--dur-med) var(--ease-out);
 }
-.model-bench-gauge-fill.tone-accent { background: var(--accent); }
-.model-bench-gauge-fill.tone-warn { background: var(--warn); }
-.model-bench-gauge-fill.tone-danger { background: var(--danger); }
 
 .model-bench-chips-block {
   display: flex;

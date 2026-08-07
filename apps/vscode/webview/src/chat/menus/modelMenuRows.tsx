@@ -1,13 +1,10 @@
 import {
   BrainIcon,
-  ChartIcon,
   CheckIcon,
-  CoinsIcon,
   EyeIcon,
   FlagCnIcon,
   FlagEuIcon,
   FlagUsIcon,
-  SearchIcon,
   StarIcon,
 } from "../../icons.js";
 import { formatContext } from "../format.js";
@@ -22,29 +19,12 @@ import {
   isDefaultContextSelected,
   labelForBudgetOption,
 } from "./modelMenuHelpers.js";
-import { costIndexColor, formatCostIndex } from "./costIndexTone.js";
 import {
-  formatPerformanceScore,
-  performanceScore,
-  performanceScoreColor,
-  regionLabel,
-} from "./modelBenchmark.js";
+  ModelMetricsHeader,
+  ModelRowMetrics,
+} from "./modelMenuMetrics.js";
+import { regionLabel } from "./modelBenchmark.js";
 import { t } from "../../i18n.js";
-
-export function ModelCostBadge({ costIndex }: { costIndex: number }) {
-  const label = formatCostIndex(costIndex);
-  return (
-    <span
-      className="model-menu-cost"
-      style={{ ["--pill-tone" as string]: costIndexColor(costIndex) }}
-      aria-label={t("Cost index {0}", label)}
-      data-tooltip={t("Cost index {0}", label)}
-    >
-      <CoinsIcon size={10} />
-      <span className="model-menu-cost-value">{label}</span>
-    </span>
-  );
-}
 
 function RegionFlag({ region }: { region: string }) {
   const code = region.toUpperCase();
@@ -89,52 +69,6 @@ function ModelCapabilityIcons({ model }: { model: ModelInfo }) {
   );
 }
 
-function DetailHintIcons({ size }: { size: number }) {
-  return (
-    <span className="model-menu-detail-icons" aria-hidden="true">
-      <ChartIcon size={size} />
-      <SearchIcon size={size} />
-    </span>
-  );
-}
-
-function ModelPerfButton({
-  model,
-  onOpenBenchmark,
-}: {
-  model: ModelInfo;
-  onOpenBenchmark: () => void;
-}) {
-  const score = performanceScore(model.benchmark);
-  if (score === null) {
-    return (
-      <button
-        type="button"
-        className="model-menu-bench"
-        aria-label={t("Benchmark details for {0}", model.label)}
-        data-tooltip={t("Benchmark details")}
-        onClick={onOpenBenchmark}
-      >
-        <DetailHintIcons size={12} />
-      </button>
-    );
-  }
-  const label = formatPerformanceScore(score);
-  return (
-    <button
-      type="button"
-      className="model-menu-perf"
-      style={{ ["--pill-tone" as string]: performanceScoreColor(score) }}
-      aria-label={t("Performance index {0}", label)}
-      data-tooltip={t("Performance index {0}", label)}
-      onClick={onOpenBenchmark}
-    >
-      <DetailHintIcons size={10} />
-      <span className="model-menu-perf-value">{label}</span>
-    </button>
-  );
-}
-
 function ModelRowActions({
   model,
   favorite,
@@ -146,17 +80,9 @@ function ModelRowActions({
   onToggleFavorite: () => void;
   onOpenBenchmark: () => void;
 }) {
-  const hasCost = typeof model.costIndex === "number";
   return (
     <>
-      <div className="model-menu-metrics">
-        <span className="model-menu-metrics-cost">
-          {hasCost ? <ModelCostBadge costIndex={model.costIndex as number} /> : null}
-        </span>
-        <span className="model-menu-metrics-perf">
-          <ModelPerfButton model={model} onOpenBenchmark={onOpenBenchmark} />
-        </span>
-      </div>
+      <ModelRowMetrics model={model} onOpenBenchmark={onOpenBenchmark} />
       <button
         type="button"
         className={`model-menu-star${favorite ? " active" : ""}`}
@@ -387,6 +313,7 @@ export function ModelMenuListSection({
 }) {
   return (
     <div className="model-menu-section" role="listbox" aria-label={t("Model")}>
+      <ModelMetricsHeader />
       {models.map((m, i) => (
         <ModelRow
           key={m.id}

@@ -1,7 +1,11 @@
 import type { BenchmarkDomain, ModelBenchmark, ModelLlmStats } from "@ninjacode/providers";
 import type { ModelInfo } from "../types.js";
-
-type ScoreTone = "accent" | "warn" | "danger";
+import {
+  gradientAtStops,
+  METRIC_GREEN,
+  METRIC_RED,
+  METRIC_YELLOW,
+} from "./metricGradient.js";
 
 type IndexRow = {
   key: BenchmarkDomain;
@@ -59,15 +63,13 @@ export function llmStatsRows(stats: ModelLlmStats): LlmStatsRow[] {
 }
 
 /**
- * Color band for a score on a given scale (default 0–100).
- * Thresholds are proportional: low < 40%, mid < 70%, else high.
+ * Continuous score color on a given scale (default 0–100).
+ * Red ≤ 30%, orange at 50%, green ≥ 70% of `max`.
  */
-export function scoreTone(value: number, max = 100): ScoreTone {
+export function scoreColor(value: number, max = 100): string {
   const scale = max > 0 ? max : 100;
   const pct = (value / scale) * 100;
-  if (pct < 40) return "danger";
-  if (pct < 70) return "warn";
-  return "accent";
+  return gradientAtStops(pct, 30, 50, 70, METRIC_RED, METRIC_YELLOW, METRIC_GREEN);
 }
 
 /** Bar fill width as a percent of `max` (clamped 0–100). */
@@ -134,11 +136,9 @@ export function performanceScore(
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
-/** High score → green, low → yellow → orange → red (mirror of costIndex). */
-export function performanceScoreColor(score: number): string {
-  const t = Math.max(0, Math.min(1, score / 100));
-  const hue = 120 * t;
-  return `hsl(${hue.toFixed(1)} 65% 42%)`;
+/** Bar width for the model-menu performance rail (0–100). */
+export function performanceBarWidth(score: number): number {
+  return gaugeBarWidth(score, 100);
 }
 
 /** Rounded label for the performance pill. */
