@@ -1,6 +1,6 @@
-import { ChartIcon, SearchIcon } from "../../icons.js";
+import { ChartIcon, ChevronDownIcon, ChevronUpIcon, SearchIcon } from "../../icons.js";
 import { t } from "../../i18n.js";
-import type { ModelInfo } from "../types.js";
+import type { ModelInfo, ModelSortId } from "../types.js";
 import { costIndexColor, formatCostIndex } from "./costIndexTone.js";
 import {
   formatPerformanceScore,
@@ -8,6 +8,7 @@ import {
   performanceScore,
   scoreColor,
 } from "./modelBenchmark.js";
+import { type ModelSortColumn, sortParts } from "./modelSort.js";
 
 export function ModelCostBadge({ costIndex }: { costIndex: number }) {
   const label = formatCostIndex(costIndex);
@@ -24,13 +25,64 @@ export function ModelCostBadge({ costIndex }: { costIndex: number }) {
   );
 }
 
-export function ModelMetricsHeader() {
+function SortHeaderButton({
+  column,
+  label,
+  ariaLabel,
+  sort,
+  onSort,
+}: {
+  column: ModelSortColumn;
+  label: string;
+  ariaLabel: string;
+  sort: ModelSortId;
+  onSort: (column: ModelSortColumn) => void;
+}) {
+  const active = sortParts(sort);
+  const isActive = active.column === column;
+  const previewDirection = isActive ? active.direction : "desc";
   return (
-    <div className="model-menu-metrics-head" aria-hidden="true">
+    <button
+      type="button"
+      className={`model-menu-metrics-sort model-menu-metrics-${column}${isActive ? " active" : ""}`}
+      aria-sort={isActive ? (active.direction === "asc" ? "ascending" : "descending") : "none"}
+      aria-label={ariaLabel}
+      data-tooltip={ariaLabel}
+      onClick={() => onSort(column)}
+    >
+      <span className="model-menu-metrics-sort-label">{label}</span>
+      <span className="model-menu-metrics-sort-chevron" aria-hidden="true">
+        {previewDirection === "desc" ? <ChevronDownIcon size={10} /> : <ChevronUpIcon size={10} />}
+      </span>
+    </button>
+  );
+}
+
+export function ModelMetricsHeader({
+  sort,
+  onSort,
+}: {
+  sort: ModelSortId;
+  onSort: (column: ModelSortColumn) => void;
+}) {
+  return (
+    <div className="model-menu-metrics-head">
       <span className="model-menu-metrics-head-spacer" />
       <span className="model-menu-metrics-head-cols">
-        <span className="model-menu-metrics-cost">{t("Cost")}</span>
-        <span className="model-menu-metrics-perf">{t("Perf")}</span>
+        <SortHeaderButton
+          column="cost"
+          label={t("Cost")}
+          ariaLabel={t("Sort by cost")}
+          sort={sort}
+          onSort={onSort}
+        />
+        <SortHeaderButton
+          column="perf"
+          label={t("Perf")}
+          ariaLabel={t("Sort by performance")}
+          sort={sort}
+          onSort={onSort}
+        />
       </span>
       <span className="model-menu-metrics-head-star" />
     </div>

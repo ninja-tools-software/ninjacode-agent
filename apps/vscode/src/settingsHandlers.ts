@@ -142,6 +142,11 @@ const PREFERENCE_HANDLERS: Record<string, (msg: SettingsMessage, ctx: MessageHan
     await ctx.update("favoriteModels", msg.models);
     ctx.scheduleChange();
   },
+  set_model_sort: async (msg, ctx) => {
+    if (!msg.sort) return;
+    await ctx.update("modelSort", msg.sort);
+    ctx.scheduleChange();
+  },
   set_reasoning: async (msg, ctx) => {
     if (msg.reasoningEffort) await ctx.update("reasoningEffort", msg.reasoningEffort);
     if (msg.thinkingBudgetTokens !== undefined) {

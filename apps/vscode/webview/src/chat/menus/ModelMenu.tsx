@@ -1,5 +1,10 @@
 import type { ModelInfo, SettingsState, VsCodeApi } from "../types.js";
-import { ModelMenuPopover, ModelMenuTrigger, useModelMenuState } from "./ModelMenuSections.js";
+import {
+  ModelMenuPopover,
+  ModelMenuTrigger,
+  useModelMenuActions,
+  useModelMenuState,
+} from "./ModelMenuSections.js";
 
 export function ModelMenu({
   settings,
@@ -16,20 +21,12 @@ export function ModelMenu({
   onOpenChange?: (open: boolean) => void;
 }) {
   const state = useModelMenuState(settings, open, onOpenChange);
-
-  const selectModel = (id: string) => {
-    setSettings({ ...settings, model: id });
-    vscode.postMessage({ type: "set_model", model: id });
-    state.setOpen(false);
-  };
-
-  const toggleFavorite = (id: string) => {
-    const next = state.favorites.includes(id)
-      ? state.favorites.filter((f) => f !== id)
-      : [...state.favorites, id];
-    setSettings({ ...settings, favoriteModels: next });
-    vscode.postMessage({ type: "set_favorite_models", models: next });
-  };
+  const { selectModel, toggleFavorite, onSort } = useModelMenuActions(
+    settings,
+    setSettings,
+    vscode,
+    state,
+  );
 
   return (
     <div className="model-menu-wrap" ref={state.rootRef}>
@@ -40,12 +37,15 @@ export function ModelMenu({
           favoriteCount={state.favoriteCount}
           highlight={state.highlight}
           settings={settings}
+          showMetrics={state.showMetrics}
+          sort={state.sort}
           setHighlight={state.setHighlight}
           selectModel={selectModel}
           toggleFavorite={toggleFavorite}
           setOpen={state.setOpen}
           benchModelId={state.benchModelId}
           setBenchModelId={state.setBenchModelId}
+          onSort={onSort}
           closing={state.menuPresence.closing}
         />
       )}

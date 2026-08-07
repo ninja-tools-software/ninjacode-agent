@@ -88,9 +88,47 @@ function useDismissModelMenu(
   }, [menuOpen, setMenuOpen, buttonRef, menuRef]);
 }
 
+function PlanModelMenuItem({
+  model,
+  selected,
+  showMetrics,
+  onSelect,
+}: {
+  model: NonNullable<SettingsState["models"]>[number];
+  selected: boolean;
+  showMetrics: boolean;
+  onSelect: (modelId: string) => void;
+}) {
+  const hasCost = showMetrics && typeof model.costIndex === "number";
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      className={`model-menu-item${selected ? " selected" : ""}${hasCost ? " has-cost" : ""}`}
+      onClick={() => onSelect(model.id)}
+    >
+      <span className="model-menu-check">{selected && <CheckIcon size={13} />}</span>
+      <span className="model-menu-main">
+        <span className="model-menu-label" data-tooltip={model.label}>
+          {model.label}
+        </span>
+        {model.reasoning ? (
+          <span className="model-menu-cap" aria-label={t("Reasoning")} data-tooltip={t("Reasoning")}>
+            <BrainIcon size={12} />
+          </span>
+        ) : null}
+      </span>
+      {hasCost ? <ModelCostBadge costIndex={model.costIndex as number} /> : null}
+      <span className="model-menu-meta">{formatContext(model.contextWindow)} ctx</span>
+    </button>
+  );
+}
+
 function PlanModelMenuList({
   models,
   selectedModel,
+  showMetrics,
   menuRef,
   menuStyle,
   menuClassName,
@@ -99,6 +137,7 @@ function PlanModelMenuList({
 }: {
   models: NonNullable<SettingsState["models"]>;
   selectedModel: string | undefined;
+  showMetrics: boolean;
   menuRef: React.RefObject<HTMLDivElement | null>;
   menuStyle: React.CSSProperties;
   menuClassName: string;
@@ -120,41 +159,15 @@ function PlanModelMenuList({
       aria-label="Execute with model"
     >
       <div className="model-menu-section">
-        {models.map((m) => {
-          const hasCost = typeof m.costIndex === "number";
-          return (
-            <button
-              key={m.id}
-              type="button"
-              role="option"
-              aria-selected={m.id === selectedModel}
-              className={`model-menu-item${m.id === selectedModel ? " selected" : ""}${
-                hasCost ? " has-cost" : ""
-              }`}
-              onClick={() => onSelect(m.id)}
-            >
-              <span className="model-menu-check">
-                {m.id === selectedModel && <CheckIcon size={13} />}
-              </span>
-              <span className="model-menu-main">
-                <span className="model-menu-label" data-tooltip={m.label}>
-                  {m.label}
-                </span>
-                {m.reasoning ? (
-                  <span
-                    className="model-menu-cap"
-                    aria-label={t("Reasoning")}
-                    data-tooltip={t("Reasoning")}
-                  >
-                    <BrainIcon size={12} />
-                  </span>
-                ) : null}
-              </span>
-              {hasCost ? <ModelCostBadge costIndex={m.costIndex as number} /> : null}
-              <span className="model-menu-meta">{formatContext(m.contextWindow)} ctx</span>
-            </button>
-          );
-        })}
+        {models.map((m) => (
+          <PlanModelMenuItem
+            key={m.id}
+            model={m}
+            selected={m.id === selectedModel}
+            showMetrics={showMetrics}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
     </div>
   );
@@ -190,6 +203,18 @@ function PlanModelPickerTrigger({
   );
 }
 
+function planModelLabel(
+  models: NonNullable<SettingsState["models"]>,
+  selectedModel: string | undefined,
+  defaultModel: string | undefined,
+): string {
+  return (
+    models.find((m) => m.id === selectedModel)?.label ??
+    models.find((m) => m.id === defaultModel)?.label ??
+    "Default model"
+  );
+}
+
 function usePlanModelPickerState(defaultModel: string | undefined) {
   const [selectedModel, setSelectedModel] = useState<string | undefined>(defaultModel);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -220,12 +245,9 @@ export function PlanModelPicker({
 }) {
   const models = settings?.models ?? [];
   const defaultModel = settings?.model;
+  const showMetrics = settings?.provider === "gateway";
   const picker = usePlanModelPickerState(defaultModel);
-
-  const selectedLabel =
-    models.find((m) => m.id === picker.selectedModel)?.label ??
-    models.find((m) => m.id === defaultModel)?.label ??
-    "Default model";
+  const selectedLabel = planModelLabel(models, picker.selectedModel, defaultModel);
 
   if (models.length === 0) return null;
 
@@ -242,6 +264,7 @@ export function PlanModelPicker({
       <PlanModelMenuList
         models={models}
         selectedModel={picker.selectedModel}
+        showMetrics={showMetrics}
         menuRef={picker.menuRef}
         menuStyle={picker.menuStyle}
         menuClassName={menuClassName}

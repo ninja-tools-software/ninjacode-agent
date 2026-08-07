@@ -302,6 +302,9 @@ export type ComposerNode =
 // Settings payload
 // ---------------------------------------------------------------------------
 
+/** Sort applied to the model picker's Cost/Perf columns: `<column>-<direction>`. */
+export type ModelSortId = "cost-asc" | "cost-desc" | "perf-asc" | "perf-desc";
+
 export interface WireModelInfo {
   id: string;
   label: string;
@@ -377,6 +380,8 @@ export interface SettingsPayload {
   modelInfo?: WireModelInfo;
   /** Model ids the user starred, surfaced at the top of the picker. */
   favoriteModels: string[];
+  /** Active sort column/direction for the model picker's Cost/Perf columns. */
+  modelSort: ModelSortId;
   contextPresets: number[];
   hasApiKey: Record<string, boolean>;
   account: AccountInfoPayload | null;
@@ -424,6 +429,7 @@ export type SettingsToHost =
   | { type: "set_mode"; mode: AgentMode }
   | { type: "set_model"; model: string }
   | { type: "set_favorite_models"; models: string[] }
+  | { type: "set_model_sort"; sort: ModelSortId }
   | { type: "set_reasoning"; reasoningEffort?: ReasoningEffort; thinkingBudgetTokens?: number }
   | { type: "set_context_window"; contextWindow: number }
   | { type: "toggle_sidebar_position" }

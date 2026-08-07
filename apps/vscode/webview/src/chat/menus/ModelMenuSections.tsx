@@ -3,7 +3,7 @@ import { ChevronDownIcon } from "../../icons.js";
 import { t } from "../../i18n.js";
 import { animCls, useAnimatedPresence } from "../hooks/useAnimatedPresence.js";
 import { useDismiss } from "../hooks/useDismiss.js";
-import type { ModelInfo, SettingsState } from "../types.js";
+import type { ModelInfo, ModelSortId, SettingsState, VsCodeApi } from "../types.js";
 import { ModelBenchmarkPanel } from "./ModelBenchmarkPanel.js";
 import {
   defaultContextWindow,
@@ -11,6 +11,8 @@ import {
   orderModels,
 } from "./modelMenuHelpers.js";
 import { ModelMenuListSection } from "./modelMenuRows.js";
+import type { ModelSortColumn } from "./modelSort.js";
+import { parseModelSort, sortModels, toggleSort } from "./modelSort.js";
 
 type ModelMenuPopoverProps = {
   models: ModelInfo[];
@@ -18,12 +20,15 @@ type ModelMenuPopoverProps = {
   favoriteCount: number;
   highlight: number;
   settings: SettingsState;
+  showMetrics: boolean;
+  sort: ModelSortId;
   setHighlight: (i: number) => void;
   selectModel: (id: string) => void;
   toggleFavorite: (id: string) => void;
   setOpen: (open: boolean) => void;
   benchModelId: string | null;
   setBenchModelId: (id: string | null) => void;
+  onSort: (column: ModelSortColumn) => void;
   closing?: boolean;
 };
 
@@ -33,12 +38,15 @@ export function ModelMenuPopover({
   favoriteCount,
   highlight,
   settings,
+  showMetrics,
+  sort,
   setHighlight,
   selectModel,
   toggleFavorite,
   setOpen,
   benchModelId,
   setBenchModelId,
+  onSort,
   closing,
 }: ModelMenuPopoverProps) {
   const benchModel = benchModelId ? models.find((m) => m.id === benchModelId) : undefined;
@@ -57,11 +65,14 @@ export function ModelMenuPopover({
           favoriteCount={favoriteCount}
           highlight={highlight}
           settings={settings}
+          showMetrics={showMetrics}
+          sort={sort}
           setHighlight={setHighlight}
           selectModel={selectModel}
           toggleFavorite={toggleFavorite}
           setOpen={setOpen}
           openBenchmark={setBenchModelId}
+          onSort={onSort}
         />
       )}
     </div>
@@ -117,6 +128,19 @@ export function ModelMenuTrigger({
   );
 }
 
+/** Favorites-pinned, sorted model list plus the derived sort/visibility flags it depends on. */
+function useSortedModelList(settings: SettingsState) {
+  const favorites = settings.favoriteModels ?? [];
+  const showMetrics = settings.provider === "gateway";
+  const sort = parseModelSort(settings.modelSort);
+  const models = useMemo(() => {
+    const base = showMetrics ? sortModels(settings.models, sort) : settings.models;
+    return orderModels(base, favorites);
+  }, [settings.models, favorites, showMetrics, sort]);
+  const favoriteCount = models.filter((m) => favorites.includes(m.id)).length;
+  return { favorites, showMetrics, sort, models, favoriteCount };
+}
+
 export function useModelMenuState(
   settings: SettingsState,
   controlledOpen?: boolean,
@@ -159,9 +183,7 @@ export function useModelMenuState(
     return () => document.removeEventListener("keydown", onKey, true);
   }, [open, benchModelId]);
 
-  const favorites = settings.favoriteModels ?? [];
-  const models = useMemo(() => orderModels(settings.models, favorites), [settings.models, favorites]);
-  const favoriteCount = models.filter((m) => favorites.includes(m.id)).length;
+  const { favorites, showMetrics, sort, models, favoriteCount } = useSortedModelList(settings);
   const active = settings.models.find((m) => m.id === settings.model);
 
   return {
@@ -177,7 +199,39 @@ export function useModelMenuState(
     active,
     benchModelId,
     setBenchModelId,
+    showMetrics,
+    sort,
   };
+}
+
+/** Mutations the model menu triggers: pick a model, star it, or resort a column. */
+export function useModelMenuActions(
+  settings: SettingsState,
+  setSettings: (s: SettingsState) => void,
+  vscode: VsCodeApi,
+  state: Pick<ReturnType<typeof useModelMenuState>, "favorites" | "sort" | "setOpen">,
+) {
+  const selectModel = (id: string) => {
+    setSettings({ ...settings, model: id });
+    vscode.postMessage({ type: "set_model", model: id });
+    state.setOpen(false);
+  };
+
+  const toggleFavorite = (id: string) => {
+    const next = state.favorites.includes(id)
+      ? state.favorites.filter((f) => f !== id)
+      : [...state.favorites, id];
+    setSettings({ ...settings, favoriteModels: next });
+    vscode.postMessage({ type: "set_favorite_models", models: next });
+  };
+
+  const onSort = (column: ModelSortColumn) => {
+    const next = toggleSort(state.sort, column);
+    setSettings({ ...settings, modelSort: next });
+    vscode.postMessage({ type: "set_model_sort", sort: next });
+  };
+
+  return { selectModel, toggleFavorite, onSort };
 }
 
 export function contextWindowOptions(settings: SettingsState, modelInfo?: ModelInfo): number[] {

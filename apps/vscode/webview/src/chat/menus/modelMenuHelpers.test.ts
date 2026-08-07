@@ -47,6 +47,7 @@ function settings(partial: Partial<SettingsState> = {}): SettingsState {
     providerLabels: {},
     models: [levelsModel],
     favoriteModels: [],
+    modelSort: "cost-desc",
     contextPresets: [32_000, 64_000, 128_000, 200_000, 1_000_000],
     hasApiKey: {},
     account: null,

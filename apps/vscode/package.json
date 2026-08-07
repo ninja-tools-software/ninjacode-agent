@@ -2,7 +2,7 @@
   "name": "ninjacode",
   "displayName": "%ninjacode.displayName%",
   "description": "%ninjacode.description%",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "publisher": "ninjacode",
   "icon": "media/icon.png",
   "license": "GPL-2.0-only",
@@ -488,6 +488,17 @@
             "type": "string"
           },
           "description": "%ninjacode.configuration.favoriteModels.description%"
+        },
+        "ninjacode.modelSort": {
+          "type": "string",
+          "default": "cost-desc",
+          "enum": [
+            "cost-asc",
+            "cost-desc",
+            "perf-asc",
+            "perf-desc"
+          ],
+          "description": "%ninjacode.configuration.modelSort.description%"
         },
         "ninjacode.baseUrl": {
           "type": "string",

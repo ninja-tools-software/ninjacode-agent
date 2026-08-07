@@ -405,7 +405,6 @@ textarea {
   align-items: center;
   gap: 2px;
   padding: 0 0 2px;
-  pointer-events: none;
 }
 .model-menu-metrics-head-spacer {
   flex: 1;
@@ -421,14 +420,46 @@ textarea {
   width: 26px;
   flex-shrink: 0;
 }
-.model-menu-metrics-head .model-menu-metrics-cost,
-.model-menu-metrics-head .model-menu-metrics-perf {
+.model-menu-metrics-sort {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  border: none;
+  background: none;
+  padding: 1px 2px;
+  border-radius: var(--radius-sm);
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
   font-weight: 500;
-  justify-content: flex-end;
+  cursor: pointer;
+  transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+.model-menu-metrics-sort.model-menu-metrics-cost {
+  width: 2.8rem;
+}
+.model-menu-metrics-sort.model-menu-metrics-perf {
+  width: 2.4rem;
+}
+.model-menu-metrics-sort:hover,
+.model-menu-metrics-sort:focus-visible {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+.model-menu-metrics-sort.active {
+  color: var(--fg);
+}
+.model-menu-metrics-sort-chevron {
+  display: inline-flex;
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+.model-menu-metrics-sort.active .model-menu-metrics-sort-chevron,
+.model-menu-metrics-sort:hover .model-menu-metrics-sort-chevron,
+.model-menu-metrics-sort:focus-visible .model-menu-metrics-sort-chevron {
+  opacity: 1;
 }
 .model-menu-metrics {
   display: flex;

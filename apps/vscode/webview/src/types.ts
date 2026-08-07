@@ -8,6 +8,7 @@ export type SettingsState = SettingsPayload;
 export type Mode = SettingsPayload["mode"];
 export type ApprovalMode = SettingsPayload["approvalMode"];
 export type ModelInfo = WireModelInfo;
+export type ModelSortId = SettingsPayload["modelSort"];
 
 export interface VsCodeApi {
   postMessage: (msg: unknown) => void;

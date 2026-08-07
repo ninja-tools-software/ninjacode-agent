@@ -5,6 +5,7 @@ import type {
   ModelInfo,
   ModelLlmStats,
 } from "@ninjacode/providers";
+import type { ModelSortId } from "./protocol.js";
 
 /** Retired Auto router aliases — coalesce to the single virtual `auto` model. */
 const RETIRED_AUTO_IDS = new Set(["auto-balanced", "auto-frontier"]);
@@ -204,4 +205,11 @@ export function normalizeFavoriteModels(favorites: string[], models: ModelInfo[]
     if (live.has(next) && !out.includes(next)) out.push(next);
   }
   return out;
+}
+
+const VALID_MODEL_SORT_IDS: ModelSortId[] = ["cost-asc", "cost-desc", "perf-asc", "perf-desc"];
+
+/** Validates the stored `ninjacode.modelSort` setting, defaulting to cost descending. */
+export function normalizeModelSort(value: unknown): ModelSortId {
+  return VALID_MODEL_SORT_IDS.includes(value as ModelSortId) ? (value as ModelSortId) : "cost-desc";
 }

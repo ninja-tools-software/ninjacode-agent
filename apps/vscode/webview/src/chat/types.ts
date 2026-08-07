@@ -26,7 +26,7 @@ import type {
   UiToolLogItem,
   WebviewToHost,
 } from "../../../src/protocol.js";
-import type { Mode, ModelInfo, SettingsState } from "../types.js";
+import type { Mode, ModelInfo, ModelSortId, SettingsState } from "../types.js";
 
 export type {
   ChangeItem,
@@ -42,6 +42,7 @@ export type {
   Hypothesis,
   Mode,
   ModelInfo,
+  ModelSortId,
   QueuedMessage,
   RefKind,
   SendMode,

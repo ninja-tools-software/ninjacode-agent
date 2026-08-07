@@ -53,6 +53,7 @@
   "ninjacode.configuration.provider.markdownDescription": "Fournisseur LLM actif. Pour les clés API, les crédits et les listes de modèles, ouvrez l’[onglet Paramètres NinjaCode](command:ninjacode.openSettings).",
   "ninjacode.configuration.providers.description": "Fournisseurs LLM configurés disponibles dans le chat",
   "ninjacode.configuration.favoriteModels.description": "Identifiants de modèles épinglés en haut du sélecteur",
+  "ninjacode.configuration.modelSort.description": "Colonne et sens de tri du sélecteur de modèle (colonnes Coût/Perf, uniquement pour le fournisseur gateway)",
   "ninjacode.configuration.localBaseUrl.description": "URL de base du serveur LLM local (compatible OpenAI), p.ex. Ollama, LM Studio, vLLM",
   "ninjacode.configuration.gatewayUrl.description": "URL de base de la passerelle NinjaCode / Pass API",
   "ninjacode.configuration.webUrl.description": "URL du site NinjaCode pour la connexion navigateur (vide = dérivée de l’URL de la passerelle)",

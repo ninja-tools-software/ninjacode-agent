@@ -18,7 +18,11 @@ import {
   resolveChatSide,
 } from "./chat/chatLocation.js";
 import { resolveEffectiveLocale, resolveLocaleSetting } from "./locale.js";
-import { normalizeFavoriteModels, resolveSelectedModel } from "./gatewayModelMap.js";
+import {
+  normalizeFavoriteModels,
+  normalizeModelSort,
+  resolveSelectedModel,
+} from "./gatewayModelMap.js";
 import {
   fetchAccount,
   fetchGatewayModels,
@@ -207,6 +211,7 @@ function assembleSettingsPayload(parts: {
       parts.cfg.get<string[]>("favoriteModels") ?? [],
       parts.models,
     ),
+    modelSort: normalizeModelSort(parts.cfg.get<string>("modelSort")),
     contextPresets: parts.modelInfo ? contextPresetsFor(parts.modelInfo) : [],
     hasApiKey: parts.hasApiKey,
     account,

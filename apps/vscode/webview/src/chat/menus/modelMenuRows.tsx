@@ -8,7 +8,7 @@ import {
   StarIcon,
 } from "../../icons.js";
 import { formatContext } from "../format.js";
-import type { ModelInfo, SettingsState, VsCodeApi } from "../types.js";
+import type { ModelInfo, ModelSortId, SettingsState, VsCodeApi } from "../types.js";
 import {
   budgetOptions,
   capitalizeEffort,
@@ -24,6 +24,7 @@ import {
   ModelRowMetrics,
 } from "./modelMenuMetrics.js";
 import { regionLabel } from "./modelBenchmark.js";
+import type { ModelSortColumn } from "./modelSort.js";
 import { t } from "../../i18n.js";
 
 function RegionFlag({ region }: { region: string }) {
@@ -72,17 +73,19 @@ function ModelCapabilityIcons({ model }: { model: ModelInfo }) {
 function ModelRowActions({
   model,
   favorite,
+  showMetrics,
   onToggleFavorite,
   onOpenBenchmark,
 }: {
   model: ModelInfo;
   favorite: boolean;
+  showMetrics: boolean;
   onToggleFavorite: () => void;
   onOpenBenchmark: () => void;
 }) {
   return (
     <>
-      <ModelRowMetrics model={model} onOpenBenchmark={onOpenBenchmark} />
+      {showMetrics ? <ModelRowMetrics model={model} onOpenBenchmark={onOpenBenchmark} /> : null}
       <button
         type="button"
         className={`model-menu-star${favorite ? " active" : ""}`}
@@ -103,6 +106,7 @@ function ModelRow({
   highlighted,
   favorite,
   showFavoriteDivider,
+  showMetrics,
   onSelect,
   onHover,
   onToggleFavorite,
@@ -113,6 +117,7 @@ function ModelRow({
   highlighted: boolean;
   favorite: boolean;
   showFavoriteDivider: boolean;
+  showMetrics: boolean;
   onSelect: () => void;
   onHover: () => void;
   onToggleFavorite: () => void;
@@ -144,6 +149,7 @@ function ModelRow({
       <ModelRowActions
         model={model}
         favorite={favorite}
+        showMetrics={showMetrics}
         onToggleFavorite={onToggleFavorite}
         onOpenBenchmark={onOpenBenchmark}
       />
@@ -294,26 +300,32 @@ export function ModelMenuListSection({
   favoriteCount,
   highlight,
   settings,
+  showMetrics,
+  sort,
   setHighlight,
   selectModel,
   toggleFavorite,
   setOpen,
   openBenchmark,
+  onSort,
 }: {
   models: ModelInfo[];
   favorites: string[];
   favoriteCount: number;
   highlight: number;
   settings: SettingsState;
+  showMetrics: boolean;
+  sort: ModelSortId;
   setHighlight: (i: number) => void;
   selectModel: (id: string) => void;
   toggleFavorite: (id: string) => void;
   setOpen: (open: boolean) => void;
   openBenchmark: (id: string) => void;
+  onSort: (column: ModelSortColumn) => void;
 }) {
   return (
     <div className="model-menu-section" role="listbox" aria-label={t("Model")}>
-      <ModelMetricsHeader />
+      {showMetrics ? <ModelMetricsHeader sort={sort} onSort={onSort} /> : null}
       {models.map((m, i) => (
         <ModelRow
           key={m.id}
@@ -322,6 +334,7 @@ export function ModelMenuListSection({
           highlighted={i === highlight}
           favorite={favorites.includes(m.id)}
           showFavoriteDivider={favoriteCount > 0 && i === favoriteCount}
+          showMetrics={showMetrics}
           onHover={() => setHighlight(i)}
           onSelect={() => {
             selectModel(m.id);

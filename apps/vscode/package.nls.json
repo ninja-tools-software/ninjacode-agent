@@ -53,6 +53,7 @@
   "ninjacode.configuration.provider.markdownDescription": "Active LLM provider. For API keys, credits and live model lists, open the [NinjaCode Settings tab](command:ninjacode.openSettings).",
   "ninjacode.configuration.providers.description": "Configured LLM providers available in the chat",
   "ninjacode.configuration.favoriteModels.description": "Model ids pinned to the top of the model picker",
+  "ninjacode.configuration.modelSort.description": "Sort column and direction for the model picker's Cost/Perf columns (gateway provider only)",
   "ninjacode.configuration.localBaseUrl.description": "Base URL of the local LLM server (OpenAI-compatible), e.g. Ollama, LM Studio, vLLM",
   "ninjacode.configuration.gatewayUrl.description": "NinjaCode gateway / Pass API base URL",
   "ninjacode.configuration.webUrl.description": "NinjaCode website URL for browser sign-in (blank = derive from gateway URL)",
