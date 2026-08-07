@@ -28,6 +28,7 @@ export type {
   BenchmarkDomain,
   ModelBenchmark,
   ModelInfo,
+  ModelLlmStats,
   ModelPricing,
   ProviderCatalog,
   ReasoningSupport,

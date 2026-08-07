@@ -29,6 +29,17 @@ export interface ArenaScore {
   winRate: number | null;
 }
 
+/**
+ * LLM Stats TrueSkill conservative ratings (μ − 3σ), typically 0–60.
+ * Attribution required when displayed — see gateway `benchmarkAttribution`.
+ */
+export interface ModelLlmStats {
+  score: number | null;
+  reasoningIndex: number | null;
+  codingIndex: number | null;
+  agentIndex: number | null;
+}
+
 /** Per-million-token list price in USD, for BYOK providers that publish one. */
 export interface ModelPricing {
   input: number;
@@ -71,6 +82,8 @@ export interface ModelInfo {
   tags?: string[];
   /** Gateway Pass: Artificial Analysis benchmark indices, null when not synced yet. */
   benchmark?: ModelBenchmark | null;
+  /** Gateway Pass: LLM Stats TrueSkill conservative ratings, null when not synced yet. */
+  llmStats?: ModelLlmStats | null;
   /** Gateway Pass: Design Arena ELO/win-rate per category. */
   arenaScores?: ArenaScore[];
 }

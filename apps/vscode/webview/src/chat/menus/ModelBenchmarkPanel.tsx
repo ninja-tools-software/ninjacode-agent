@@ -2,10 +2,35 @@ import { useState } from "react";
 import { ChartIcon, ChevronLeftIcon } from "../../icons.js";
 import { t } from "../../i18n.js";
 import type { ModelInfo } from "../types.js";
-import { hasArenaScores, hasBenchmarkData, hasIndices } from "./modelBenchmark.js";
-import { BenchmarkArenaView, BenchmarkIndicesView } from "./modelBenchmarkViews.js";
+import {
+  hasArenaScores,
+  hasBenchmarkData,
+  hasIndices,
+  hasLlmStats,
+} from "./modelBenchmark.js";
+import {
+  BenchmarkArenaView,
+  BenchmarkIndicesView,
+  BenchmarkLlmStatsView,
+} from "./modelBenchmarkViews.js";
 
-type BenchTab = "indices" | "arena";
+type BenchTab = "indices" | "llmStats" | "arena";
+
+const TAB_ORDER: BenchTab[] = ["indices", "llmStats", "arena"];
+
+const TAB_LABEL: Record<BenchTab, string> = {
+  indices: "Indices",
+  llmStats: "LLM Stats",
+  arena: "Design Arena",
+};
+
+function availableTabs(model: ModelInfo): BenchTab[] {
+  const tabs: BenchTab[] = [];
+  if (hasIndices(model)) tabs.push("indices");
+  if (hasLlmStats(model)) tabs.push("llmStats");
+  if (hasArenaScores(model)) tabs.push("arena");
+  return tabs;
+}
 
 function BenchmarkEmptyState() {
   return (
@@ -13,58 +38,52 @@ function BenchmarkEmptyState() {
       <ChartIcon size={22} />
       <div className="model-bench-empty-title">{t("No benchmark data yet")}</div>
       <p className="model-bench-empty-hint">
-        {t("This model has not been synced with Artificial Analysis or Design Arena yet.")}
+        {t(
+          "This model has not been synced with Artificial Analysis, LLM Stats, or Design Arena yet.",
+        )}
       </p>
     </div>
   );
 }
 
-function BenchmarkTabs({ tab, onChange }: { tab: BenchTab; onChange: (t: BenchTab) => void }) {
+function BenchmarkTabs({
+  tabs,
+  tab,
+  onChange,
+}: {
+  tabs: BenchTab[];
+  tab: BenchTab;
+  onChange: (t: BenchTab) => void;
+}) {
   return (
     <div className="segmented model-bench-tabs" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === "indices"}
-        className={tab === "indices" ? "active" : ""}
-        onClick={() => onChange("indices")}
-      >
-        {t("Indices")}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === "arena"}
-        className={tab === "arena" ? "active" : ""}
-        onClick={() => onChange("arena")}
-      >
-        {t("Design Arena")}
-      </button>
+      {tabs.map((id) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={tab === id}
+          className={tab === id ? "active" : ""}
+          onClick={() => onChange(id)}
+        >
+          {t(TAB_LABEL[id])}
+        </button>
+      ))}
     </div>
   );
 }
 
-function BenchmarkContent({
-  model,
-  tab,
-  showTabs,
-  indices,
-  arena,
-}: {
-  model: ModelInfo;
-  tab: BenchTab;
-  showTabs: boolean;
-  indices: boolean;
-  arena: boolean;
-}) {
-  const showIndices = showTabs ? tab === "indices" : indices;
-  const showArena = showTabs ? tab === "arena" : arena;
-  return (
-    <>
-      {showIndices && model.benchmark ? <BenchmarkIndicesView benchmark={model.benchmark} /> : null}
-      {showArena && model.arenaScores ? <BenchmarkArenaView scores={model.arenaScores} /> : null}
-    </>
-  );
+function BenchmarkContent({ model, tab }: { model: ModelInfo; tab: BenchTab }) {
+  if (tab === "indices" && model.benchmark) {
+    return <BenchmarkIndicesView benchmark={model.benchmark} />;
+  }
+  if (tab === "llmStats" && model.llmStats) {
+    return <BenchmarkLlmStatsView stats={model.llmStats} />;
+  }
+  if (tab === "arena" && model.arenaScores) {
+    return <BenchmarkArenaView scores={model.arenaScores} />;
+  }
+  return null;
 }
 
 export function ModelBenchmarkPanel({
@@ -76,11 +95,11 @@ export function ModelBenchmarkPanel({
   attribution?: string | null;
   onBack: () => void;
 }) {
-  const indices = hasIndices(model);
-  const arena = hasArenaScores(model);
-  const showTabs = indices && arena;
-  const [tab, setTab] = useState<BenchTab>(indices ? "indices" : "arena");
+  const tabs = availableTabs(model);
+  const showTabs = tabs.length >= 2;
+  const [tab, setTab] = useState<BenchTab>(() => tabs[0] ?? TAB_ORDER[0]);
   const hasData = hasBenchmarkData(model);
+  const activeTab = tabs.includes(tab) ? tab : (tabs[0] ?? TAB_ORDER[0]);
 
   return (
     <div
@@ -105,14 +124,8 @@ export function ModelBenchmarkPanel({
         <BenchmarkEmptyState />
       ) : (
         <>
-          {showTabs ? <BenchmarkTabs tab={tab} onChange={setTab} /> : null}
-          <BenchmarkContent
-            model={model}
-            tab={tab}
-            showTabs={showTabs}
-            indices={indices}
-            arena={arena}
-          />
+          {showTabs ? <BenchmarkTabs tabs={tabs} tab={activeTab} onChange={setTab} /> : null}
+          <BenchmarkContent model={model} tab={activeTab} />
           {attribution ? <p className="model-bench-attribution">{attribution}</p> : null}
         </>
       )}

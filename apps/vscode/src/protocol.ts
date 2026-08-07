@@ -17,6 +17,7 @@ import type {
 import type {
   ArenaScore,
   ModelBenchmark,
+  ModelLlmStats,
   ProviderKind,
   ReasoningEffort,
 } from "@ninjacode/providers";
@@ -320,6 +321,8 @@ export interface WireModelInfo {
   costIndex?: number | null;
   /** Artificial Analysis indices; null when not synced yet. */
   benchmark?: ModelBenchmark | null;
+  /** LLM Stats TrueSkill conservative ratings; null when not synced yet. */
+  llmStats?: ModelLlmStats | null;
   /** Design Arena ELO/win-rate per category. */
   arenaScores?: ArenaScore[];
 }
@@ -380,7 +383,7 @@ export interface SettingsPayload {
   usage: UsageRowPayload[];
   gatewayConfigured: boolean;
   /**
-   * Contractual attribution for Artificial Analysis / Design Arena data.
+   * Contractual attribution for Artificial Analysis / Design Arena / LLM Stats data.
    * Displayed verbatim in the benchmark panel when a model has data.
    */
   benchmarkAttribution?: string | null;

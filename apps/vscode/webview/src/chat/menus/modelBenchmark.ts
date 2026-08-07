@@ -1,4 +1,4 @@
-import type { BenchmarkDomain, ModelBenchmark } from "@ninjacode/providers";
+import type { BenchmarkDomain, ModelBenchmark, ModelLlmStats } from "@ninjacode/providers";
 import type { ModelInfo } from "../types.js";
 
 type ScoreTone = "accent" | "warn" | "danger";
@@ -9,13 +9,30 @@ type IndexRow = {
   value: number | null;
 };
 
-/** True when the model has Artificial Analysis indices or Design Arena scores. */
+type LlmStatsRow = {
+  key: "score" | "reasoning" | "coding" | "agent";
+  label: string;
+  value: number | null;
+};
+
+/** LLM Stats TrueSkill conservative ratings scale (admin / gateway contract). */
+export const LLM_STATS_MAX = 60;
+
+/** True when the model has AA indices, LLM Stats, or Design Arena scores. */
 export function hasBenchmarkData(model: ModelInfo): boolean {
-  return model.benchmark != null || (model.arenaScores?.length ?? 0) > 0;
+  return (
+    model.benchmark != null ||
+    model.llmStats != null ||
+    (model.arenaScores?.length ?? 0) > 0
+  );
 }
 
 export function hasIndices(model: ModelInfo): boolean {
   return model.benchmark != null;
+}
+
+export function hasLlmStats(model: ModelInfo): boolean {
+  return model.llmStats != null;
 }
 
 export function hasArenaScores(model: ModelInfo): boolean {
@@ -31,11 +48,32 @@ export function indexRows(benchmark: ModelBenchmark): IndexRow[] {
   ];
 }
 
-/** Color band for a 0–100 index: low → danger, mid → warn, high → accent. */
-export function scoreTone(value: number): ScoreTone {
-  if (value < 40) return "danger";
-  if (value < 70) return "warn";
+/** Four metric rows for the LLM Stats tab (labels are i18n keys). */
+export function llmStatsRows(stats: ModelLlmStats): LlmStatsRow[] {
+  return [
+    { key: "score", label: "Overall", value: stats.score },
+    { key: "reasoning", label: "Reasoning", value: stats.reasoningIndex },
+    { key: "coding", label: "Coding", value: stats.codingIndex },
+    { key: "agent", label: "Agent", value: stats.agentIndex },
+  ];
+}
+
+/**
+ * Color band for a score on a given scale (default 0–100).
+ * Thresholds are proportional: low < 40%, mid < 70%, else high.
+ */
+export function scoreTone(value: number, max = 100): ScoreTone {
+  const scale = max > 0 ? max : 100;
+  const pct = (value / scale) * 100;
+  if (pct < 40) return "danger";
+  if (pct < 70) return "warn";
   return "accent";
+}
+
+/** Bar fill width as a percent of `max` (clamped 0–100). */
+export function gaugeBarWidth(value: number, max = 100): number {
+  if (max <= 0) return 0;
+  return Math.max(0, Math.min(100, (value / max) * 100));
 }
 
 /** English label (i18n key) for a benchmark domain chip. */

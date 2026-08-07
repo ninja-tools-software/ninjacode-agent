@@ -1,6 +1,6 @@
 {
   "name": "ninjacode-agent",
-  "version": "0.2.16",
+  "version": "0.2.18",
   "private": true,
   "description": "Open source agentic coding agent for VS Code and multi-IDE via ACP",
   "license": "GPL-2.0-only",

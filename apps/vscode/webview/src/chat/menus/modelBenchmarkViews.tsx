@@ -1,15 +1,26 @@
-import type { ArenaScore, ModelBenchmark } from "@ninjacode/providers";
+import type { ArenaScore, ModelBenchmark, ModelLlmStats } from "@ninjacode/providers";
 import { t } from "../../i18n.js";
 import {
   arenaBarWidth,
   arenaCategoryLabel,
   domainLabel,
   formatWinRate,
+  gaugeBarWidth,
   indexRows,
+  LLM_STATS_MAX,
+  llmStatsRows,
   scoreTone,
 } from "./modelBenchmark.js";
 
-function IndexGauge({ label, value }: { label: string; value: number | null }) {
+function IndexGauge({
+  label,
+  value,
+  max = 100,
+}: {
+  label: string;
+  value: number | null;
+  max?: number;
+}) {
   if (value === null) {
     return (
       <div className="model-bench-gauge">
@@ -23,7 +34,8 @@ function IndexGauge({ label, value }: { label: string; value: number | null }) {
       </div>
     );
   }
-  const tone = scoreTone(value);
+  const tone = scoreTone(value, max);
+  const width = gaugeBarWidth(value, max);
   return (
     <div className="model-bench-gauge">
       <div className="model-bench-gauge-top">
@@ -31,10 +43,7 @@ function IndexGauge({ label, value }: { label: string; value: number | null }) {
         <span className={`model-bench-gauge-value tone-${tone}`}>{Math.round(value)}</span>
       </div>
       <div className="model-bench-gauge-bar">
-        <div
-          className={`model-bench-gauge-fill tone-${tone}`}
-          style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
-        />
+        <div className={`model-bench-gauge-fill tone-${tone}`} style={{ width: `${width}%` }} />
       </div>
     </div>
   );
@@ -74,6 +83,19 @@ export function BenchmarkIndicesView({ benchmark }: { benchmark: ModelBenchmark 
       </div>
       <DomainChips title="Strengths" domains={benchmark.strengths} tone="success" />
       <DomainChips title="Weaknesses" domains={benchmark.weaknesses} tone="warn" />
+    </div>
+  );
+}
+
+export function BenchmarkLlmStatsView({ stats }: { stats: ModelLlmStats }) {
+  return (
+    <div className="model-bench-body">
+      <div className="model-bench-scale">{t("Scale 0–60")}</div>
+      <div className="model-bench-gauges">
+        {llmStatsRows(stats).map((row) => (
+          <IndexGauge key={row.key} label={row.label} value={row.value} max={LLM_STATS_MAX} />
+        ))}
+      </div>
     </div>
   );
 }

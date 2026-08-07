@@ -5,6 +5,7 @@ import {
   normalizeArenaScores,
   normalizeBenchmark,
   normalizeFavoriteModels,
+  normalizeLlmStats,
   resolveSelectedModel,
 } from "./gatewayModelMap.js";
 
@@ -83,6 +84,7 @@ describe("mapGatewayModel", () => {
       tags: [],
       costIndex: 5,
       benchmark: null,
+      llmStats: null,
       arenaScores: [],
     });
   });
@@ -117,6 +119,27 @@ describe("mapGatewayModel", () => {
     ]);
   });
 
+  it("passes through normalized llmStats from the wire", () => {
+    const mapped = mapGatewayModel(
+      {
+        id: "gpt-5",
+        llmStats: {
+          score: 52.3,
+          reasoningIndex: 48,
+          codingIndex: 49.6,
+          agentIndex: 43.7,
+        },
+      },
+      known,
+    );
+    expect(mapped.llmStats).toEqual({
+      score: 52.3,
+      reasoningIndex: 48,
+      codingIndex: 49.6,
+      agentIndex: 43.7,
+    });
+  });
+
   it("attaches benchmark data on remote-only models", () => {
     const mapped = mapGatewayModel(
       {
@@ -134,6 +157,7 @@ describe("mapGatewayModel", () => {
       undefined,
     );
     expect(mapped.benchmark?.intelligenceIndex).toBe(50);
+    expect(mapped.llmStats).toBeNull();
     expect(mapped.arenaScores).toEqual([]);
   });
 });
@@ -169,6 +193,38 @@ describe("normalizeBenchmark", () => {
       agenticIndex: 55.5,
       strengths: ["intelligence"],
       weaknesses: ["coding"],
+    });
+  });
+});
+
+describe("normalizeLlmStats", () => {
+  it("returns null for absent or empty payloads", () => {
+    expect(normalizeLlmStats(undefined)).toBeNull();
+    expect(normalizeLlmStats(null)).toBeNull();
+    expect(normalizeLlmStats({})).toBeNull();
+    expect(
+      normalizeLlmStats({
+        score: null,
+        reasoningIndex: null,
+        codingIndex: null,
+        agentIndex: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("clamps out-of-range values to null", () => {
+    expect(
+      normalizeLlmStats({
+        score: 61,
+        reasoningIndex: -1,
+        codingIndex: 55.5,
+        agentIndex: 40,
+      }),
+    ).toEqual({
+      score: null,
+      reasoningIndex: null,
+      codingIndex: 55.5,
+      agentIndex: 40,
     });
   });
 });

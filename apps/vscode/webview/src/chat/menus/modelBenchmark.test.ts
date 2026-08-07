@@ -5,9 +5,11 @@ import {
   arenaCategoryLabel,
   formatPerformanceScore,
   formatWinRate,
+  gaugeBarWidth,
   hasArenaScores,
   hasBenchmarkData,
   hasIndices,
+  hasLlmStats,
   performanceScore,
   performanceScoreColor,
   regionLabel,
@@ -22,9 +24,11 @@ const base: ModelInfo = {
 };
 
 describe("hasBenchmarkData", () => {
-  it("is false when both datasets are empty", () => {
+  it("is false when all datasets are empty", () => {
     expect(hasBenchmarkData(base)).toBe(false);
-    expect(hasBenchmarkData({ ...base, benchmark: null, arenaScores: [] })).toBe(false);
+    expect(
+      hasBenchmarkData({ ...base, benchmark: null, llmStats: null, arenaScores: [] }),
+    ).toBe(false);
   });
 
   it("is true when indices exist", () => {
@@ -43,6 +47,32 @@ describe("hasBenchmarkData", () => {
     expect(hasIndices({ ...base, benchmark: null })).toBe(false);
   });
 
+  it("is true when llmStats exist", () => {
+    expect(
+      hasLlmStats({
+        ...base,
+        llmStats: {
+          score: 50,
+          reasoningIndex: null,
+          codingIndex: null,
+          agentIndex: null,
+        },
+      }),
+    ).toBe(true);
+    expect(hasLlmStats({ ...base, llmStats: null })).toBe(false);
+    expect(
+      hasBenchmarkData({
+        ...base,
+        llmStats: {
+          score: 50,
+          reasoningIndex: null,
+          codingIndex: null,
+          agentIndex: null,
+        },
+      }),
+    ).toBe(true);
+  });
+
   it("is true when arena scores exist", () => {
     expect(
       hasArenaScores({
@@ -55,13 +85,28 @@ describe("hasBenchmarkData", () => {
 });
 
 describe("scoreTone", () => {
-  it("bands low / mid / high scores", () => {
+  it("bands low / mid / high scores on a 0–100 scale", () => {
     expect(scoreTone(10)).toBe("danger");
     expect(scoreTone(39.9)).toBe("danger");
     expect(scoreTone(40)).toBe("warn");
     expect(scoreTone(69.9)).toBe("warn");
     expect(scoreTone(70)).toBe("accent");
     expect(scoreTone(100)).toBe("accent");
+  });
+
+  it("scales bands proportionally when max is not 100", () => {
+    expect(scoreTone(20, 60)).toBe("danger");
+    expect(scoreTone(24, 60)).toBe("warn");
+    expect(scoreTone(42, 60)).toBe("accent");
+  });
+});
+
+describe("gaugeBarWidth", () => {
+  it("scales value against max", () => {
+    expect(gaugeBarWidth(30, 60)).toBe(50);
+    expect(gaugeBarWidth(60, 60)).toBe(100);
+    expect(gaugeBarWidth(0, 60)).toBe(0);
+    expect(gaugeBarWidth(10, 0)).toBe(0);
   });
 });
 

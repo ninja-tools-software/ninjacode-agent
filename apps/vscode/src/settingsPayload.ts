@@ -126,6 +126,7 @@ function toWireModel(m: ModelInfo): WireModelInfo {
     tags: m.tags,
     costIndex: m.costIndex,
     benchmark: m.benchmark,
+    llmStats: m.llmStats,
     arenaScores: m.arenaScores,
   };
 }

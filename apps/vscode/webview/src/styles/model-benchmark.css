@@ -157,6 +157,12 @@
   padding: 2px 4px 0;
 }
 
+.model-bench-scale {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
 .model-bench-gauges {
   display: flex;
   flex-direction: column;

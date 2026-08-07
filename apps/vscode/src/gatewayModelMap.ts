@@ -3,12 +3,16 @@ import type {
   BenchmarkDomain,
   ModelBenchmark,
   ModelInfo,
+  ModelLlmStats,
 } from "@ninjacode/providers";
 
 /** Retired Auto router aliases — coalesce to the single virtual `auto` model. */
 const RETIRED_AUTO_IDS = new Set(["auto-balanced", "auto-frontier"]);
 
 const BENCHMARK_DOMAINS = new Set<BenchmarkDomain>(["intelligence", "coding", "agentic"]);
+
+/** LLM Stats TrueSkill conservative ratings top out around the mid-50s. */
+const LLM_STATS_MAX = 60;
 
 export interface GatewayModelWire {
   id: string;
@@ -23,12 +27,19 @@ export interface GatewayModelWire {
   costIndex?: number | null;
   /** Untrusted wire payload — normalized before entering ModelInfo. */
   benchmark?: unknown;
+  llmStats?: unknown;
   arenaScores?: unknown;
 }
 
 function clampIndex(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   if (value < 0 || value > 100) return null;
+  return value;
+}
+
+function clampLlmStatsIndex(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value < 0 || value > LLM_STATS_MAX) return null;
   return value;
 }
 
@@ -59,6 +70,25 @@ export function normalizeBenchmark(raw: unknown): ModelBenchmark | null {
   return { intelligenceIndex, codingIndex, agenticIndex, strengths, weaknesses };
 }
 
+/** Normalize LLM Stats ratings; null when absent or empty of usable data. */
+export function normalizeLlmStats(raw: unknown): ModelLlmStats | null {
+  if (raw === null || raw === undefined || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const score = clampLlmStatsIndex(obj.score);
+  const reasoningIndex = clampLlmStatsIndex(obj.reasoningIndex);
+  const codingIndex = clampLlmStatsIndex(obj.codingIndex);
+  const agentIndex = clampLlmStatsIndex(obj.agentIndex);
+  if (
+    score === null &&
+    reasoningIndex === null &&
+    codingIndex === null &&
+    agentIndex === null
+  ) {
+    return null;
+  }
+  return { score, reasoningIndex, codingIndex, agentIndex };
+}
+
 /** Normalize Design Arena scores; drops entries without a numeric elo. */
 export function normalizeArenaScores(raw: unknown): ArenaScore[] {
   if (!Array.isArray(raw)) return [];
@@ -82,6 +112,7 @@ type WireExtras = {
   catalogSlug?: string;
   costIndex: number | null;
   benchmark: ModelBenchmark | null;
+  llmStats: ModelLlmStats | null;
   arenaScores: ArenaScore[];
 };
 
@@ -90,6 +121,7 @@ function wireExtras(m: GatewayModelWire, known: ModelInfo | undefined, catalogSl
     catalogSlug,
     costIndex: m.costIndex !== undefined ? m.costIndex : (known?.costIndex ?? null),
     benchmark: normalizeBenchmark(m.benchmark),
+    llmStats: normalizeLlmStats(m.llmStats),
     arenaScores: normalizeArenaScores(m.arenaScores),
   };
 }
@@ -106,6 +138,7 @@ function remoteOnlyModel(m: GatewayModelWire, extras: WireExtras): ModelInfo {
     tags: m.tags ?? [],
     costIndex: extras.costIndex,
     benchmark: extras.benchmark,
+    llmStats: extras.llmStats,
     arenaScores: extras.arenaScores,
   };
 }
@@ -125,6 +158,7 @@ function mergeKnownModel(m: GatewayModelWire, known: ModelInfo, extras: WireExtr
     tags: m.tags ?? known.tags,
     costIndex: extras.costIndex,
     benchmark: extras.benchmark,
+    llmStats: extras.llmStats,
     arenaScores: extras.arenaScores,
     price: undefined,
   };
