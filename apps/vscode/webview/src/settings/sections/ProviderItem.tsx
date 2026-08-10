@@ -17,7 +17,7 @@ function ProviderUrlField({
 }) {
   const meta =
     kind === "gateway"
-      ? { label: t("Gateway URL"), placeholder: "http://127.0.0.1:8788" }
+      ? { label: t("Gateway URL"), placeholder: "https://gateway.ninja-code.ai" }
       : kind === "local"
         ? { label: t("Local server URL"), placeholder: "http://localhost:11434/v1" }
         : { label: t("Base URL"), placeholder: "https://api.example.com/v1" };

@@ -179,13 +179,21 @@ export class SettingsService {
 
   /** Exchange a one-time VS Code auth code for an API key, then sign in. */
   async signInWithAuthCode(code: string): Promise<void> {
-    const res = await fetch(`${this.gatewayBase()}/v1/auth/vscode/redeem`, {
+    const base = this.gatewayBase();
+    const res = await fetch(`${base}/v1/auth/vscode/redeem`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ code }),
     });
     if (!res.ok) {
-      throw new Error(`Auth code rejected (${res.status})`);
+      let detail = "";
+      try {
+        const body = (await res.json()) as { error?: string };
+        if (body.error) detail = `: ${body.error}`;
+      } catch {
+        /* ignore non-JSON error bodies */
+      }
+      throw new Error(`Auth code rejected (${res.status})${detail} via ${base}`);
     }
     const data = (await res.json()) as { apiKey?: string };
     if (!data.apiKey) throw new Error("Auth code response missing apiKey");

@@ -41,7 +41,7 @@ export function resolveWebUrl(cfg: vscode.WorkspaceConfiguration): string {
   return deriveWebUrlFromGateway(resolveGatewayBase(cfg));
 }
 
-/** Pure helper — gateway `api.*` → apex; localhost → :4200. */
+/** Pure helper — gateway `api.*` → apex; `gateway.*` → `www.*`; localhost → :4200. */
 export function deriveWebUrlFromGateway(gatewayBase: string): string {
   try {
     const u = new URL(gatewayBase);
@@ -53,9 +53,13 @@ export function deriveWebUrlFromGateway(gatewayBase: string): string {
       u.hostname = u.hostname.slice(4);
       return u.origin;
     }
+    if (u.hostname.startsWith("gateway.")) {
+      u.hostname = `www.${u.hostname.slice("gateway.".length)}`;
+      return u.origin;
+    }
     return u.origin;
   } catch {
-    return "https://ninjacode.dev";
+    return "https://www.ninja-code.ai";
   }
 }
 

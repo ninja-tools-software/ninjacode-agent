@@ -7,11 +7,15 @@ describe("deriveWebUrlFromGateway", () => {
     expect(deriveWebUrlFromGateway("http://localhost:8788")).toBe("http://localhost:4200");
   });
 
-  it("strips api. subdomain in production", () => {
+  it("strips api. subdomain (staging)", () => {
     expect(deriveWebUrlFromGateway("https://api.ninjacode.dev")).toBe("https://ninjacode.dev");
   });
 
+  it("maps gateway. subdomain to www.", () => {
+    expect(deriveWebUrlFromGateway("https://gateway.ninja-code.ai")).toBe("https://www.ninja-code.ai");
+  });
+
   it("falls back for invalid URLs", () => {
-    expect(deriveWebUrlFromGateway("not-a-url")).toBe("https://ninjacode.dev");
+    expect(deriveWebUrlFromGateway("not-a-url")).toBe("https://www.ninja-code.ai");
   });
 });

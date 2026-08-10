@@ -24,9 +24,9 @@ function runAction(action: GatewayErrorAction, vscode: VsCodeApi): void {
       vscode.postMessage({
         type: "open_ref",
         ref: {
-          id: "url:https://ninjacode.dev",
+          id: "url:https://www.ninja-code.ai",
           kind: "url",
-          target: "https://ninjacode.dev",
+          target: "https://www.ninja-code.ai",
           label: "NinjaCode",
           status: "resolved",
         },

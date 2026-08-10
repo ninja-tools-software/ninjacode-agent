@@ -15,7 +15,7 @@ export class NinjaCodeGatewayProvider extends OpenAICompatibleProvider implement
   constructor(config: GatewayConfig) {
     super({
       apiKey: config.apiKey,
-      baseUrl: config.baseUrl ?? "https://api.ninjacode.dev/v1",
+      baseUrl: config.baseUrl ?? "https://gateway.ninja-code.ai/v1",
       model: config.model ?? "auto",
       name: "ninjacode-gateway",
       headers: {

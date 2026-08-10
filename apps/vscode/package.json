@@ -2,7 +2,7 @@
   "name": "ninjacode",
   "displayName": "%ninjacode.displayName%",
   "description": "%ninjacode.description%",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "publisher": "ninjacode",
   "icon": "media/icon.png",
   "license": "GPL-2.0-only",
@@ -511,12 +511,12 @@
         },
         "ninjacode.gatewayUrl": {
           "type": "string",
-          "default": "https://api.ninjacode.dev",
+          "default": "https://gateway.ninja-code.ai",
           "description": "%ninjacode.configuration.gatewayUrl.description%"
         },
         "ninjacode.webUrl": {
           "type": "string",
-          "default": "",
+          "default": "https://www.ninja-code.ai",
           "description": "%ninjacode.configuration.webUrl.description%"
         },
         "ninjacode.mode": {
