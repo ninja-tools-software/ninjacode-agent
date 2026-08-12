@@ -3,6 +3,7 @@ import type { Tool, ToolResult } from "./types.js";
 import { ToolError } from "./types.js";
 import { truncateForModel } from "./output.js";
 import { shellGrantScopes } from "./shellScope.js";
+import { classifyShellDanger } from "./shellDanger.js";
 import { resolveInWorkspace } from "./paths.js";
 
 interface PersistentShell {
@@ -104,8 +105,15 @@ export const shellTool: Tool = {
   target(args) {
     return String(args.command ?? "");
   },
+  riskFor(args) {
+    return classifyShellDanger(String(args.command ?? "")) ? "destructive" : "shell";
+  },
   grantScopes(args) {
-    return shellGrantScopes(String(args.command ?? ""));
+    const command = String(args.command ?? "");
+    // A destructive command must never collapse into a command-type grant:
+    // approving `git status` once would otherwise cover `git push --force`.
+    if (classifyShellDanger(command)) return [];
+    return shellGrantScopes(command);
   },
   async execute(ctx, args): Promise<ToolResult> {
     const command = String(args.command ?? "");

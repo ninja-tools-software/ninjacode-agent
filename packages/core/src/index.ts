@@ -63,6 +63,9 @@ export type { ToolErrorCategory, ClassifiedToolError } from "./toolErrors.js";
 export { loadVerifyConfig, runVerification } from "./verify.js";
 export type { VerifyConfig, VerificationResult, RunVerificationOptions } from "./verify.js";
 
+export { scaffoldVerifyConfig } from "./verifyInfer.js";
+export type { ScaffoldVerifyResult } from "./verifyInfer.js";
+
 export {
   McpClient,
 } from "./mcpClient.js";

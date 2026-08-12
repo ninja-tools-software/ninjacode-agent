@@ -14,6 +14,7 @@ import {
   registerChatView,
   registerEditCommands,
   registerEditorSurfaces,
+  registerInitVerifyCommand,
   registerNativeChatIntegrations,
   registerSessionCommands,
 } from "./extensionCommands.js";
@@ -119,6 +120,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const checkpointsTree = registerSharedInfrastructure(context, provider);
   registerChatToggle(context, provider);
   registerApiKeyCommand(context);
+  registerInitVerifyCommand(context);
   registerSessionCommands(context, provider);
   registerEditCommands(context, provider, checkpointsTree);
   registerEditorSurfaces(context, provider);

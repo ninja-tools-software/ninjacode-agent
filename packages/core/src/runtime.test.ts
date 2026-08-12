@@ -18,7 +18,7 @@ describe("buildAgentRuntime", () => {
     expect(agent).toBeDefined();
   });
 
-  it("allowAllTools pre-approves every registered tool", async () => {
+  it("allowAllTools pre-approves every tool except irreversible calls", async () => {
     const provider = new MockProvider([{ text: "ok" }]);
     const runtime = await buildAgentRuntime({
       workspaceRoot: "/tmp/ws",
@@ -36,12 +36,12 @@ describe("buildAgentRuntime", () => {
       },
     });
 
-    const names = runtime.tools.names();
-    for (const name of names) {
+    for (const name of runtime.tools.names()) {
       const tool = runtime.tools.get(name)!;
       const decision = runtime.permissions.evaluate(tool, "any-target");
       expect(decision.allowed).toBe(true);
-      expect(decision.needsApproval).toBe(false);
+      // Destructive tools still reach the approval handler — the host decides.
+      expect(decision.needsApproval).toBe(tool.risk === "destructive");
     }
   });
 

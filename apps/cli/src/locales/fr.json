@@ -1,5 +1,8 @@
 {
-  "cli.usage": "CLI NinjaCode — harness de coding agentique\n\nUsage :\n  ninjacode run <tâche> [options]\n  ninjacode demo\n  ninjacode eval\n\nOptions :\n  --workspace <chemin> Racine du workspace (défaut : cwd)\n  --provider <kind>    anthropic|openai|deepseek|openrouter|moonshot|glm|mistral|mammouth|openai-compatible|mock|echo|gateway\n  --model <nom>        Identifiant du modèle\n  --api-key <clé>      Clé API (ou env ANTHROPIC_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY)\n  --base-url <url>     URL de base OpenAI-compatible personnalisée\n  --mode <mode>        agent|plan|ask|debug (défaut : agent)\n  --approval <mode>    strict|balanced|autonomous (défaut : balanced)\n  --lang <locale>      en|fr (défaut : auto via LANG / NINJACODE_LANG)\n  --yes                Approuver automatiquement tous les outils\n  --no-checkpoints     Désactiver les checkpoints shadow-git\n",
+  "cli.usage": "CLI NinjaCode — harness de coding agentique\n\nUsage :\n  ninjacode run <tâche> [options]\n  ninjacode demo\n  ninjacode eval\n  ninjacode init-verify [--workspace <chemin>]\n\nOptions :\n  --workspace <chemin> Racine du workspace (défaut : cwd)\n  --provider <kind>    anthropic|openai|deepseek|openrouter|moonshot|glm|mistral|mammouth|openai-compatible|mock|echo|gateway\n  --model <nom>        Identifiant du modèle\n  --api-key <clé>      Clé API (ou env ANTHROPIC_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY)\n  --base-url <url>     URL de base OpenAI-compatible personnalisée\n  --mode <mode>        agent|plan|ask|debug (défaut : agent)\n  --approval <mode>    strict|balanced|autonomous (défaut : balanced)\n  --lang <locale>      en|fr (défaut : auto via LANG / NINJACODE_LANG)\n  --yes                Approuver automatiquement tous les outils\n  --no-checkpoints     Désactiver les checkpoints shadow-git\n",
+  "cli.verifyCreated": "✓ Config de vérification créée : {file}\n  Commandes : {commands}\n  Modifiez-la à votre guise — elle s’exécute avant chaque fin de tâche ayant modifié un fichier.",
+  "cli.verifyExists": "La config de vérification existe déjà : {file}",
+  "cli.verifyEmpty": "✓ Créé {file}, mais aucune commande n’a pu être déduite de ce workspace.\n  Ajoutez-y vos commandes de validation (lint, types, tests).",
   "cli.invalidMode": "Mode --mode invalide : {mode}. Utilisez agent|plan|ask|debug.",
   "cli.missingApiKey": "Clé API manquante. Passez --api-key ou définissez la variable d'environnement du fournisseur.",
   "cli.runHeader": "NinjaCode · provider={provider} · mode={mode} · workspace={workspace}",
@@ -12,6 +15,7 @@
   "cli.reason": "   Raison : {reason}",
   "cli.pressEnter": "Appuyez sur Entrée une fois terminé (commentaire optionnel) : ",
   "cli.approvePrompt": "\n⚠️  Approuver {tool} ({target}) ? [{reason}]\n  [y] oui / [n] non / [a] toujours pour cet outil : ",
+  "cli.approveDangerPrompt": "\n⛔ IRRÉVERSIBLE — approuver {tool} ({target}) ? [{reason}]\n  Cette action est définitive. Tapez y pour confirmer, toute autre saisie annule : ",
   "cli.gateway.credits": "⚠ Crédits épuisés — votre solde est vide pour ce cycle.",
   "cli.gateway.creditsPartial": "⚠ Réponse interrompue — crédits épuisés (le texte ci-dessus est incomplet).",
   "cli.gateway.creditsRenew": "  Renouvellement le {date} · {url}",

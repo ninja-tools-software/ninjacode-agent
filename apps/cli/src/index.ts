@@ -52,6 +52,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (cmd === "init-verify") {
+    const { initVerify } = await import("./initVerify.js");
+    await initVerify(flags);
+    return;
+  }
+
   if (cmd === "eval") {
     const { runEvals } = await import("./eval.js");
     await runEvals();

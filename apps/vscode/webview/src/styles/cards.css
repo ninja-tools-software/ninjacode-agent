@@ -57,6 +57,9 @@
   transition: opacity var(--dur-med) var(--ease-out);
 }
 .approval.resolved { opacity: 0.55; }
+/* Irreversible calls: the card itself carries the warning, not just the copy. */
+.approval.irreversible { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
+.approval-body p.approval-warning { color: var(--danger); font-weight: 600; }
 .approval-body p { margin: 6px 0; color: var(--muted); }
 .approval-body code { font-size: 11px; word-break: break-all; }
 .approval-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }

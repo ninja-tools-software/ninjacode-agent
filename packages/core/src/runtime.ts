@@ -11,7 +11,11 @@ export interface BuildAgentRuntimeOptions {
   workspaceRoot: string;
   provider: LlmProvider;
   approvalMode?: ApprovalMode;
-  /** Pre-approve every tool in the registry (after configureTools). */
+  /**
+   * Pre-approve every tool in the registry (after configureTools). Destructive
+   * calls still reach `onApproval` — hosts that want them unattended answer yes
+   * there.
+   */
   allowAllTools?: boolean;
   /** Persistent grants applied after the permission engine is created. */
   grants?: ReadonlyArray<{ tool: string; target: string }>;

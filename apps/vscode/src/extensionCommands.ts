@@ -1,3 +1,4 @@
+import path from "node:path";
 import * as vscode from "vscode";
 import type { ProviderKind } from "@ninjacode/providers";
 import type { ChatViewProvider } from "./chatViewProvider.js";
@@ -63,6 +64,35 @@ export function registerEditCommands(
         const { showProposedDiff } = await import("./proposedEdits.js");
         await showProposedDiff(p);
       }
+    }),
+  );
+}
+
+/**
+ * Scaffold `.ninjacode/verify.json` from the workspace shape. Completion
+ * verification only ever runs commands the user can see and edit, so the file
+ * is written and opened rather than applied silently.
+ */
+export function registerInitVerifyCommand(context: vscode.ExtensionContext): void {
+  context.subscriptions.push(
+    vscode.commands.registerCommand("ninjacode.initVerifyConfig", async () => {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!root) {
+        vscode.window.showWarningMessage(vscode.l10n.t("Open a folder first."));
+        return;
+      }
+      const { scaffoldVerifyConfig } = await import("@ninjacode/core");
+      const result = await scaffoldVerifyConfig(root, path.join(root, ".ninjacode"));
+      if (result.status === "created" && result.commands.length === 0) {
+        vscode.window.showInformationMessage(
+          vscode.l10n.t("No verification command could be inferred — add your own."),
+        );
+      } else if (result.status === "created") {
+        vscode.window.showInformationMessage(
+          vscode.l10n.t("Verification config created: {0}", result.commands.join(", ")),
+        );
+      }
+      await vscode.window.showTextDocument(vscode.Uri.file(result.file));
     }),
   );
 }

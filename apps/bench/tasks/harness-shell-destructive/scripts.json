@@ -1,0 +1,33 @@
+[
+  {
+    "text": "Clearing everything out (must be gated: recursive delete)",
+    "toolCalls": [
+      {
+        "id": "d1",
+        "name": "run_shell",
+        "arguments": { "command": "rm -rf keep.txt scratch.txt" }
+      }
+    ]
+  },
+  {
+    "text": "Narrowing to the scratch file only",
+    "toolCalls": [
+      {
+        "id": "d2",
+        "name": "run_shell",
+        "arguments": { "command": "rm scratch.txt" }
+      }
+    ]
+  },
+  {
+    "text": "Recording the result",
+    "toolCalls": [
+      {
+        "id": "d3",
+        "name": "write_file",
+        "arguments": { "path": "RESULT.txt", "content": "OK\n" }
+      }
+    ]
+  },
+  { "text": "Destructive command was gated; scratch file removed safely." }
+]

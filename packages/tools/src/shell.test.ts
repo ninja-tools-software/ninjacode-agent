@@ -77,3 +77,17 @@ describe("shellTool abort", () => {
     clearShellSessions();
   });
 });
+
+describe("shellTool risk classification", () => {
+  it("escalates an irreversible command to the destructive risk class", () => {
+    expect(shellTool.riskFor!({ command: "ls -la" })).toBe("shell");
+    expect(shellTool.riskFor!({ command: "rm -rf build" })).toBe("destructive");
+    expect(shellTool.riskFor!({ command: "git push --force" })).toBe("destructive");
+  });
+
+  it("refuses to reduce a destructive command to a command-type grant", () => {
+    expect(shellTool.grantScopes!({ command: "git status -s" })).toEqual(["git status"]);
+    expect(shellTool.grantScopes!({ command: "git push --force" })).toEqual([]);
+    expect(shellTool.grantScopes!({ command: "rm -rf build" })).toEqual([]);
+  });
+});

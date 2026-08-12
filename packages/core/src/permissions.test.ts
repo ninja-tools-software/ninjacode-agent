@@ -61,6 +61,50 @@ describe("PermissionEngine", () => {
     expect(engine.evaluate(shell, "git push origin main", ["git push"]).needsApproval).toBe(true);
   });
 
+  it("does not let a command-type grant cover a destructive command of that type", () => {
+    const engine = new PermissionEngine(defaultPermissionPolicy("balanced"));
+    const tools = createDefaultToolRegistry();
+    const shell = tools.get("run_shell")!;
+    engine.grant("run_shell", "git push");
+    // Granted for `git push`, but a force push rewrites remote history.
+    const forced = engine.evaluate(shell, "git push --force", ["git push"], "destructive");
+    expect(forced.needsApproval).toBe(true);
+    expect(engine.evaluate(shell, "git push origin main", ["git push"]).needsApproval).toBe(false);
+  });
+
+  it("does not let a wildcard grant cover a destructive command", () => {
+    const engine = new PermissionEngine(defaultPermissionPolicy("balanced"));
+    const tools = createDefaultToolRegistry();
+    const shell = tools.get("run_shell")!;
+    engine.grant("run_shell", "*");
+    expect(engine.evaluate(shell, "ls -la").needsApproval).toBe(false);
+    expect(engine.evaluate(shell, "rm -rf build", [], "destructive").needsApproval).toBe(true);
+  });
+
+  it("honours an exact grant for a destructive command", () => {
+    const engine = new PermissionEngine(defaultPermissionPolicy("balanced"));
+    const tools = createDefaultToolRegistry();
+    const shell = tools.get("run_shell")!;
+    engine.grant("run_shell", "rm -rf dist");
+    expect(engine.evaluate(shell, "rm -rf dist", [], "destructive").needsApproval).toBe(false);
+    expect(engine.evaluate(shell, "rm -rf src", [], "destructive").needsApproval).toBe(true);
+  });
+
+  it("requires approval for a destructive shell command in autonomous mode", () => {
+    const engine = new PermissionEngine(defaultPermissionPolicy("autonomous"));
+    const tools = createDefaultToolRegistry();
+    const shell = tools.get("run_shell")!;
+    expect(engine.evaluate(shell, "rm -rf build", [], "destructive").needsApproval).toBe(true);
+  });
+
+  it("does not let the allowlist pre-approve a destructive call", () => {
+    const tools = createDefaultToolRegistry();
+    const shell = tools.get("run_shell")!;
+    const engine = new PermissionEngine({ mode: "autonomous", allowlist: tools.names() });
+    expect(engine.evaluate(shell, "ls -la").needsApproval).toBe(false);
+    expect(engine.evaluate(shell, "rm -rf build", [], "destructive").needsApproval).toBe(true);
+  });
+
   it("auto-approves a chained command only when every scope is granted", () => {
     const engine = new PermissionEngine(defaultPermissionPolicy("balanced"));
     const tools = createDefaultToolRegistry();

@@ -1,0 +1,24 @@
+[
+  {
+    "text": "Writing the requested file",
+    "toolCalls": [
+      {
+        "id": "v1",
+        "name": "write_file",
+        "arguments": { "path": "out.txt", "content": "hello\n" }
+      }
+    ]
+  },
+  { "text": "Done — out.txt is in place." },
+  {
+    "text": "Verification failed, adding the file it checks for",
+    "toolCalls": [
+      {
+        "id": "v2",
+        "name": "write_file",
+        "arguments": { "path": "fixed.txt", "content": "fixed\n" }
+      }
+    ]
+  },
+  { "text": "Verification passes now." }
+]

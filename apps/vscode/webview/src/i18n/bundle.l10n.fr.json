@@ -87,6 +87,7 @@
   "Denied.": "Refusé.",
   "Approve": "Approuver",
   "Approve this tool call once": "Approuver cet appel d’outil une fois",
+  "This action cannot be undone. Read the command before approving.": "Cette action est irréversible. Lisez la commande avant d’approuver.",
   "Always allow this command type: {0}": "Toujours autoriser ce type de commande : {0}",
   "Always approve this tool for this target": "Toujours approuver cet outil pour cette cible",
   "Always allow {0}": "Toujours autoriser {0}",

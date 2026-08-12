@@ -4,6 +4,7 @@ import type { ToolContext } from "@ninjacode/tools";
 import { collectDiagnostics, formatDiagnostics } from "@ninjacode/tools";
 import { nodeProcessRunner } from "./nodePorts.js";
 import type { ProcessRunner } from "./ports.js";
+import { condenseVerifyOutput } from "./verifyOutput.js";
 
 export interface VerifyConfig {
   /** Shell commands run after edits; all must exit 0. */
@@ -71,7 +72,7 @@ export async function runVerification(
       shell: true,
     });
     if (result.code !== 0) {
-      const output = (result.stdout + result.stderr).slice(0, 4000);
+      const output = condenseVerifyOutput(result.stdout, result.stderr);
       messages.push(`Verify command failed (exit ${result.code}): ${trimmed}\n${output}`);
     }
   }

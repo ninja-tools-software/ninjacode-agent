@@ -1,0 +1,12 @@
+{
+  "id": "harness-verify-retry",
+  "description": "Harness: a failing verify.json command blocks completion and drives a corrective turn",
+  "category": "fix",
+  "difficulty": "easy",
+  "suites": ["harness"],
+  "prompt": "Add out.txt, then make the verification command pass",
+  "verify": "test -f fixed.txt && test -f out.txt",
+  "timeoutSec": 60,
+  "maxTurns": 10,
+  "minToolErrors": 0
+}

@@ -4,3 +4,7 @@ runs/
 .tmp-swebench-test/
 .cache/
 agents.json
+# Task fixtures ship a workspace-shaped `.ninjacode/` on purpose; the root rule
+# that hides product runtime data would otherwise swallow them.
+!tasks/*/fixture/.ninjacode/
+!tasks/*/fixture/.ninjacode/**

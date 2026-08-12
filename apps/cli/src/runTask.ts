@@ -58,7 +58,7 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
       onEvent: handleAgentEvent,
       onApproval: flags.yes
         ? async () => ({ approved: true })
-        : async (req) => promptApproval(req.toolName, req.target, req.reason),
+        : async (req) => promptApproval(req),
     },
   });
   const agent = runtime.createAgent();

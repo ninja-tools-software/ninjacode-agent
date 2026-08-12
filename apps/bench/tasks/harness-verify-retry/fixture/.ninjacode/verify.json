@@ -1,0 +1,4 @@
+{
+  "commands": ["sh verify-check.sh"],
+  "requireCleanDiagnostics": false
+}

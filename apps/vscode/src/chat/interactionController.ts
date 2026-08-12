@@ -23,7 +23,13 @@ export class InteractionController {
 
   async requestApproval(
     sessionId: string,
-    req: { toolName: string; target: string; reason: string; grantScopes?: string[] },
+    req: {
+      toolName: string;
+      target: string;
+      reason: string;
+      grantScopes?: string[];
+      danger?: boolean;
+    },
   ): Promise<{ approved: boolean; remember?: boolean }> {
     const requestId = `${Date.now()}_${req.toolName}`;
     const scopes = req.grantScopes ?? [];
@@ -34,6 +40,7 @@ export class InteractionController {
       target: req.target,
       reason: req.reason,
       grantScope: scopes.length > 0 ? scopes.join(", ") : undefined,
+      danger: req.danger,
     });
     this.notifyIfHidden(sessionId, `NinjaCode needs approval: ${req.toolName} — ${req.reason}`, "Review");
 

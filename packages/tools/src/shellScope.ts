@@ -56,6 +56,33 @@ function basename(program: string): string {
   return slash === -1 ? program : program.slice(slash + 1);
 }
 
+/**
+ * Split a command line into the individual command segments separated by
+ * pipes, sequencing and boolean operators. Each segment is a candidate
+ * invocation of its own program.
+ */
+export function splitShellSegments(command: string): string[] {
+  return command
+    .split(/(?:\|\||&&|;|\||&|\n)/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Program name plus remaining arguments for one segment, with leading
+ * `VAR=value` assignments skipped. Null when no program can be read.
+ */
+export function segmentProgram(segment: string): { program: string; args: string[] } | null {
+  const tokens = segment.trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while (i < tokens.length && ASSIGNMENT.test(tokens[i]!)) i++;
+  const rawProgram = tokens[i];
+  if (!rawProgram) return null;
+  const program = basename(stripQuotes(rawProgram));
+  if (!program) return null;
+  return { program, args: tokens.slice(i + 1).map(stripQuotes) };
+}
+
 /** Scope for a single command segment (no pipes/operators), or null if unparseable. */
 function segmentScope(segment: string): string | null {
   const tokens = segment.trim().split(/\s+/).filter(Boolean);
@@ -89,10 +116,8 @@ export function shellGrantScopes(command: string): string[] {
   // impossible to know statically — never coarsen these into a type grant.
   if (trimmed.includes("$(") || trimmed.includes("${") || trimmed.includes("`")) return [];
 
-  const segments = trimmed.split(/(?:\|\||&&|;|\||&|\n)/);
   const scopes = new Set<string>();
-  for (const segment of segments) {
-    if (!segment.trim()) continue;
+  for (const segment of splitShellSegments(trimmed)) {
     const scope = segmentScope(segment);
     if (!scope) return [];
     scopes.add(scope);

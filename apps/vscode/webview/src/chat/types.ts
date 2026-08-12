@@ -91,6 +91,8 @@ export interface ApprovalLogItem {
   reason: string;
   /** Human label of what "Always" will remember (command type), when applicable. */
   grantScope?: string;
+  /** The call is irreversible — the card warns and does not offer "Always". */
+  danger?: boolean;
   resolved?: boolean;
   approved?: boolean;
   cancelled?: boolean;

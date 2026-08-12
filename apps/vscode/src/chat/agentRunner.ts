@@ -41,7 +41,13 @@ interface AgentRunnerDeps {
   onAgentEvent(sessionId: string, ev: AgentEvent): void;
   requestApproval(
     sessionId: string,
-    req: { toolName: string; target: string; reason: string; grantScopes?: string[] },
+    req: {
+      toolName: string;
+      target: string;
+      reason: string;
+      grantScopes?: string[];
+      danger?: boolean;
+    },
   ): Promise<{ approved: boolean; remember?: boolean }>;
   requestQuestion(sessionId: string, request: AskUserRequest): Promise<AskUserAnswer[]>;
   requestUserAction(sessionId: string, request: UserActionRequest): Promise<{ comment?: string }>;
@@ -173,6 +179,7 @@ export class AgentRunner {
         target: string;
         reason: string;
         grantScopes?: string[];
+        danger?: boolean;
       }) => this.deps.requestApproval(id, req),
     });
 

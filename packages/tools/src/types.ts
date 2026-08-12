@@ -85,6 +85,12 @@ export interface Tool {
   /** Resolve the capability target for permission checks (path, URL, command…). */
   target(args: Record<string, unknown>): string;
   /**
+   * Optional per-call risk escalation. A tool whose danger depends on its
+   * arguments — `run_shell` above all — reports the risk of this specific call
+   * here; `risk` stays the floor for anything this returns nothing for.
+   */
+  riskFor?(args: Record<string, unknown>): RiskClass;
+  /**
    * Optional capability "scopes" for coarse-grained "always approve" grants.
    * When it returns a non-empty list, approving with "remember" grants every
    * scope (e.g. a command type) instead of the exact target, and a later call

@@ -1,7 +1,7 @@
 import type { ToolCall } from "@ninjacode/providers";
-import type { Tool, ToolRegistry } from "@ninjacode/tools";
+import type { RiskClass, Tool, ToolRegistry } from "@ninjacode/tools";
 import type { PermissionEngine } from "./permissions.js";
-import type { ApprovalHandler, RunState, ToolInvocation } from "./types.js";
+import type { ApprovalHandler, ApprovalRequest, RunState, ToolInvocation } from "./types.js";
 
 export function abortedInvocation(tc: ToolCall): ToolInvocation {
   return {
@@ -29,6 +29,19 @@ export function safeGrantScopes(tool: Tool, args: Record<string, unknown>): stri
   }
 }
 
+/**
+ * Risk of this specific call. A tool may escalate on its arguments
+ * (`run_shell` does for irreversible commands); a throwing classifier must
+ * never downgrade the decision, so failures fall back to the static risk.
+ */
+function safeRisk(tool: Tool, args: Record<string, unknown>): RiskClass {
+  try {
+    return tool.riskFor?.(args) ?? tool.risk;
+  } catch {
+    return tool.risk;
+  }
+}
+
 export function isParallelizableBatch(registry: ToolRegistry, toolCalls: ToolCall[]): boolean {
   return toolCalls.every((tc) => {
     const t = registry.get(tc.name);
@@ -46,7 +59,7 @@ interface ApprovalDeps {
   emit: (type: "approval_required", payload: unknown) => Promise<void>;
 }
 
-interface ApprovalRequest {
+interface ToolApprovalCheck {
   deps: ApprovalDeps;
   tool: Tool;
   tc: ToolCall;
@@ -56,17 +69,19 @@ interface ApprovalRequest {
 }
 
 export async function resolveToolApproval(
-  req: ApprovalRequest,
+  req: ToolApprovalCheck,
 ): Promise<{ approved: boolean; approvalWaitMs: number; earlyReturn?: ToolInvocation }> {
   const { deps, tool, tc, target, scopes, started } = req;
-  const decision = deps.permissions.evaluate(tool, target, scopes);
+  const risk = safeRisk(tool, tc.arguments);
+  const decision = deps.permissions.evaluate(tool, target, scopes, risk);
   if (!decision.allowed) {
     return deniedInvocation(tc, started, `Denied: ${decision.reason}`);
   }
   if (!decision.needsApproval) {
     return { approved: true, approvalWaitMs: 0 };
   }
-  return waitForApproval({ deps, tool, tc, target, scopes, started, decision });
+  const danger = risk === "destructive";
+  return waitForApproval({ deps, tool, tc, target, scopes, started, decision, danger });
 }
 
 function deniedInvocation(
@@ -97,7 +112,7 @@ function rememberApproval(opts: {
   opts.permissions.grant(opts.toolName, opts.target);
 }
 
-async function waitForApproval(opts: {
+interface PendingApproval {
   deps: ApprovalDeps;
   tool: Tool;
   tc: ToolCall;
@@ -105,15 +120,25 @@ async function waitForApproval(opts: {
   scopes: string[];
   started: number;
   decision: { reason: string };
-}): Promise<{ approved: boolean; approvalWaitMs: number; earlyReturn?: ToolInvocation }> {
-  const { deps, tool, tc, target, scopes, started, decision } = opts;
-  await deps.emit("approval_required", {
-    toolName: tool.name,
-    target,
-    arguments: tc.arguments,
-    reason: decision.reason,
-    grantScopes: scopes,
-  });
+  danger: boolean;
+}
+
+function approvalPayload(opts: PendingApproval): ApprovalRequest {
+  return {
+    toolName: opts.tool.name,
+    target: opts.target,
+    arguments: opts.tc.arguments,
+    reason: opts.decision.reason,
+    grantScopes: opts.scopes,
+    danger: opts.danger,
+  };
+}
+
+async function waitForApproval(
+  opts: PendingApproval,
+): Promise<{ approved: boolean; approvalWaitMs: number; earlyReturn?: ToolInvocation }> {
+  const { deps, tool, tc, started, decision } = opts;
+  await deps.emit("approval_required", approvalPayload(opts));
   if (!deps.onApproval) {
     return deniedInvocation(
       tc,
@@ -122,33 +147,19 @@ async function waitForApproval(opts: {
       "approval_required",
     );
   }
-  return collectApprovalResult({ deps, tool, tc, target, scopes, started, decision });
+  return collectApprovalResult(opts);
 }
 
-async function collectApprovalResult(opts: {
-  deps: ApprovalDeps;
-  tool: Tool;
-  tc: ToolCall;
-  target: string;
-  scopes: string[];
-  started: number;
-  decision: { reason: string };
-}): Promise<{ approved: boolean; approvalWaitMs: number; earlyReturn?: ToolInvocation }> {
-  const { deps, tool, tc, target, scopes, started, decision } = opts;
+async function collectApprovalResult(
+  opts: PendingApproval,
+): Promise<{ approved: boolean; approvalWaitMs: number; earlyReturn?: ToolInvocation }> {
+  const { deps, tool, tc, target, scopes, started } = opts;
   const wasWaiting = deps.getState() !== "stopping" && deps.getState() !== "stopped";
   if (wasWaiting) await deps.setState("waiting");
 
   const approvalStarted = Date.now();
   try {
-    const result = await deps.waitOrAbort(
-      deps.onApproval!({
-        toolName: tool.name,
-        target,
-        arguments: tc.arguments,
-        reason: decision.reason,
-        grantScopes: scopes,
-      }),
-    );
+    const result = await deps.waitOrAbort(deps.onApproval!(approvalPayload(opts)));
     const approvalWaitMs = Date.now() - approvalStarted;
     if (deps.getState() === "waiting") await deps.setState("running");
     if (!result.approved) {

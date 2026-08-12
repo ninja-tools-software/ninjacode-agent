@@ -61,6 +61,7 @@ Tasks under `tasks/harness-*/` ship a `scripts.json`: a sequence of MockProvider
 compaction path. A failing verify means the **harness** broke, not the model.
 
 Scenarios cover edit chains, error recovery, shell failures, permission denials,
+irreversible shell commands staying gated, the `verify.json` retry loop,
 large-output compaction pressure, loop detection, circuit breaker, `apply_patch`,
 maxTurns / timeout termination, and parallel tool calls in one completion.
 Use `"editFormat": "patch"` when a scripted task must exercise `apply_patch`

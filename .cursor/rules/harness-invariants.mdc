@@ -30,7 +30,8 @@ Progressive, cheapest first: 1) truncate tool outputs (`TOOL_OUTPUT_MAX`), 2) so
 ## Permissions and safety
 
 - Guardrails are deterministic: `PermissionEngine` evaluates `tool.risk` + `tool.target(args)` — never rely on system-prompt wording to prevent an action.
-- `destructive` always requires approval, even in `autonomous` mode. Preserve this.
+- `destructive` always requires approval, even in `autonomous` mode, even when the host pre-approved every tool (`allowAllTools`), and even when a coarse grant would otherwise match. Only an exact `tool:target` grant carries over. Preserve this.
+- Risk is per call, not per tool, when the arguments decide: `run_shell` escalates to `destructive` through `Tool.riskFor` (`shellDanger.ts`) and then refuses to produce grant scopes, so approving `git status` can never come to cover `git push --force`.
 - Every new capability must declare a `RiskClass`; anything writing outside the workspace or spawning processes is `shell` or `destructive`, not `write`.
 
 ## Reliability

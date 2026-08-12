@@ -36,14 +36,15 @@
 | **Vision / Multimodal** | Support des images (`ContentPart[]`) dans les messages pour les modèles compatibles (Claude, GPT-4o, etc.) ; sur un modèle texte seul, le badge image passe en erreur explicite et l'envoi se dégrade au lieu d'échouer |
 | **Extended Thinking / Reasoning** | Anthropic : budget tokens de réflexion. OpenAI : reasoning effort (low/medium/high) |
 | **Edit format auto-selection** | Choix automatique `edit_file` (string_replace) vs `apply_patch` (diff unifié) selon le modèle et son entraînement |
-| **Completion verification** | Avant de terminer : vérification des diagnostics IDE (erreurs) + commandes shell optionnelles déclarées dans `.ninjacode/verify.json` |
+| **Completion verification** | Avant de terminer : vérification des diagnostics IDE (erreurs) + commandes shell optionnelles déclarées dans `.ninjacode/verify.json`. L'échec est condensé en lignes de diagnostic (`verifyOutput.ts`) plutôt que tronqué par la tête, sinon le résumé d'erreur de `tsc`/`vitest`, qui est en fin de sortie, n'atteint jamais le modèle. `ninjacode init-verify` (CLI) et « Configurer les commandes de vérification » (VS Code) amorcent le fichier depuis la stack détectée |
 | **Loop detection** | Appels d'outils répétitifs identiques : guidance corrective à 4 répétitions, arrêt propre (`stopped`) à 7 — un avertissement ignoré n'est pas une condition de terminaison |
 | **Garde anti-exploration** | Budget de tours consommé à 50 % puis 80 % sans le moindre outil d'écriture : recadrage explicite dans l'historique (`editProgress.ts`). Le mode d'échec dominant sur SWE-bench n'est pas la mauvaise édition, c'est l'absence d'édition |
 | **Garde anti-relecture** | Comptage des lectures par chemin, indépendamment des offsets (`readChurn.ts`) : un fichier relu 4 fois déclenche un rappel nommant le fichier, une seule fois par chemin. La détection de boucle empreinte les arguments, donc paginer un même fichier à offsets glissants lui échappe |
 | **Moteur d'agents** | Boucle LLM → ToolRegistry filtré par mode → PermissionEngine (Strict/Balanced/Autonomous) → exécution → CheckpointManager → ContextCompaction |
 | **Gestion de contexte** | Compaction progressive, du gratuit vers le coûteux : truncation (8k chars par output), `softenSupersededReads`, observation masking des vieux outputs ré-exécutables (`observationMasking.ts`), puis résumé LLM sectionné en dernier recours (jamais re-résumé : les messages de compaction sont pinned). `ContextUsageBreakdown` détaillé émis à chaque tour |
 | **Prefix de cache stable** | System prompt et tool specs byte-stables sur toute la session : le scratchpad et le plan sont injectés dans les messages (`volatileContext.ts`), jamais dans le system, sinon chaque écriture invalide le cache de prompt |
-| **Permissions** | Classes de risque déterministes (read_only/write/destructive/network/shell/user) — `destructive` toujours avec approbation même en autonomous. Grants session par tool:target |
+| **Permissions** | Classes de risque déterministes (read_only/write/destructive/network/shell/user) — `destructive` toujours avec approbation, y compris en autonomous et y compris quand l'hôte a pré-approuvé tous les outils. Grants session par tool:target |
+| **Rayon d'impact shell** | `run_shell` escalade en `destructive` par commande (`shellDanger.ts`) : suppression récursive, `git push --force`, `git reset --hard`, `sudo`, `dd`, `mkfs`, publication de paquet, `terraform apply/destroy`, script distant piped dans un interpréteur… Une commande ainsi classée ne peut plus être couverte par un grant de type : approuver `git status` ne couvre pas `git push --force` |
 | **Fiabilité** | Retry exponentiel avec jitter (429/5xx/network, jamais après qu'un delta a atteint le sink), ToolCircuitBreaker (3 strikes puis demi-ouverture après 60 s), BudgetTracker (tokens input/output/cache + coût USD au tarif réel du modèle, plafond de 5 $ par défaut) |
 | **Logs & Debug** | Logs structurés redacted (`agentLogs.ts`) + serveur HTTP de debug (token auth, NDJSON) + hypothèses (`DebugSession`) + outils debug |
 | **Run timeout** | Timeout global d'exécution configurable (`runTimeoutMs`) |
@@ -87,7 +88,7 @@
 
 | Outil | Risque | Description |
 |---|---|---|
-| `run_shell` | shell | Exécuter une commande shell. Supporte des sessions persistantes interactives via `session_id` |
+| `run_shell` | shell (→ destructive) | Exécuter une commande shell. Supporte des sessions persistantes interactives via `session_id`. Une commande irréversible passe en `destructive` et exige une approbation dédiée |
 
 ### Outils réseau
 

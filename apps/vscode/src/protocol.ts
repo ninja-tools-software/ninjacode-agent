@@ -126,6 +126,8 @@ export type UiLogItem =
       target: string;
       reason: string;
       grantScope?: string;
+      /** The call is irreversible — the card warns instead of offering a type grant. */
+      danger?: boolean;
       resolved?: boolean;
       approved?: boolean;
       cancelled?: boolean;
@@ -588,6 +590,8 @@ export type HostToWebview =
       reason: string;
       /** Human label of what "Always" will remember (e.g. `git status`, `cat, grep`). */
       grantScope?: string;
+      /** The call is irreversible — the card warns instead of offering a type grant. */
+      danger?: boolean;
     }
   | {
       type: "approval_resolved";

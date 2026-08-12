@@ -2,7 +2,7 @@
   "name": "ninjacode",
   "displayName": "%ninjacode.displayName%",
   "description": "%ninjacode.description%",
-  "version": "0.2.25",
+  "version": "0.2.28",
   "publisher": "ninjacode",
   "icon": "media/icon.png",
   "license": "GPL-2.0-only",
@@ -96,6 +96,10 @@
       {
         "command": "ninjacode.setApiKey",
         "title": "%ninjacode.command.setApiKey%"
+      },
+      {
+        "command": "ninjacode.initVerifyConfig",
+        "title": "%ninjacode.command.initVerifyConfig%"
       },
       {
         "command": "ninjacode.newSession",

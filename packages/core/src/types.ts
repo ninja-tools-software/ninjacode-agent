@@ -89,6 +89,12 @@ export interface ApprovalRequest {
    * than the exact `target`. Empty/absent means remember the exact target.
    */
   grantScopes?: string[];
+  /**
+   * The call was classified as irreversible (see `Tool.riskFor`) — hosts should
+   * warn more loudly than for an ordinary approval, and it can never be
+   * satisfied by a coarse "always allow" given earlier.
+   */
+  danger?: boolean;
 }
 
 export type ApprovalHandler = (req: ApprovalRequest) => Promise<{

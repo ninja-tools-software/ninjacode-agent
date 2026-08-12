@@ -13,17 +13,22 @@ export function consumeLastGatewayError(): GatewayErrorInfo | undefined {
   return info;
 }
 
-export async function promptApproval(
-  toolName: string,
-  target: string,
-  reason: string,
-): Promise<{ approved: boolean; remember?: boolean }> {
+export async function promptApproval(req: {
+  toolName: string;
+  target: string;
+  reason: string;
+  danger?: boolean;
+}): Promise<{ approved: boolean; remember?: boolean }> {
   const rl = createInterface({ input, output });
+  const args = { tool: req.toolName, target: req.target, reason: req.reason };
   try {
+    // An irreversible call is decided on its own every time: no "always", and
+    // no implicit yes on a bare Enter.
     const answer = await rl.question(
-      t("cli.approvePrompt", { tool: toolName, target, reason }),
+      t(req.danger ? "cli.approveDangerPrompt" : "cli.approvePrompt", args),
     );
     const a = answer.trim().toLowerCase();
+    if (req.danger) return { approved: a === "y" || a === "yes" };
     if (a === "a" || a === "always") return { approved: true, remember: true };
     if (a === "y" || a === "yes" || a === "") return { approved: true };
     return { approved: false };

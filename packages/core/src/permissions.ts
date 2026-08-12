@@ -44,31 +44,60 @@ export class PermissionEngine {
     this.policy.grants.add(`${toolName}:${target}`);
   }
 
-  evaluate(tool: Tool, target: string, scopes?: string[]): PermissionDecision {
+  /**
+   * `risk` overrides `tool.risk` for calls whose danger depends on their
+   * arguments (see `Tool.riskFor`); callers resolve it with `safeRisk`.
+   */
+  evaluate(
+    tool: Tool,
+    target: string,
+    scopes?: string[],
+    risk: RiskClass = tool.risk,
+  ): PermissionDecision {
     if (this.policy.denylist?.includes(tool.name)) {
       return { allowed: false, needsApproval: false, reason: `Tool ${tool.name} is denylisted` };
     }
-    if (this.policy.allowlist?.includes(tool.name)) {
+    // The allowlist pre-approves a tool, not an irreversible call made with it:
+    // a host that wants those through says so in its approval handler.
+    if (risk !== "destructive" && this.policy.allowlist?.includes(tool.name)) {
       return { allowed: true, needsApproval: false, reason: "allowlist" };
     }
 
-    const key = `${tool.name}:${target}`;
-    const wildcard = `${tool.name}:*`;
-    if (this.policy.grants?.has(key) || this.policy.grants?.has(wildcard)) {
-      return { allowed: true, needsApproval: false, reason: "session grant" };
-    }
-    if (scopes && scopes.length > 0 && scopes.every((s) => this.policy.grants?.has(`${tool.name}:${s}`))) {
-      return { allowed: true, needsApproval: false, reason: "session grant (command type)" };
-    }
+    const granted = this.grantDecision(tool.name, target, scopes, risk);
+    if (granted) return granted;
 
-    const autoDecision = autoApproveDecision(this.policy.mode, tool.risk);
+    const autoDecision = autoApproveDecision(this.policy.mode, risk);
     if (autoDecision) return autoDecision;
 
     return {
       allowed: true,
       needsApproval: true,
-      reason: `${tool.risk} requires approval in ${this.policy.mode} mode`,
+      reason: `${risk} requires approval in ${this.policy.mode} mode`,
     };
+  }
+
+  private grantDecision(
+    toolName: string,
+    target: string,
+    scopes: string[] | undefined,
+    risk: RiskClass,
+  ): PermissionDecision | null {
+    const grants = this.policy.grants;
+    if (!grants) return null;
+    if (grants.has(`${toolName}:${target}`)) {
+      return { allowed: true, needsApproval: false, reason: "session grant" };
+    }
+    // A destructive call is never covered by a grant given for something
+    // coarser than itself: "always allow git" was answered about `git status`,
+    // not about `git push --force`. Only an exact match, above, carries over.
+    if (risk === "destructive") return null;
+    if (grants.has(`${toolName}:*`)) {
+      return { allowed: true, needsApproval: false, reason: "session grant" };
+    }
+    if (scopes && scopes.length > 0 && scopes.every((s) => grants.has(`${toolName}:${s}`))) {
+      return { allowed: true, needsApproval: false, reason: "session grant (command type)" };
+    }
+    return null;
   }
 }
 

@@ -11,6 +11,7 @@
   "ninjacode.command.openChat": "NinjaCode: Open Chat",
   "ninjacode.command.toggleChat": "NinjaCode: Toggle Chat",
   "ninjacode.command.setApiKey": "NinjaCode: Set API Key",
+  "ninjacode.command.initVerifyConfig": "NinjaCode: Set Up Verification Commands",
   "ninjacode.command.newSession": "NinjaCode: New Session",
   "ninjacode.command.restoreCheckpoint": "NinjaCode: Restore Checkpoint",
   "ninjacode.command.stopAgent": "NinjaCode: Stop Agent",

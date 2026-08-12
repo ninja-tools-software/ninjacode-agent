@@ -11,9 +11,18 @@ function resolvedApprovalLabel(item: ApprovalLogItem): string {
 
 export function ApprovalCard({ item, vscode }: { item: ApprovalLogItem; vscode: VsCodeApi }) {
   return (
-    <div className={`approval panel-enter msg-enter ${item.resolved ? "resolved" : ""}`}>
+    <div
+      className={`approval panel-enter msg-enter ${item.resolved ? "resolved" : ""} ${
+        item.danger ? "irreversible" : ""
+      }`}
+    >
       <div className="approval-body">
         <strong>{t("Approve {0}?", item.toolName)}</strong>
+        {item.danger ? (
+          <p className="approval-warning">
+            {t("This action cannot be undone. Read the command before approving.")}
+          </p>
+        ) : null}
         <p>{item.reason}</p>
         <code>{item.target}</code>
       </div>
@@ -30,17 +39,22 @@ export function ApprovalCard({ item, vscode }: { item: ApprovalLogItem; vscode: 
           >
             {t("Approve")}
           </button>
-          <button
-            className="btn"
-            data-tooltip={
-              item.grantScope
-                ? t("Always allow this command type: {0}", item.grantScope)
-                : t("Always approve this tool for this target")
-            }
-            onClick={() => vscode.postMessage({ type: "approve_always", requestId: item.requestId })}
-          >
-            {item.grantScope ? t("Always allow {0}", item.grantScope) : t("Always")}
-          </button>
+          {/* No "Always" for an irreversible call: every one of them is decided on its own. */}
+          {item.danger ? null : (
+            <button
+              className="btn"
+              data-tooltip={
+                item.grantScope
+                  ? t("Always allow this command type: {0}", item.grantScope)
+                  : t("Always approve this tool for this target")
+              }
+              onClick={() =>
+                vscode.postMessage({ type: "approve_always", requestId: item.requestId })
+              }
+            >
+              {item.grantScope ? t("Always allow {0}", item.grantScope) : t("Always")}
+            </button>
+          )}
           <button
             className="btn danger"
             data-tooltip={t("Deny this tool call")}

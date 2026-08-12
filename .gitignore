@@ -4,7 +4,6 @@ node_modules/
 .ninjacode/
 .vscode/
 dist/
-.turbo/
 *.tsbuildinfo
 .DS_Store
 .env
@@ -13,7 +12,6 @@ dist/
 *.vsix
 .vscode-test/
 coverage/
-.ninjacode/
 *.log
 # SWE-bench: dataset cache and the Python harness used by `ninjabench swebench eval`
 .cache/

@@ -126,7 +126,7 @@ export function createOpenRouterProvider(apiKey: string, model?: string): OpenAI
     model: model ?? "anthropic/claude-sonnet-4",
     name: "openrouter",
     headers: {
-      "HTTP-Referer": "https://ninjacode.dev",
+      "HTTP-Referer": "https://ninja-code.ai",
       "X-Title": "NinjaCode",
     },
   });
