@@ -33,6 +33,7 @@ interface ChatHandlersDeps {
   pushExtras: () => Promise<void>;
   openSubscribe: (tier: string) => Promise<void>;
   startBrowserLogin: () => Promise<void>;
+  openWebPage: (page: "signup" | "pricing") => Promise<void>;
 }
 
 /** One entry per chat message type — exhaustiveness is enforced by the type. */

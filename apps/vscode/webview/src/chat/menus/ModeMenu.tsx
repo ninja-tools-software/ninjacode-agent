@@ -1,23 +1,11 @@
 import { useState } from "react";
-import { BotIcon, BugIcon, ChatIcon, CheckIcon, ChevronDownIcon, PlanIcon } from "../../icons.js";
+import { CheckIcon, ChevronDownIcon } from "../../icons.js";
 import { t } from "../../i18n.js";
 import { animCls, useAnimatedPresence } from "../hooks/useAnimatedPresence.js";
 import { useDismiss } from "../hooks/useDismiss.js";
 import { MODE_META, modeMeta } from "../modes.js";
 import type { Mode } from "../types.js";
-
-function ModeIcon({ mode, size = 14 }: { mode: Mode; size?: number }) {
-  switch (mode) {
-    case "agent":
-      return <BotIcon size={size} />;
-    case "plan":
-      return <PlanIcon size={size} />;
-    case "ask":
-      return <ChatIcon size={size} />;
-    case "debug":
-      return <BugIcon size={size} />;
-  }
-}
+import { ModeIcon } from "../ui/ModeIcon.js";
 
 function ModeMenuDropdown({
   mode,

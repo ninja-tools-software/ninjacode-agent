@@ -16,6 +16,7 @@ import { ChatCore } from "./chat/chatCore.js";
 import { CodebaseIndexService } from "./chat/codebaseIndexService.js";
 import { PlanEditorProvider } from "./planEditorProvider.js";
 import { wireChatView } from "./chat/chatViewWiring.js";
+import { ONBOARDING_KEY } from "./chat/chatConstants.js";
 
 /** Built-in slash commands always offered in the composer's `/` autocomplete,
  * on top of any project/user prompts discovered via `loadPrompts`. */
@@ -197,6 +198,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   newSession(): void {
     this.sessions.newSession();
+  }
+
+  /** Bring back the welcome screen the user skipped, and reveal the chat. */
+  async showWelcome(): Promise<void> {
+    await this.context.globalState.update(ONBOARDING_KEY, false);
+    await this.core.focusChat();
+    this.sessions.hydrateActive();
   }
 
   async sendToChat(text: string, options?: { submit?: boolean }): Promise<void> {

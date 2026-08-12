@@ -178,3 +178,9 @@ export async function startBrowserLogin(webBase: string): Promise<void> {
   const url = `${webBase.replace(/\/$/, "")}/connect-ide`;
   await vscode.env.openExternal(vscode.Uri.parse(url));
 }
+
+/** Signup lands on connect-ide so a fresh account hands its key back to the IDE. */
+export async function openWebPage(webBase: string, page: "signup" | "pricing"): Promise<void> {
+  const path = page === "signup" ? "/signup?next=/connect-ide" : "/pricing";
+  await vscode.env.openExternal(vscode.Uri.parse(`${webBase.replace(/\/$/, "")}${path}`));
+}

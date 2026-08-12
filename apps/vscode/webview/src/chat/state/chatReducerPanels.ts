@@ -74,5 +74,6 @@ export function reduceClear(state: ChatState, initial: typeof initialChatState):
     sessions: state.sessions,
     sessionsLoading: state.sessionsLoading,
     showDragTip: state.showDragTip,
+    onboardingDismissed: state.onboardingDismissed,
   };
 }

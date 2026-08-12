@@ -53,6 +53,7 @@ export function buildHydratePayload(args: {
   sessions: HydratePayload["sessions"];
   pendingEdits: string[];
   showDragTip?: boolean;
+  onboardingDismissed?: boolean;
 }): HydratePayload {
   return {
     ...runtimeUiFields(args.runtime, args.pendingEdits),
@@ -61,6 +62,7 @@ export function buildHydratePayload(args: {
     runState: args.runtime?.runState ?? "idle",
     queue: args.runtime?.queue ?? [],
     showDragTip: Boolean(args.showDragTip),
+    onboardingDismissed: Boolean(args.onboardingDismissed),
   };
 }
 

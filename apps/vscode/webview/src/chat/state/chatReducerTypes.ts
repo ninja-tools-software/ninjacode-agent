@@ -32,6 +32,7 @@ export interface ChatState {
   activeSessionId?: string;
   sessionsLoading: boolean;
   showDragTip: boolean;
+  onboardingDismissed: boolean;
 }
 
 export const initialChatState: ChatState = {
@@ -53,10 +54,12 @@ export const initialChatState: ChatState = {
   activeSessionId: undefined,
   sessionsLoading: false,
   showDragTip: false,
+  onboardingDismissed: false,
 };
 
 export type ChatAction =
   | { kind: "host"; message: HostToWebview }
   | { kind: "sessions_loading"; loading: boolean }
   | { kind: "dismiss_drag_tip" }
+  | { kind: "dismiss_onboarding" }
   | { kind: "clear_plan" };

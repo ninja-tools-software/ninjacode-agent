@@ -7,7 +7,7 @@ import type { MessageFlowController } from "./messageFlowController.js";
 import type { PlanService } from "./planService.js";
 import type { SessionsController } from "./sessionsController.js";
 import type { VoiceController } from "./voiceController.js";
-import { DRAG_TIP_KEY } from "./chatConstants.js";
+import { DRAG_TIP_KEY, ONBOARDING_KEY } from "./chatConstants.js";
 import { MermaidPanel } from "../mermaidPanel.js";
 import { handleEnhancePrompt } from "./enhancePrompt.js";
 
@@ -136,6 +136,7 @@ export function createContextHandlers(deps: {
   | "ref_preview"
   | "pick_files_native"
   | "dismiss_drag_tip"
+  | "dismiss_onboarding"
 > {
   const { contextCtl } = deps;
   return {
@@ -150,6 +151,7 @@ export function createContextHandlers(deps: {
     ref_preview: (m) => contextCtl.preview(m.requestId, m.ref),
     pick_files_native: (m) => contextCtl.pickFiles(m.requestId),
     dismiss_drag_tip: () => deps.globalState.update(DRAG_TIP_KEY, true),
+    dismiss_onboarding: () => deps.globalState.update(ONBOARDING_KEY, true),
   };
 }
 
@@ -194,6 +196,7 @@ export function createLifecycleHandlers(deps: {
   pushExtras: () => Promise<void>;
   openSubscribe: (tier: string) => Promise<void>;
   startBrowserLogin: () => Promise<void>;
+  openWebPage: (page: "signup" | "pricing") => Promise<void>;
 }): Pick<
   ChatMessageHandlers,
   | "ready"
@@ -207,6 +210,7 @@ export function createLifecycleHandlers(deps: {
   | "gateway_open_account"
   | "gateway_change_model"
   | "gateway_sign_in"
+  | "gateway_open_web"
 > {
   const { core, sessions, plan } = deps;
   return {
@@ -237,5 +241,6 @@ export function createLifecycleHandlers(deps: {
       deps.core.post(undefined, { type: "open_model_menu" });
     },
     gateway_sign_in: () => void deps.startBrowserLogin(),
+    gateway_open_web: (m) => void deps.openWebPage(m.page),
   };
 }

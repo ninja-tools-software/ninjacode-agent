@@ -503,6 +503,7 @@ export type ChatToHost =
   | { type: "ref_preview"; requestId: string; ref: ContextRef }
   | { type: "pick_files_native"; requestId: string }
   | { type: "dismiss_drag_tip" }
+  | { type: "dismiss_onboarding" }
   // plan
   | { type: "execute_plan"; model?: string }
   | { type: "open_plan"; planId?: string }
@@ -523,7 +524,8 @@ export type ChatToHost =
   | { type: "gateway_upgrade"; tier?: string }
   | { type: "gateway_open_account" }
   | { type: "gateway_change_model" }
-  | { type: "gateway_sign_in" };
+  | { type: "gateway_sign_in" }
+  | { type: "gateway_open_web"; page: "signup" | "pricing" };
 
 export type WebviewToHost = ChatToHost | SettingsToHost;
 
@@ -545,6 +547,8 @@ export interface HydratePayload {
   sessionUsage: SessionUsagePayload | null;
   /** One-shot onboarding hint: hold Shift to drag from the Explorer. */
   showDragTip: boolean;
+  /** The user chose to skip the welcome screen; it stays hidden until reset. */
+  onboardingDismissed: boolean;
 }
 
 export type HostToWebview =

@@ -124,6 +124,7 @@ describe("hydration and reset", () => {
         sessionUsage: null,
         activeSessionId: "s1",
         showDragTip: true,
+        onboardingDismissed: false,
       },
     });
     expect(state.log).toEqual([{ kind: "user", text: "hi" }]);
@@ -133,6 +134,13 @@ describe("hydration and reset", () => {
     expect(state.plan).toBeNull();
     expect(state.showDragTip).toBe(true);
     expect(chatReducer(state, { kind: "dismiss_drag_tip" }).showDragTip).toBe(false);
+  });
+
+  it("skipping the welcome screen sticks for the rest of the session", () => {
+    const skipped = chatReducer(initialChatState, { kind: "dismiss_onboarding" });
+    expect(skipped.onboardingDismissed).toBe(true);
+    const cleared = chatReducer(skipped, { kind: "host", message: { type: "clear" } });
+    expect(cleared.onboardingDismissed).toBe(true);
   });
 
   it("keeps the session list on clear", () => {

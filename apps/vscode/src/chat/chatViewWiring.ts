@@ -21,7 +21,7 @@ import { SessionsController } from "./sessionsController.js";
 import { WorkspaceExtrasController } from "./workspaceExtrasController.js";
 import { VoiceController } from "./voiceController.js";
 import { createChatHandlers } from "./chatViewHandlers.js";
-import { DRAG_TIP_KEY } from "./chatConstants.js";
+import { DRAG_TIP_KEY, ONBOARDING_KEY } from "./chatConstants.js";
 
 interface ChatViewWiring {
   settingsService: SettingsService;
@@ -161,6 +161,7 @@ function createPlanLayer(
     pushSettings: () => input.pushSettings(),
     runMessage: (sid, text) => deps.runMessage(sid, text),
     showDragTip: () => !deps.context.globalState.get<boolean>(DRAG_TIP_KEY, false),
+    onboardingDismissed: () => deps.context.globalState.get<boolean>(ONBOARDING_KEY, false),
   });
 
   return { planEditor, plan, sessions, edits: new EditsController({ core: deps.core, store: deps.proposedEdits }) };
@@ -335,6 +336,10 @@ function createChatMessageRoute(
       },
       startBrowserLogin: async () => {
         await deps.settingsService.handleMessage({ type: "account_browser_login" });
+      },
+      openWebPage: async (page) => {
+        const { openWebPage, webUrlFromConfig } = await import("../settingsGateway.js");
+        await openWebPage(webUrlFromConfig(), page);
       },
     }),
     (msg: SettingsToHost) => deps.settingsService.handleMessage(msg),

@@ -21,6 +21,7 @@ export function reduceHydrate(state: ChatState, msg: Extract<HostToWebview, { ty
     queue: msg.queue ?? [],
     plan: null,
     showDragTip: msg.showDragTip ?? false,
+    onboardingDismissed: msg.onboardingDismissed ?? false,
   };
 }
 

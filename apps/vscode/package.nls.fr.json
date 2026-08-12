@@ -19,6 +19,7 @@
   "ninjacode.command.rejectAllEdits": "NinjaCode : Rejeter toutes les modifications proposées",
   "ninjacode.command.reviewEdit": "NinjaCode : Examiner la modification proposée",
   "ninjacode.command.openSettings": "NinjaCode : Ouvrir les paramètres",
+  "ninjacode.command.showWelcome": "NinjaCode : Afficher l’écran d’accueil",
   "ninjacode.command.inlineEdit": "NinjaCode : Édition en ligne",
   "ninjacode.command.inlineEdit.accept": "NinjaCode : Accepter l’édition en ligne",
   "ninjacode.command.inlineEdit.reject": "NinjaCode : Rejeter l’édition en ligne",

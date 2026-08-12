@@ -4,15 +4,12 @@ import { AppHeader } from "./chat/AppHeader.js";
 import { SessionStatsBar } from "./chat/panels/SessionStatsBar.js";
 import { GlobalTooltip } from "./GlobalTooltip.js";
 import { AppShellFooter } from "./AppShellFooter.js";
+import { Onboarding } from "./chat/onboarding/Onboarding.js";
 import { useAppHeaderCallbacks } from "./useAppHeaderCallbacks.js";
 
-export function AppShell({ vm }: { vm: AppViewModel }) {
-  const header = useAppHeaderCallbacks(vm);
-
+function AppChatBody({ vm, onDismissDragTip }: { vm: AppViewModel; onDismissDragTip: () => void }) {
   return (
-    <div className="app screen-enter">
-      <GlobalTooltip />
-      <AppHeader {...header.props} />
+    <>
       {vm.state.sessionUsage && (
         <SessionStatsBar
           usage={vm.state.sessionUsage}
@@ -52,9 +49,27 @@ export function AppShell({ vm }: { vm: AppViewModel }) {
             settings={vm.shell.settings}
             vscode={vm.vscode}
           />
-          <AppShellFooter vm={vm} onDismissDragTip={header.dismissDragTip} />
+          <AppShellFooter vm={vm} onDismissDragTip={onDismissDragTip} />
         </div>
       </div>
+    </>
+  );
+}
+
+export function AppShell({ vm }: { vm: AppViewModel }) {
+  const header = useAppHeaderCallbacks(vm);
+
+  return (
+    <div className="app screen-enter">
+      <GlobalTooltip />
+      <AppHeader {...header.props} />
+      {vm.onboarding.visible ? (
+        <div className="app-body">
+          <Onboarding vscode={vm.vscode} onSkip={vm.onboarding.skip} />
+        </div>
+      ) : (
+        <AppChatBody vm={vm} onDismissDragTip={header.dismissDragTip} />
+      )}
     </div>
   );
 }

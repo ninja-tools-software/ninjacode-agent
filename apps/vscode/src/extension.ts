@@ -82,6 +82,7 @@ function registerSharedInfrastructure(
     vscode.commands.registerCommand("ninjacode.openSettings", () => {
       SettingsPanel.show(context, provider.settings);
     }),
+    vscode.commands.registerCommand("ninjacode.showWelcome", () => provider.showWelcome()),
   );
 
   const checkpointsTree = new CheckpointsTreeProvider(() => provider.lastCheckpoints);

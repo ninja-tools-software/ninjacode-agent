@@ -17,6 +17,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   if (action.kind === "sessions_loading") return { ...state, sessionsLoading: action.loading };
   if (action.kind === "clear_plan") return { ...state, plan: null };
   if (action.kind === "dismiss_drag_tip") return { ...state, showDragTip: false };
+  if (action.kind === "dismiss_onboarding") return { ...state, onboardingDismissed: true };
 
   const msg = action.message;
   if (msg.type === "hydrate") return reduceHydrate(state, msg);

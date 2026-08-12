@@ -19,6 +19,7 @@
   "ninjacode.command.rejectAllEdits": "NinjaCode: Reject All Proposed Edits",
   "ninjacode.command.reviewEdit": "NinjaCode: Review Proposed Edit",
   "ninjacode.command.openSettings": "NinjaCode: Open Settings",
+  "ninjacode.command.showWelcome": "NinjaCode: Show Welcome Screen",
   "ninjacode.command.inlineEdit": "NinjaCode: Inline Edit",
   "ninjacode.command.inlineEdit.accept": "NinjaCode: Accept Inline Edit",
   "ninjacode.command.inlineEdit.reject": "NinjaCode: Reject Inline Edit",

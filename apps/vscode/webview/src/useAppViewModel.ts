@@ -4,6 +4,7 @@ import { useAutoScroll } from "./chat/hooks/useAutoScroll.js";
 import { useChatShell } from "./chat/hooks/useChatShell.js";
 import { useCountdown } from "./chat/hooks/useCountdown.js";
 import { useEnhancePrompt } from "./chat/hooks/useEnhancePrompt.js";
+import { useOnboardingGate } from "./chat/hooks/useOnboardingGate.js";
 import { useOpenTabs } from "./chat/hooks/useOpenTabs.js";
 import { usePersistentFlag } from "./chat/hooks/usePersistentFlag.js";
 import { chatReducer, initialChatState } from "./chat/state/chatReducer.js";
@@ -66,6 +67,12 @@ export function useAppViewModel(vscode: VsCodeApi) {
     onError: onEnhanceError,
   });
   const [openModelMenuNonce, setOpenModelMenuNonce] = useState(0);
+  const onboarding = useOnboardingGate({
+    vscode,
+    dispatch,
+    dismissed: state.onboardingDismissed,
+    settings: shell.settings,
+  });
 
   useAppHostHandlers({
     vscode,
@@ -107,6 +114,7 @@ export function useAppViewModel(vscode: VsCodeApi) {
     agentActive,
     presence,
     voice,
+    onboarding,
     onEscape: useAppEscapeHandler(composer, shell, voice),
     hasContent: appHasComposerContent(composer.doc),
     panelChanges,

@@ -47,6 +47,8 @@ interface SessionsControllerDeps {
   runMessage(sessionId: string | undefined, text: string): Promise<void>;
   /** Whether the one-shot "hold Shift to drag" hint is still pending. */
   showDragTip(): boolean;
+  /** Whether the user already skipped the welcome screen. */
+  onboardingDismissed(): boolean;
 }
 
 /** Everything that creates, lists, switches, forks, renames, exports or deletes a conversation. */
@@ -93,6 +95,7 @@ export class SessionsController {
         sessions: this.core.sessionsList,
         pendingEdits: this.deps.proposedEdits.paths(),
         showDragTip: this.deps.showDragTip(),
+        onboardingDismissed: this.deps.onboardingDismissed(),
       }),
     });
     if (sid && !runtime?.ui.contextUsage && (runtime?.ui.log.length ?? 0) > 0) {
@@ -251,6 +254,7 @@ export class SessionsController {
         sessions: this.core.sessionsList,
         pendingEdits: runtime.ui.pendingEdits,
         showDragTip: this.deps.showDragTip(),
+        onboardingDismissed: this.deps.onboardingDismissed(),
       }),
     });
     await this.deps.runMessage(sessionId, newText);

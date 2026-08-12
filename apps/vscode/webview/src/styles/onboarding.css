@@ -1,0 +1,275 @@
+/*
+ * Welcome screen shown in place of the log and composer while the user has no
+ * way to reach a model. Sized for a ~280px sidebar first, capped so it stays
+ * readable when the chat is docked wide. Spacing is deliberately tight: the
+ * whole pitch has to fit a standard editor height without scrolling.
+ */
+.onb {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+.onb-scroll {
+  flex: 1;
+  overflow: auto;
+  width: 100%;
+  max-width: 470px;
+  margin: 0 auto;
+  padding: 14px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onb-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+.onb-mark {
+  display: inline-flex;
+  opacity: 0.9;
+}
+.onb-hero h2 {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.onb-hero p {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.onb-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+.onb-card-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+/* The Pass card is the one action we want taken: tint it with the accent. */
+.onb-pass {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 65%),
+    var(--surface-1);
+}
+.onb-pass-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.onb-pass-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.onb-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.onb-points {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.onb-point {
+  display: flex;
+  gap: 9px;
+}
+.onb-point-icon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  color: var(--fg);
+}
+.onb-point-icon svg {
+  width: 13px;
+  height: 13px;
+}
+.onb-point-body {
+  min-width: 0;
+}
+.onb-point-body strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.onb-point-body p {
+  margin: 1px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.onb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.onb-cta {
+  flex: 1 1 104px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+/* The default .btn border disappears on dark themes; the secondary CTA needs to
+   read as a button even when it wraps onto its own row. */
+.onb-cta:not(.primary) {
+  border-color: color-mix(in srgb, var(--fg) 24%, transparent);
+}
+.onb-fineprint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Secondary block: one line per item, icon dimmed so the pass card keeps the lead. */
+.onb-lines {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.onb-line {
+  display: flex;
+  gap: 8px;
+}
+.onb-line-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: 1.45em;
+  color: var(--muted);
+}
+.onb-line-icon svg {
+  width: 13px;
+  height: 13px;
+}
+.onb-line-body {
+  min-width: 0;
+}
+
+.onb-modes {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* One row per mode: icon, label, then the hint, which keeps its own column when
+   it wraps instead of falling back to the left margin. */
+.onb-mode {
+  display: grid;
+  grid-template-columns: 14px auto 1fr;
+  gap: 0 6px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.onb-mode-icon {
+  display: inline-flex;
+  align-items: center;
+  height: 1.5em;
+}
+.onb-mode-icon svg {
+  width: 12px;
+  height: 12px;
+}
+.onb-mode.mode-agent .onb-mode-icon { color: var(--mode-agent); }
+.onb-mode.mode-plan .onb-mode-icon { color: var(--mode-plan); }
+.onb-mode.mode-ask .onb-mode-icon { color: var(--mode-ask); }
+.onb-mode.mode-debug .onb-mode-icon { color: var(--mode-debug); }
+.onb-mode-hint {
+  grid-column: 3;
+  color: var(--muted);
+}
+
+.onb-byok,
+.onb-skip {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.onb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--vscode-textLink-foreground, var(--accent));
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.onb-link:hover {
+  color: var(--vscode-textLink-activeForeground, var(--accent));
+}
+.onb-link:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.onb-link svg {
+  width: 12px;
+  height: 12px;
+}
+.onb-skip .onb-link {
+  color: var(--muted);
+}
+.onb-skip .onb-link:hover {
+  color: var(--fg);
+}
+
+/* In a sidebar the mode hints wrap onto several extra lines and push the sign-up
+   buttons below the fold: keep the four names, drop the descriptions. */
+@media (max-width: 420px) {
+  .onb-modes {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+  }
+  .onb-mode {
+    grid-template-columns: 14px auto;
+  }
+  .onb-mode-hint {
+    display: none;
+  }
+}
