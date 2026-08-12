@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { SettingsState, VsCodeApi } from "../../types.js";
 
-const URL_PROVIDERS = new Set(["openai-compatible", "gateway", "local"]);
+const URL_PROVIDERS = new Set(["openai-compatible", "local"]);
 
 export function providerHasUrl(kind: string) {
   return URL_PROVIDERS.has(kind);

@@ -58,7 +58,7 @@ function resolveReasoning(
 
 export function readRunConfig(modeOverride?: AgentMode): RunConfig {
   const cfg = vscode.workspace.getConfiguration("ninjacode");
-  const kind = cfg.get<ProviderKind>("provider") ?? "anthropic";
+  const kind = cfg.get<ProviderKind>("provider") ?? "gateway";
   const model = cfg.get<string>("model") || undefined;
   const configuredWindow = cfg.get<number>("contextWindow") ?? 0;
   const modelInfo = getModelInfo(kind, model ?? "");
@@ -82,6 +82,7 @@ export async function ensureApiKey(
 ): Promise<string | undefined> {
   let apiKey = (await getSecretApiKey(context, kind)) ?? "";
   if (kind === "mock" || kind === "local" || apiKey) return apiKey;
+  if (kind === "gateway") return promptGatewaySignIn();
 
   const choice = await vscode.window.showWarningMessage(
     `NinjaCode: no API key set for ${kind}.`,
@@ -93,6 +94,23 @@ export async function ensureApiKey(
 
   apiKey = (await getSecretApiKey(context, kind)) ?? "";
   return apiKey || undefined;
+}
+
+async function promptGatewaySignIn(): Promise<undefined> {
+  const { t } = await import("../locale.js");
+  const signIn = t("Sign in");
+  const openSettings = t("Open Settings");
+  const choice = await vscode.window.showWarningMessage(
+    t("NinjaCode: sign in to NinjaCode Pass to continue."),
+    signIn,
+    openSettings,
+  );
+  if (choice === signIn) {
+    const { startBrowserLogin, webUrlFromConfig } = await import("../settingsGateway.js");
+    await startBrowserLogin(webUrlFromConfig());
+  }
+  if (choice === openSettings) await vscode.commands.executeCommand("ninjacode.openSettings");
+  return undefined;
 }
 
 export function grantsFrom(saved: readonly string[]): Array<{ tool: string; target: string }> {

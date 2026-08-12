@@ -21,6 +21,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
   const msg = action.message;
   if (msg.type === "hydrate") return reduceHydrate(state, msg);
+  if (msg.type === "reset_onboarding") return { ...state, onboardingDismissed: false };
   if (msg.type === "clear") return reduceClear(state, initialChatState);
 
   return (

@@ -141,6 +141,8 @@ describe("hydration and reset", () => {
     expect(skipped.onboardingDismissed).toBe(true);
     const cleared = chatReducer(skipped, { kind: "host", message: { type: "clear" } });
     expect(cleared.onboardingDismissed).toBe(true);
+    const reset = chatReducer(skipped, { kind: "host", message: { type: "reset_onboarding" } });
+    expect(reset.onboardingDismissed).toBe(false);
   });
 
   it("keeps the session list on clear", () => {

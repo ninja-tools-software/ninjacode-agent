@@ -339,7 +339,7 @@ function buildContextEstimateArgs(
   tools: ReturnType<typeof createDefaultToolRegistry>,
 ): Parameters<typeof Agent.estimateContextForSession>[0] {
   const cfg = vscode.workspace.getConfiguration("ninjacode");
-  const kind = cfg.get<ProviderKind>("provider") ?? "anthropic";
+  const kind = cfg.get<ProviderKind>("provider") ?? "gateway";
   const model = session.config.model ?? (cfg.get<string>("model") || undefined);
   const configuredWindow = cfg.get<number>("contextWindow") ?? 0;
   const modelInfo = getModelInfo(kind, model ?? "");

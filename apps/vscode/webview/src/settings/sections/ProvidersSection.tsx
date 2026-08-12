@@ -21,7 +21,7 @@ export function ProvidersSection({
       id="providers"
       title={t("Providers & keys")}
       description={t(
-        "Enable the providers you use, pick the active one, and store keys in the OS keychain (never in settings.json).",
+        "Bring-your-own-key alternative to NinjaCode Pass. Enable a provider, pick it as active, and store keys in the OS keychain (never in settings.json).",
       )}
     >
       <div className="provider-list">

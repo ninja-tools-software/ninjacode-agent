@@ -4,6 +4,7 @@ import { normalizeGatewayBase } from "./providerHelper.js";
 import { CHAT_LOCATION_CONTEXT } from "./chat/chatLocation.js";
 import { t } from "./locale.js";
 import type { SettingsMessage } from "./settingsTypes.js";
+import { BILLING_HANDLERS, type BillingHandlerContext } from "./billingHandlers.js";
 
 interface ApplySettingsHooks {
   focusChat(): Promise<void>;
@@ -96,14 +97,14 @@ async function applyModeFields(
   }
 }
 
-interface MessageHandlerContext {
+interface MessageHandlerContext extends BillingHandlerContext {
   update(key: string, value: unknown): Promise<void>;
   setApiKey(kind: ProviderKind, key: string): Promise<void>;
   clearApiKey(kind: ProviderKind): Promise<void>;
   startMagicLink(email: string): Promise<void>;
   startBrowserLogin(): Promise<void>;
-  openSubscribe(tier: string): Promise<void>;
   scheduleChange(): void;
+  onSignedOut(): Promise<void>;
 }
 
 const ACCOUNT_HANDLERS: Record<string, (msg: SettingsMessage, ctx: MessageHandlerContext) => Promise<void>> = {
@@ -120,13 +121,11 @@ const ACCOUNT_HANDLERS: Record<string, (msg: SettingsMessage, ctx: MessageHandle
   },
   account_logout: async (_msg, ctx) => {
     await ctx.clearApiKey("gateway");
+    await ctx.onSignedOut();
     ctx.scheduleChange();
   },
   account_refresh: async (_msg, ctx) => {
     ctx.scheduleChange();
-  },
-  account_subscribe: async (msg, ctx) => {
-    await ctx.openSubscribe(msg.tier ?? "starter");
   },
 };
 
@@ -189,6 +188,11 @@ export async function handleSettingsMessage(
   const accountHandler = ACCOUNT_HANDLERS[msg.type];
   if (accountHandler) {
     await accountHandler(msg, ctx);
+    return true;
+  }
+  const billingHandler = BILLING_HANDLERS[msg.type];
+  if (billingHandler) {
+    await billingHandler(msg, ctx);
     return true;
   }
   const prefHandler = PREFERENCE_HANDLERS[msg.type];

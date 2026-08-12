@@ -2,7 +2,7 @@
   "name": "ninjacode",
   "displayName": "%ninjacode.displayName%",
   "description": "%ninjacode.description%",
-  "version": "0.2.29",
+  "version": "0.2.31",
   "publisher": "ninjacode",
   "icon": "media/icon.png",
   "license": "GPL-2.0-only",
@@ -443,9 +443,10 @@
         },
         "ninjacode.provider": {
           "type": "string",
-          "default": "anthropic",
+          "default": "gateway",
           "markdownDescription": "%ninjacode.configuration.provider.markdownDescription%",
           "enum": [
+            "gateway",
             "anthropic",
             "openai",
             "deepseek",
@@ -456,15 +457,13 @@
             "mammouth",
             "openai-compatible",
             "local",
-            "gateway",
             "mock"
           ]
         },
         "ninjacode.providers": {
           "type": "array",
           "default": [
-            "anthropic",
-            "gateway"
+            "anthropic"
           ],
           "items": {
             "type": "string",
@@ -479,7 +478,6 @@
               "mammouth",
               "openai-compatible",
               "local",
-              "gateway",
               "mock"
             ]
           },

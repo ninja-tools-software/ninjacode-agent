@@ -31,6 +31,8 @@ import {
   type AccountInfo,
   type UsageRow,
 } from "./settingsGateway.js";
+import { fetchPlans } from "./billingGateway.js";
+import type { PlansCatalogPayload } from "./protocol.js";
 
 const ALL_PROVIDER_KINDS: ProviderKind[] = [
   "anthropic",
@@ -43,7 +45,6 @@ const ALL_PROVIDER_KINDS: ProviderKind[] = [
   "mammouth",
   "openai-compatible",
   "local",
-  "gateway",
   "mock",
 ];
 
@@ -59,11 +60,11 @@ function readProviderConfig(cfg: vscode.WorkspaceConfiguration): {
   providers: ProviderKind[];
   model: string;
 } {
-  const provider = (cfg.get<ProviderKind>("provider") ?? "anthropic") as ProviderKind;
+  const provider = (cfg.get<ProviderKind>("provider") ?? "gateway") as ProviderKind;
   const inspected = cfg.inspect<ProviderKind[]>("providers");
   const providers = (inspected?.globalValue ??
     inspected?.workspaceValue ??
-    inspected?.defaultValue ?? ["anthropic", "gateway"]) as ProviderKind[];
+    inspected?.defaultValue ?? ["anthropic"]) as ProviderKind[];
   const model = cfg.get<string>("model") ?? "";
   return { provider, providers, model };
 }
@@ -100,13 +101,14 @@ async function resolveModels(
 async function loadAccountBlock(
   gatewayKey: string | undefined,
   gatewayBase: string,
-): Promise<{ account: AccountInfo | null; usage: UsageRow[] }> {
-  if (!gatewayKey) return { account: null, usage: [] };
+): Promise<{ account: AccountInfo | null; usage: UsageRow[]; plans: PlansCatalogPayload | null }> {
+  const plans = await fetchPlans(gatewayBase);
+  if (!gatewayKey) return { account: null, usage: [], plans };
   const [account, usage] = await Promise.all([
     fetchAccount(gatewayBase, gatewayKey),
     fetchUsage(gatewayBase, gatewayKey),
   ]);
-  return { account, usage };
+  return { account, usage, plans };
 }
 
 function baseUrlForProvider(provider: ProviderKind, cfg: vscode.WorkspaceConfiguration): string {
@@ -183,7 +185,7 @@ function assembleSettingsPayload(parts: {
     .filter((c) => parts.providers.includes(c.kind) || c.kind === parts.provider)
     .map((c) => ({ kind: c.kind, label: c.label, models: c.models.map(toWireModel) }));
   const providerLabels = Object.fromEntries(listProviderCatalogs().map((c) => [c.kind, c.label]));
-  const { account, usage } = parts.accountUsage;
+  const { account, usage, plans } = parts.accountUsage;
   const modelInfo = parts.modelInfo ? toWireModel(parts.modelInfo) : undefined;
   return {
     provider: parts.provider,
@@ -216,6 +218,7 @@ function assembleSettingsPayload(parts: {
     hasApiKey: parts.hasApiKey,
     account,
     usage,
+    plans,
     gatewayConfigured: Boolean(parts.gatewayKey),
     benchmarkAttribution: parts.benchmarkAttribution ?? null,
     locale: resolveEffectiveLocale(),

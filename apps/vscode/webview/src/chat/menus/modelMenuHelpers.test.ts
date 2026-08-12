@@ -52,6 +52,7 @@ function settings(partial: Partial<SettingsState> = {}): SettingsState {
     hasApiKey: {},
     account: null,
     usage: [],
+    plans: null,
     gatewayConfigured: true,
     locale: "en",
     localeSetting: "auto",

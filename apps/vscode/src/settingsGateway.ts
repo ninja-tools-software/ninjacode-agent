@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
 import { getProviderCatalog, type ModelInfo } from "@ninjacode/providers";
 import { mapGatewayModel, type GatewayModelWire } from "./gatewayModelMap.js";
+import { parseOverage } from "./billingGateway.js";
 import { resolveGatewayBase, resolveWebUrl } from "./providerHelper.js";
+import type { AccountOveragePayload } from "./protocol.js";
 
 export type GatewayModelsResult =
   | {
@@ -21,6 +23,10 @@ export interface AccountInfo {
   passTier: string | null;
   passStreakMonths: number;
   catalogSlug?: string | null;
+  planKind: "monthly" | "commitment" | null;
+  commitmentEndsAt: string | null;
+  cancelAt: string | null;
+  overage: AccountOveragePayload | null;
 }
 
 export interface UsageRow {
@@ -100,7 +106,12 @@ export async function fetchAccount(gatewayBase: string, apiKey: string): Promise
       email: string;
       passTier: string | null;
       passStreakMonths: number;
+      planKind?: string | null;
+      commitmentEndsAt?: string | null;
+      cancelAt?: string | null;
+      overage?: unknown;
     };
+    const planKind = raw.planKind === "monthly" || raw.planKind === "commitment" ? raw.planKind : null;
     return {
       email: raw.email,
       credits: raw.credits ?? 0,
@@ -109,6 +120,10 @@ export async function fetchAccount(gatewayBase: string, apiKey: string): Promise
       passTier: raw.passTier,
       passStreakMonths: raw.passStreakMonths,
       catalogSlug: raw.catalogSlug ?? null,
+      planKind,
+      commitmentEndsAt: raw.commitmentEndsAt ?? null,
+      cancelAt: raw.cancelAt ?? null,
+      overage: parseOverage(raw.overage),
     };
   } catch {
     return null;

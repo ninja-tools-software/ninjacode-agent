@@ -157,7 +157,7 @@ async function createChatParticipantAgent(
   stream: vscode.ChatResponseStream,
 ): Promise<Agent | undefined> {
   const cfg = vscode.workspace.getConfiguration("ninjacode");
-  const kind = (cfg.get<ProviderKind>("provider") ?? "anthropic") as ProviderKind;
+  const kind = (cfg.get<ProviderKind>("provider") ?? "gateway") as ProviderKind;
   const model = cfg.get<string>("model") || undefined;
   const baseUrl = cfg.get<string>("baseUrl") || undefined;
   const approvalMode = cfg.get<ApprovalMode>("approvalMode") ?? "balanced";
@@ -165,7 +165,9 @@ async function createChatParticipantAgent(
   const apiKey = (await getSecretApiKey(context, kind)) ?? "";
   if (kind !== "mock" && kind !== "echo" && !apiKey) {
     stream.markdown(
-      "⚠️ No NinjaCode API key is configured yet. Run **NinjaCode: Set API Key** and try again.",
+      kind === "gateway"
+        ? "⚠️ Sign in to NinjaCode Pass from the chat welcome screen or **NinjaCode: Open Settings**."
+        : "⚠️ No NinjaCode API key is configured yet. Run **NinjaCode: Set API Key** and try again.",
     );
     return undefined;
   }

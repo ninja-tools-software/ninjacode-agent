@@ -41,4 +41,10 @@ describe("needsGatewayOnboarding", () => {
   it("hides for the mock provider used in tests and demos", () => {
     expect(needsGatewayOnboarding(settings({ provider: "mock" }))).toBe(false);
   });
+
+  it("ignores a leftover gateway key in hasApiKey — Pass state is gatewayConfigured", () => {
+    expect(
+      needsGatewayOnboarding(settings({ hasApiKey: { gateway: true } as never })),
+    ).toBe(true);
+  });
 });

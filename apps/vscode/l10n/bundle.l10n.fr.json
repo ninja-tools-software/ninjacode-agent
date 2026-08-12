@@ -86,5 +86,15 @@
   "Nothing to enhance — type a prompt first.": "Rien à améliorer — saisissez d’abord un prompt.",
   "Prompt enhancement requires the NinjaCode gateway.": "L’amélioration de prompt nécessite la gateway NinjaCode.",
   "Prompt enhancement failed — sign in to the gateway first.": "Échec de l’amélioration de prompt — connectez-vous d’abord à la gateway.",
-  "Prompt enhancement failed: {0}": "Échec de l’amélioration de prompt : {0}"
+  "Prompt enhancement failed: {0}": "Échec de l’amélioration de prompt : {0}",
+  "NinjaCode: sign in to NinjaCode Pass to continue.": "NinjaCode : connectez-vous à NinjaCode Pass pour continuer.",
+  "Sign in": "Se connecter",
+  "Open Settings": "Ouvrir les paramètres",
+  "You already have an active NinjaCode Pass.": "Vous avez déjà un NinjaCode Pass actif.",
+  "Billing is not available right now.": "La facturation n’est pas disponible pour le moment.",
+  "No active subscription to update.": "Aucun abonnement actif à mettre à jour.",
+  "An active NinjaCode Pass is required to set an overage limit.": "Un NinjaCode Pass actif est requis pour définir un plafond de dépassement.",
+  "No billing customer on this account yet. Subscribe first.": "Pas encore de client de facturation sur ce compte. Abonnez-vous d’abord.",
+  "Billing request failed: {0}": "Échec de la demande de facturation : {0}",
+  "NinjaCode Pass cancellation was withdrawn.": "L’annulation de NinjaCode Pass a été retirée."
 }

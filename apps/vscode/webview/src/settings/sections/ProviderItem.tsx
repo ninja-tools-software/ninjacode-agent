@@ -16,11 +16,9 @@ function ProviderUrlField({
   vscode: VsCodeApi;
 }) {
   const meta =
-    kind === "gateway"
-      ? { label: t("Gateway URL"), placeholder: "https://gateway.ninja-code.ai" }
-      : kind === "local"
-        ? { label: t("Local server URL"), placeholder: "http://localhost:11434/v1" }
-        : { label: t("Base URL"), placeholder: "https://api.example.com/v1" };
+    kind === "local"
+      ? { label: t("Local server URL"), placeholder: "http://localhost:11434/v1" }
+      : { label: t("Base URL"), placeholder: "https://api.example.com/v1" };
 
   return (
     <div className="field">

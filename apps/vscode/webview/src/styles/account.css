@@ -1,0 +1,61 @@
+/* Account / NinjaCode Pass cards on the Settings tab. */
+
+.account-actions {
+  flex-wrap: wrap;
+}
+
+.plan-kind-toggle,
+.overage-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tier-card.current {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.tier-card .tier-cta {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tier-card.current .tier-cta {
+  color: var(--muted);
+}
+
+.overage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.overage-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.overage-field input {
+  width: 88px;
+}
+
+.overage-equiv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.overage-equiv strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.account-overage {
+  margin-top: 12px;
+}

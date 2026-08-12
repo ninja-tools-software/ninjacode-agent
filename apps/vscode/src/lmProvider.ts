@@ -25,7 +25,6 @@ const EXPOSABLE_KINDS: ProviderKind[] = [
   "moonshot",
   "glm",
   "mistral",
-  "gateway",
   "mock",
 ];
 

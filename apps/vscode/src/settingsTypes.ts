@@ -24,6 +24,9 @@ export interface SettingsMessage {
   chatLocation?: ChatLocation;
   baseUrl?: string;
   tier?: string;
+  planKind?: "monthly" | "commitment";
+  packId?: string;
+  limitEur?: number;
   mode?: string;
   approvalMode?: string;
   locale?: "auto" | "en" | "fr";

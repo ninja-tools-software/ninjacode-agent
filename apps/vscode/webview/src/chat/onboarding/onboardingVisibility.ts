@@ -14,6 +14,7 @@ export function needsGatewayOnboarding(settings: SettingsState | null): boolean 
   if (settings.gatewayConfigured) return false;
   if (KEYLESS_PROVIDERS.includes(settings.provider)) return false;
   return !Object.entries(settings.hasApiKey ?? {}).some(
-    ([kind, configured]) => configured && !KEYLESS_PROVIDERS.includes(kind),
+    ([kind, configured]) =>
+      configured && kind !== "gateway" && !KEYLESS_PROVIDERS.includes(kind),
   );
 }

@@ -110,7 +110,6 @@ export function registerApiKeyCommand(context: vscode.ExtensionContext): void {
         "mistral",
         "mammouth",
         "openai-compatible",
-        "gateway",
       ];
       const kind = (await vscode.window.showQuickPick(kinds, {
         title: "Provider for API key",

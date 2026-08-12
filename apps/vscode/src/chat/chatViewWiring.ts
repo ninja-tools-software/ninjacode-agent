@@ -74,6 +74,10 @@ export function wireChatView(input: WireChatViewInput): ChatViewWiring {
     loadExtras: () => workspaceExtrasHolder.service!.load(),
     agentLogs: () => agentLogs.list(),
     reloadMcp: () => workspaceExtrasHolder.service!.reloadMcp(),
+    onSignedOut: async () => {
+      await context.globalState.update(ONBOARDING_KEY, false);
+      core.post(undefined, { type: "reset_onboarding" });
+    },
   });
 
   const { planEditor, plan, sessions, edits } = createPlanLayer(input, {

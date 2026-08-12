@@ -1,9 +1,15 @@
 /** Types shared by the chat view and the Settings editor tab. */
 
-import type { SettingsPayload, WireModelInfo } from "../../src/protocol.js";
+import type {
+  GatewayPlanPayload,
+  PlanKind,
+  SettingsPayload,
+  WireModelInfo,
+} from "../../src/protocol.js";
 
 /** Wire settings snapshot — derived from the host protocol, not redeclared. */
 export type SettingsState = SettingsPayload;
+export type { GatewayPlanPayload, PlanKind };
 
 export type Mode = SettingsPayload["mode"];
 export type ApprovalMode = SettingsPayload["approvalMode"];
@@ -78,6 +84,7 @@ export interface AgentLogEntryItem {
   detail?: string;
 }
 
+/** Bring-your-own-key providers shown in Settings. NinjaCode Pass is not a row here. */
 export const ALL_PROVIDERS = [
   "anthropic",
   "openai",
@@ -89,22 +96,8 @@ export const ALL_PROVIDERS = [
   "mammouth",
   "openai-compatible",
   "local",
-  "gateway",
   "mock",
 ] as const;
-
-/** Plans mirrored from GATEWAY_PLANS (packages/providers) for the upsell cards. */
-export const CREDIT_PLANS: Array<{
-  id: string;
-  label: string;
-  price: string;
-  credits: string;
-  hint?: string;
-}> = [
-  { id: "starter", label: "Starter", price: "$20", credits: "2,000 credits/mo" },
-  { id: "pro", label: "Pro", price: "$50", credits: "6,000 credits/mo", hint: "3x usage" },
-  { id: "ultra", label: "Ultra", price: "$150", credits: "24,000 credits/mo", hint: "12x usage" },
-];
 
 export function formatContextWindow(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 ? 1 : 0)}M`;

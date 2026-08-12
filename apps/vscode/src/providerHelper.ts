@@ -127,7 +127,7 @@ export async function getQuickProvider(
   opts: { modelOverride?: string; maxTokens?: number; silent?: boolean } = {},
 ): Promise<QuickProvider | undefined> {
   const cfg = vscode.workspace.getConfiguration("ninjacode");
-  const kind = (cfg.get<ProviderKind>("provider") ?? "anthropic") as ProviderKind;
+  const kind = (cfg.get<ProviderKind>("provider") ?? "gateway") as ProviderKind;
   const model = opts.modelOverride || cfg.get<string>("model") || undefined;
   const apiKey = await ensureQuickApiKey(context, kind, Boolean(opts.silent));
   const keylessOk = kind === "mock" || kind === "echo" || kind === "local";

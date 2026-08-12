@@ -59,19 +59,6 @@ export type {
   ModelCapabilities,
 } from "./gatewayModels.js";
 
-export {
-  creditRateFromCost,
-  GATEWAY_PLANS,
-  getGatewayPlan,
-  CREDIT_VALUE_USD,
-  CREDIT_TARGET_MARGIN,
-} from "./gatewayPlans.js";
-export type {
-  GatewayCreditRate,
-  GatewayPlan,
-  GatewayPlanTier,
-} from "./gatewayPlans.js";
-
 export type {
   GatewayEnvKeys,
   ResolvedGatewayRoute,

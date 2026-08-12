@@ -338,6 +338,17 @@ export interface ProviderCatalogItem {
   models: WireModelInfo[];
 }
 
+export type PlanKind = "monthly" | "commitment";
+
+export interface AccountOveragePayload {
+  limitEur: number;
+  limitCredits: number;
+  consumedCredits: number;
+  consumedEur: number;
+  availableCredits: number;
+  maxLimitEur: number;
+}
+
 export interface AccountInfoPayload {
   email: string;
   credits: number;
@@ -345,6 +356,34 @@ export interface AccountInfoPayload {
   renewsAt: string | null;
   passTier: string | null;
   passStreakMonths: number;
+  planKind: PlanKind | null;
+  commitmentEndsAt: string | null;
+  cancelAt: string | null;
+  overage: AccountOveragePayload | null;
+}
+
+export interface GatewayPlanPayload {
+  tier: string;
+  label: string;
+  priceEur: number;
+  commitmentPriceEur: number;
+  monthlyCredits: number;
+  bonusPct: number;
+  highlight: boolean;
+}
+
+export interface CreditPackPayload {
+  id: string;
+  label: string;
+  credits: number;
+  priceEur: number;
+}
+
+export interface PlansCatalogPayload {
+  creditValueEur: number;
+  packExpiryMonths: number;
+  plans: GatewayPlanPayload[];
+  packs: CreditPackPayload[];
 }
 
 export interface UsageRowPayload {
@@ -388,6 +427,7 @@ export interface SettingsPayload {
   hasApiKey: Record<string, boolean>;
   account: AccountInfoPayload | null;
   usage: UsageRowPayload[];
+  plans: PlansCatalogPayload | null;
   gatewayConfigured: boolean;
   /**
    * Contractual attribution for Artificial Analysis / Design Arena / LLM Stats data.
@@ -427,7 +467,11 @@ export type SettingsToHost =
   | { type: "account_paste_key"; key: string }
   | { type: "account_logout" }
   | { type: "account_refresh" }
-  | { type: "account_subscribe"; tier: string }
+  | { type: "account_subscribe"; tier: string; planKind?: PlanKind }
+  | { type: "account_buy_pack"; packId: string }
+  | { type: "account_set_overage"; limitEur: number }
+  | { type: "account_billing_portal" }
+  | { type: "account_resume_subscription" }
   | { type: "set_mode"; mode: AgentMode }
   | { type: "set_model"; model: string }
   | { type: "set_favorite_models"; models: string[] }
@@ -555,6 +599,7 @@ export type HostToWebview =
   // hydration / session
   | ({ type: "hydrate" } & HydratePayload)
   | ({ type: "settings" } & SettingsPayload)
+  | { type: "reset_onboarding" }
   | { type: "set_locale"; locale: "en" | "fr" }
   | { type: "sessions"; sessions: SessionSummary[]; activeSessionId?: string }
   | { type: "sessions_loading"; loading: boolean }

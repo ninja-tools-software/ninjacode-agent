@@ -18,6 +18,15 @@ import { applySettings, handleSettingsMessage } from "./settingsHandlers.js";
 import { buildSettingsPayload } from "./settingsPayload.js";
 import { t } from "./locale.js";
 import type { SettingsMessage } from "./settingsTypes.js";
+import type { PlanKind } from "./protocol.js";
+import {
+  changeSubscription,
+  createCheckout,
+  openBillingPortal,
+  resumeSubscription,
+  setOverageLimit,
+} from "./billingGateway.js";
+import { billingErrorMessage, openBillingUrl } from "./billingHandlers.js";
 
 export type { SettingsMessage } from "./settingsTypes.js";
 
@@ -42,6 +51,8 @@ interface SettingsHostHooks {
   agentLogs(): AgentLogEntry[];
   /** Close cached MCP clients so the next read reconnects with the current config. */
   reloadMcp(): Promise<void>;
+  /** Clear the skipped-welcome flag so the Pass screen can show after sign-out. */
+  onSignedOut(): Promise<void>;
 }
 
 /**
@@ -135,7 +146,12 @@ export class SettingsService {
           t("NinjaCode: complete sign-in in your browser, then return here."),
         );
       },
-      openSubscribe: (tier) => this.openSubscribe(tier),
+      subscribe: (tier, planKind) => this.openSubscribe(tier, planKind),
+      buyPack: (packId) => this.buyPack(packId),
+      setOverage: (limitEur) => this.setOverage(limitEur),
+      openPortal: () => this.openPortal(),
+      resumeSubscription: () => this.resumePass(),
+      onSignedOut: () => this.hooks.onSignedOut(),
       scheduleChange: () => this.scheduleChange(),
     });
   }
@@ -156,16 +172,63 @@ export class SettingsService {
     });
   }
 
-  async openSubscribe(tier: string): Promise<void> {
+  async openSubscribe(tier: string, planKind: PlanKind = "monthly"): Promise<void> {
+    const auth = await this.requireGatewayKey();
+    if (!auth) return;
+    const checkout = await createCheckout(auth.base, auth.key, { tier, planKind });
+    if (!checkout.ok && checkout.error === "already_subscribed") {
+      const change = await changeSubscription(auth.base, auth.key, tier);
+      if (await openBillingUrl(change)) this.scheduleChange();
+      return;
+    }
+    if (await openBillingUrl(checkout)) this.scheduleChange();
+  }
+
+  private async buyPack(packId: string): Promise<void> {
+    const auth = await this.requireGatewayKey();
+    if (!auth) return;
+    const result = await createCheckout(auth.base, auth.key, { kind: "pack", packId });
+    if (await openBillingUrl(result)) this.scheduleChange();
+  }
+
+  private async setOverage(limitEur: number): Promise<void> {
+    const auth = await this.requireGatewayKey();
+    if (!auth) return;
+    const result = await setOverageLimit(auth.base, auth.key, limitEur);
+    if (!result.ok) {
+      vscode.window.showErrorMessage(billingErrorMessage(result.error));
+      return;
+    }
+    this.scheduleChange();
+  }
+
+  private async openPortal(): Promise<void> {
+    const auth = await this.requireGatewayKey();
+    if (!auth) return;
+    const result = await openBillingPortal(auth.base, auth.key);
+    if (await openBillingUrl(result)) this.scheduleChange();
+  }
+
+  private async resumePass(): Promise<void> {
+    const auth = await this.requireGatewayKey();
+    if (!auth) return;
+    const result = await resumeSubscription(auth.base, auth.key);
+    if (!result.ok) {
+      vscode.window.showErrorMessage(billingErrorMessage(result.error));
+      return;
+    }
+    vscode.window.showInformationMessage(t("NinjaCode Pass cancellation was withdrawn."));
+    this.scheduleChange();
+  }
+
+  private async requireGatewayKey(): Promise<{ key: string; base: string } | undefined> {
     const key = await getSecretApiKey(this.context, "gateway");
     if (!key) {
       vscode.window.showWarningMessage(t("Sign in to NinjaCode Pass first."));
       await vscode.commands.executeCommand("ninjacode.openSettings");
-      return;
+      return undefined;
     }
-    const url = `${this.gatewayBase()}/v1/billing/checkout?key=${encodeURIComponent(key)}`;
-    const dash = `${this.gatewayBase()}/dashboard?key=${encodeURIComponent(key)}&tier=${encodeURIComponent(tier)}`;
-    await vscode.env.openExternal(vscode.Uri.parse(dash || url));
+    return { key, base: this.gatewayBase() };
   }
 
   /** Persist a magic-link key and switch the active provider to the gateway. */
