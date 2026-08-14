@@ -29,7 +29,7 @@ import type {
   RunState,
   SessionState,
 } from "./types.js";
-import type { ContextUsageBreakdown } from "./context.js";
+import type { ContextUsageBreakdown } from "./contextEstimate.js";
 
 export type { AgentOptions, AgentTaskInput } from "./agentOptions.js";
 

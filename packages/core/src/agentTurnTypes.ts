@@ -56,7 +56,7 @@ export interface AgentTurnDeps {
     system: string,
     history: Message[],
     toolSpecs: ToolSpec[],
-  ) => import("./context.js").ContextUsageBreakdown;
+  ) => import("./contextEstimate.js").ContextUsageBreakdown;
   trackUsage: (usage: TokenUsage) => void;
   getCacheStats: () => Record<string, unknown>;
   checkRunTimeout: () => string | undefined;

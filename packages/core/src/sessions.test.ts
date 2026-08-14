@@ -124,7 +124,7 @@ describe("compactHistory tool integrity", () => {
       pinnedTask: "task",
       contextWindow: 64_000,
     });
-    expect(isValidToolChain(out)).toBe(true);
+    expect(isValidToolChain(out.messages)).toBe(true);
   });
 
   it("compactHistorySync preserves tool blocks", () => {

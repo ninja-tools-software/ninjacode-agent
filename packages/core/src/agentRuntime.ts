@@ -1,6 +1,6 @@
 import type { TokenUsage, ToolSpec } from "@ninjacode/providers";
 import type { Message } from "@ninjacode/providers";
-import { estimateContextUsage, type ContextUsageBreakdown } from "./context.js";
+import { estimateContextUsage, type ContextUsageBreakdown } from "./contextEstimate.js";
 import type { BudgetTracker } from "./reliability.js";
 
 export function linkExternalAbortSignal(

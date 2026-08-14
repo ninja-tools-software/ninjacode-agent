@@ -1,6 +1,7 @@
 import type { LlmProvider, Message } from "@ninjacode/providers";
 import type { ToolRegistry } from "@ninjacode/tools";
-import { compactHistory, estimateContextUsage, type ContextUsageBreakdown } from "./context.js";
+import { compactHistory } from "./context.js";
+import { estimateContextUsage, type ContextUsageBreakdown } from "./contextEstimate.js";
 import { buildSystemPrompt, discoverRules } from "./rules.js";
 import type { AgentMode } from "./types.js";
 import type { SkillDefinition } from "./skills.js";
@@ -24,7 +25,7 @@ export async function compactAgentHistory(opts: {
 }): Promise<{ compacted: Message[]; usage: ContextUsageBreakdown } | null> {
   if (opts.history.length === 0) return null;
 
-  const compacted = await compactHistory({
+  const { messages: compacted } = await compactHistory({
     history: opts.history,
     pinnedTask: opts.pinnedTask,
     provider: opts.provider,

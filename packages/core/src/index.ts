@@ -21,10 +21,10 @@ export {
   truncateToolOutput,
   toolOutputLimit,
   softenSupersededReads,
-  estimateContextUsage,
 } from "./context.js";
-export type { CompactionInfo, ContextUsageBreakdown } from "./context.js";
-export { estimateTokens } from "./contextEstimate.js";
+export type { CompactionInfo } from "./context.js";
+export { estimateTokens, estimateContextUsage } from "./contextEstimate.js";
+export type { ContextUsageBreakdown } from "./contextEstimate.js";
 
 export {
   buildSystemPrompt,

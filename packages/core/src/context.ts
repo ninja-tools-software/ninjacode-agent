@@ -1,6 +1,13 @@
-import type { LlmProvider, Message, ToolSpec } from "@ninjacode/providers";
-import { computeCompactionLimits, shouldSkipCompaction } from "./compactionGate.js";
-import { estimateTextTokens, estimateTokens } from "./contextEstimate.js";
+import type { LlmProvider, Message } from "@ninjacode/providers";
+import {
+  compactResult,
+  computeCompactionLimits,
+  resolveCompactionTrigger,
+  shouldSkipCompaction,
+  type CompactHistoryResult,
+  type CompactionTrigger,
+} from "./compactionGate.js";
+import { estimateTokens } from "./contextEstimate.js";
 import { maskOldObservations } from "./observationMasking.js";
 import { alignCompactionStart, normalizeToolHistory } from "./toolHistory.js";
 import { softenSupersededReads } from "./toolAnnotations.js";
@@ -90,7 +97,7 @@ export function compactHistoryLossless(history: Message[]): Message[] {
 /** Telemetry payload emitted whenever compaction actually summarizes history. */
 export interface CompactionInfo {
   /** What triggered the compaction. */
-  trigger: "soft_limit" | "hard_limit" | "manual";
+  trigger: CompactionTrigger;
   /** Messages folded into the summary. */
   messagesSummarized: number;
   /** Messages kept verbatim (recent tail + system). */
@@ -115,8 +122,9 @@ export async function compactHistory(options: {
   signal?: AbortSignal;
   force?: boolean;
   onCompaction?: (info: CompactionInfo) => void | Promise<void>;
-}): Promise<Message[]> {
-  const msgs = compactHistoryLossless(options.history);
+}): Promise<CompactHistoryResult> {
+  const original = options.history;
+  const msgs = compactHistoryLossless(original);
   const limits = computeCompactionLimits(options.contextWindow);
   const gate = {
     force: options.force,
@@ -125,16 +133,18 @@ export async function compactHistory(options: {
     toolTokens: options.toolTokens,
   };
 
-  if (shouldSkipCompaction(msgs, limits, gate)) return msgs;
+  if (shouldSkipCompaction(msgs, limits, gate)) return compactResult(original, msgs);
 
   // Under pressure, spend the free tier first: masking old re-runnable outputs
   // often buys back enough room that no summary — and no LLM call — is needed.
   // A forced compaction is a request for a summary, so it skips the shortcut.
   const masked = maskOldObservations(msgs);
-  if (!options.force && shouldSkipCompaction(masked, limits, gate)) return masked;
+  if (!options.force && shouldSkipCompaction(masked, limits, gate)) {
+    return compactResult(original, masked);
+  }
 
   const split = splitHistoryForCompaction(masked, options.pinnedTask, limits.keepRecent);
-  if (!split) return msgs;
+  if (!split) return compactResult(original, msgs);
 
   const summary = await buildCompactionSummary({
     provider: options.provider,
@@ -143,8 +153,9 @@ export async function compactHistory(options: {
     pinnedTask: options.pinnedTask,
     signal: options.signal,
   });
-
-  return finalizeCompaction(options, split, summary);
+  const trigger = resolveCompactionTrigger(masked, limits, gate);
+  const result = await finalizeCompaction(options, split, summary, trigger);
+  return compactResult(original, result, true);
 }
 
 function splitHistoryForCompaction(
@@ -191,8 +202,6 @@ async function buildCompactionSummary(opts: {
 async function finalizeCompaction(
   options: {
     pinnedTask?: string;
-    contextWindow?: number;
-    force?: boolean;
     onCompaction?: (info: CompactionInfo) => void | Promise<void>;
   },
   split: {
@@ -202,6 +211,7 @@ async function finalizeCompaction(
     older: Message[];
   },
   summary: string,
+  trigger: CompactionTrigger,
 ): Promise<Message[]> {
   const pin = options.pinnedTask ? `Pinned original task:\n${options.pinnedTask}\n\n` : "";
   const summaryContent = `${COMPACTION_MARKER}\n${pin}${summary}`;
@@ -216,7 +226,7 @@ async function finalizeCompaction(
   ]);
 
   await options.onCompaction?.({
-    trigger: options.force ? "manual" : options.contextWindow ? "hard_limit" : "soft_limit",
+    trigger,
     messagesSummarized: split.older.length,
     messagesKept: split.recent.length,
     tokensBefore: estimateTokens(split.older),
@@ -337,57 +347,4 @@ function extractPinnedMessages(history: Message[], pinnedTask?: string): Set<Mes
     }
   }
   return pinned;
-}
-
-/** Breakdown of estimated tokens consumed by the next LLM call. */
-export interface ContextUsageBreakdown {
-  system: number;
-  history: number;
-  tools: number;
-  /** Subset of `history` attributable to file-read tool results (informational). */
-  files: number;
-  /** Reserved output budget (not part of `total`, shown for headroom awareness). */
-  output: number;
-  /** system + history + tools — the actual input token estimate. */
-  total: number;
-  /** Context window budget being tracked against (0 if unknown). */
-  window: number;
-  cacheRead?: number;
-  cacheWrite?: number;
-}
-
-/**
- * Estimate the token breakdown for an upcoming completion request, without
- * double-counting: `system` and `history` must be disjoint (i.e. `history`
- * should not include the system message) — callers own that split.
- */
-export function estimateContextUsage(opts: {
-  system: string;
-  history: Message[];
-  tools?: ToolSpec[];
-  window?: number;
-  reservedOutput?: number;
-  cacheReadTokens?: number;
-  cacheWriteTokens?: number;
-}): ContextUsageBreakdown {
-  const system = estimateTextTokens(opts.system);
-  const history = estimateTokens(opts.history);
-  const files = estimateTokens(
-    opts.history.filter(
-      (m) => m.role === "tool" && (m.name === "read_file" || m.name === "list_dir"),
-    ),
-  );
-  const tools = opts.tools?.length ? estimateTextTokens(JSON.stringify(opts.tools)) : 0;
-
-  return {
-    system,
-    history,
-    tools,
-    files,
-    output: opts.reservedOutput ?? 0,
-    total: system + history + tools,
-    window: opts.window ?? 0,
-    cacheRead: opts.cacheReadTokens,
-    cacheWrite: opts.cacheWriteTokens,
-  };
 }

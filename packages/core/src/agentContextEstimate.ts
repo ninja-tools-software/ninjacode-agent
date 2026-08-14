@@ -1,10 +1,7 @@
 import type { Message } from "@ninjacode/providers";
 import type { ToolRegistry } from "@ninjacode/tools";
-import {
-  compactHistoryLossless,
-  estimateContextUsage,
-  type ContextUsageBreakdown,
-} from "./context.js";
+import { compactHistoryLossless } from "./context.js";
+import { estimateContextUsage, type ContextUsageBreakdown } from "./contextEstimate.js";
 import { filterToolsForEditFormat, preferredEditFormat } from "./editTools.js";
 import { buildSystemPrompt, discoverRules } from "./rules.js";
 import { discoverSkills, enabledSkills } from "./skills.js";

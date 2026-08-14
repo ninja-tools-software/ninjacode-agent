@@ -8,6 +8,8 @@ import {
 import { getSecretApiKey } from "../secrets.js";
 import { gatewayApiBase, resolveLocalBase } from "../providerHelper.js";
 import { clampApprovalForTrust } from "../workspaceTrust.js";
+import { fetchGatewayModels } from "../settingsGateway.js";
+import { enrichRunConfigFromLiveModels, resolveContextWindow } from "./runConfigContext.js";
 
 /** Everything a run needs from VS Code configuration, resolved once per message. */
 interface RunConfig {
@@ -27,16 +29,6 @@ function resolveBaseUrl(cfg: vscode.WorkspaceConfiguration, kind: ProviderKind):
   if (kind === "gateway") return gatewayApiBase(cfg);
   if (kind === "local") return resolveLocalBase(cfg);
   return cfg.get<string>("baseUrl") || undefined;
-}
-
-function resolveContextWindow(
-  configuredWindow: number,
-  modelInfo: ReturnType<typeof getModelInfo>,
-): number | undefined {
-  if (configuredWindow > 0) {
-    return Math.min(configuredWindow, modelInfo?.contextWindow ?? configuredWindow);
-  }
-  return modelInfo?.defaultContextWindow ?? modelInfo?.contextWindow;
 }
 
 function resolveReasoning(
@@ -74,6 +66,18 @@ export function readRunConfig(modeOverride?: AgentMode): RunConfig {
     ...resolveReasoning(cfg, modelInfo),
     vision: modelInfo ? Boolean(modelInfo.vision) : true,
   };
+}
+
+/** Live gateway catalogs include models the compiled package does not know. */
+export async function withGatewayContextWindow(
+  config: RunConfig,
+  apiKey: string,
+): Promise<RunConfig> {
+  if (config.kind !== "gateway" || config.contextWindow) return config;
+  const cfg = vscode.workspace.getConfiguration("ninjacode");
+  const live = await fetchGatewayModels(gatewayApiBase(cfg), apiKey);
+  if (!live.ok) return config;
+  return enrichRunConfigFromLiveModels(config, live.models);
 }
 
 export async function ensureApiKey(

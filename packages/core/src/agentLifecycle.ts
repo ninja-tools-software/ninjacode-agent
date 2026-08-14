@@ -5,7 +5,7 @@ import { estimateContextForSession } from "./agentContextEstimate.js";
 import { compactAgentHistory } from "./agentCompact.js";
 import { redact, truncateForLog } from "./agentLogs.js";
 import type { AgentTaskInput } from "./agentOptions.js";
-import type { ContextUsageBreakdown } from "./context.js";
+import type { ContextUsageBreakdown } from "./contextEstimate.js";
 import type { SkillDefinition } from "./skills.js";
 import type { AgentMode } from "./types.js";
 

@@ -5,12 +5,26 @@ const HISTORY_SOFT_LIMIT = 40;
 const HISTORY_HARD_LIMIT = 80;
 const KEEP_RECENT = 30;
 
-interface CompactionLimits {
+export interface CompactionLimits {
   softLimit: number;
   hardLimit: number;
   keepRecent: number;
   tokenSoftThreshold: number;
   tokenHardThreshold: number;
+}
+
+/** Why the pipeline summarized (or would summarize) history. */
+export type CompactionTrigger =
+  | "manual"
+  | "token_soft"
+  | "token_hard"
+  | "message_soft"
+  | "message_hard";
+
+export interface CompactHistoryResult {
+  messages: Message[];
+  /** True when the returned history is not the same sequence the caller passed in. */
+  changed: boolean;
 }
 
 export function computeCompactionLimits(contextWindow?: number): CompactionLimits {
@@ -45,13 +59,54 @@ export function shouldSkipCompaction(
   },
 ): boolean {
   if (opts.force) return false;
+  const pressure = compactionPressure(msgs, limits, opts);
+  if (pressure.overTokenSoft || pressure.overTokenHard) return false;
+  return msgs.length <= limits.hardLimit;
+}
 
-  const totalTokens =
-    estimateTokens(msgs) + (opts.systemTokens ?? 0) + (opts.toolTokens ?? 0);
-  const overTokenSoft = limits.tokenSoftThreshold > 0 && totalTokens > limits.tokenSoftThreshold;
-  const overTokenHard = limits.tokenHardThreshold > 0 && totalTokens > limits.tokenHardThreshold;
+export function resolveCompactionTrigger(
+  msgs: Message[],
+  limits: CompactionLimits,
+  opts: {
+    force?: boolean;
+    contextWindow?: number;
+    systemTokens?: number;
+    toolTokens?: number;
+  },
+): CompactionTrigger {
+  if (opts.force) return "manual";
+  const pressure = compactionPressure(msgs, limits, opts);
+  if (pressure.overTokenHard) return "token_hard";
+  if (pressure.overTokenSoft) return "token_soft";
+  if (msgs.length > limits.hardLimit) return "message_hard";
+  if (msgs.length > limits.softLimit) return "message_soft";
+  return "manual";
+}
 
-  if (!overTokenSoft && !overTokenHard && msgs.length <= limits.softLimit) return true;
-  if (!overTokenHard && msgs.length <= limits.hardLimit && !opts.contextWindow) return true;
-  return !overTokenSoft && !overTokenHard && msgs.length <= limits.hardLimit && !!opts.contextWindow;
+export function compactResult(
+  original: Message[],
+  messages: Message[],
+  summarized = false,
+): CompactHistoryResult {
+  return { messages, changed: summarized || messagesRewritten(original, messages) };
+}
+
+function compactionPressure(
+  msgs: Message[],
+  limits: CompactionLimits,
+  opts: { systemTokens?: number; toolTokens?: number },
+): { overTokenSoft: boolean; overTokenHard: boolean } {
+  const totalTokens = estimateTokens(msgs) + (opts.systemTokens ?? 0) + (opts.toolTokens ?? 0);
+  return {
+    overTokenSoft: limits.tokenSoftThreshold > 0 && totalTokens > limits.tokenSoftThreshold,
+    overTokenHard: limits.tokenHardThreshold > 0 && totalTokens > limits.tokenHardThreshold,
+  };
+}
+
+function messagesRewritten(before: Message[], after: Message[]): boolean {
+  if (before.length !== after.length) return true;
+  return before.some((msg, i) => {
+    const next = after[i];
+    return !next || msg.role !== next.role || msg.content !== next.content || msg.name !== next.name;
+  });
 }

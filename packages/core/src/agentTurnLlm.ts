@@ -64,7 +64,7 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
   const systemTokens = Math.ceil(state.system.length / 4);
   const toolTokens = deps.toolSpecs.length ? Math.ceil(JSON.stringify(deps.toolSpecs).length / 4) : 0;
 
-  const compacted = await compactHistory({
+  const { messages: compacted, changed } = await compactHistory({
     history: state.history,
     pinnedTask: deps.pinnedTask,
     provider: deps.provider,
@@ -75,6 +75,7 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
     signal: deps.signal,
     onCompaction: (info) => deps.emit("compaction", info),
   });
+  if (changed) state.history = compacted;
 
   const usage = deps.estimateUsage(state.system, compacted, deps.toolSpecs);
   await deps.emit("context_usage", usage);

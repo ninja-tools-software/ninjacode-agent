@@ -36,7 +36,7 @@ export interface TurnHostInput {
   signal: AbortSignal;
   readScratchpad: () => Promise<string>;
   readActivePlan: () => Promise<string>;
-  estimateUsage: (system: string, history: Message[], toolSpecs: ToolSpec[]) => import("./context.js").ContextUsageBreakdown;
+  estimateUsage: (system: string, history: Message[], toolSpecs: ToolSpec[]) => import("./contextEstimate.js").ContextUsageBreakdown;
   trackUsage: (usage: TokenUsage) => void;
   checkRunTimeout: () => string | undefined;
   runHooks: AgentTurnDeps["runHooks"];

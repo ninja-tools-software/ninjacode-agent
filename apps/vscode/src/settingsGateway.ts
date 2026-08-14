@@ -37,11 +37,30 @@ export interface UsageRow {
   outputTokens?: number;
 }
 
+const MODELS_CACHE_TTL_MS = 60_000;
+
+let modelsCache:
+  | { key: string; at: number; result: Extract<GatewayModelsResult, { ok: true }> }
+  | undefined;
+
 export async function fetchGatewayModels(
   gatewayBase: string,
   apiKey?: string,
 ): Promise<GatewayModelsResult> {
   if (!apiKey) return { ok: false, models: [] };
+  const key = `${gatewayBase}::${apiKey}`;
+  if (modelsCache && modelsCache.key === key && Date.now() - modelsCache.at < MODELS_CACHE_TTL_MS) {
+    return modelsCache.result;
+  }
+  const result = await requestGatewayModels(gatewayBase, apiKey);
+  if (result.ok) modelsCache = { key, at: Date.now(), result };
+  return result;
+}
+
+async function requestGatewayModels(
+  gatewayBase: string,
+  apiKey: string,
+): Promise<GatewayModelsResult> {
   try {
     const res = await fetch(`${gatewayBase}/v1/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },

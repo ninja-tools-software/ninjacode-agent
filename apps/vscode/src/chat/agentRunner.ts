@@ -19,7 +19,7 @@ import type { AgentEvent } from "./agentEventBridge.js";
 import type { ContextEnv } from "./context/index.js";
 import { buildTask, withoutImages } from "./contextRefs.js";
 import { activeSelectionSection, createDiagnosticsProvider, workspaceErrorsSection } from "./editorContext.js";
-import { ensureApiKey, grantsFrom, readRunConfig } from "./runConfig.js";
+import { ensureApiKey, grantsFrom, readRunConfig, withGatewayContextWindow } from "./runConfig.js";
 import type { McpService } from "./mcpService.js";
 import { isWorkspaceTrusted, warnIfUntrustedWorkspace } from "../workspaceTrust.js";
 
@@ -104,9 +104,10 @@ export class AgentRunner {
       ? this.deps.getActiveSessionId() === request.sessionId
       : this.deps.getActiveSessionId() === undefined;
 
-    const config = readRunConfig(request.modeOverride);
-    const apiKey = await ensureApiKey(this.deps.context, config.kind);
+    const baseConfig = readRunConfig(request.modeOverride);
+    const apiKey = await ensureApiKey(this.deps.context, baseConfig.kind);
     if (apiKey === undefined) return undefined;
+    const config = await withGatewayContextWindow(baseConfig, apiKey);
 
     const provider = createProvider({
       kind: config.kind,

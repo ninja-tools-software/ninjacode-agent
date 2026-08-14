@@ -3,12 +3,11 @@ import type { LlmProvider, Message, ToolSpec } from "@ninjacode/providers";
 import {
   compactHistory,
   compactHistoryLossless,
-  estimateContextUsage,
   isCompactionMessage,
   toolOutputLimit,
   truncateToolOutput,
 } from "./context.js";
-import { estimateTokens } from "./contextEstimate.js";
+import { estimateContextUsage, estimateTokens } from "./contextEstimate.js";
 import { isValidToolChain } from "./toolHistory.js";
 
 describe("toolOutputLimit", () => {
@@ -137,7 +136,8 @@ describe("compactHistory telemetry", () => {
         fired = true;
       },
     });
-    expect(result).toHaveLength(5);
+    expect(result.messages).toHaveLength(5);
+    expect(result.changed).toBe(false);
     expect(fired).toBe(false);
   });
 
@@ -153,8 +153,9 @@ describe("compactHistory telemetry", () => {
       },
     });
     expect(events).toHaveLength(1);
-    expect(events[0]?.trigger).toBe("soft_limit");
-    expect(result.some((m) => m.content.startsWith("[Compacted earlier conversation]"))).toBe(
+    expect(events[0]?.trigger).toBe("message_hard");
+    expect(result.changed).toBe(true);
+    expect(result.messages.some((m) => m.content.startsWith("[Compacted earlier conversation]"))).toBe(
       true,
     );
   });
@@ -171,7 +172,8 @@ describe("compactHistory telemetry", () => {
       },
     });
     expect(info?.trigger).toBe("manual");
-    expect(result.some((m) => m.content.startsWith("[Compacted earlier conversation]"))).toBe(
+    expect(result.changed).toBe(true);
+    expect(result.messages.some((m) => m.content.startsWith("[Compacted earlier conversation]"))).toBe(
       true,
     );
   });
@@ -190,7 +192,7 @@ describe("compaction never recompresses its own output", () => {
 
   it("keeps an earlier summary verbatim through a second compaction", async () => {
     const result = await compactHistory({ history: historyWithSummary(90) });
-    const summaries = result.filter((m) => isCompactionMessage(m));
+    const summaries = result.messages.filter((m) => isCompactionMessage(m));
 
     expect(summaries.some((m) => m.content.includes("fix the parser bug"))).toBe(true);
     expect(summaries).toHaveLength(2);
@@ -198,8 +200,10 @@ describe("compaction never recompresses its own output", () => {
 
   it("orders the new summary after the one it does not cover", async () => {
     const result = await compactHistory({ history: historyWithSummary(90) });
-    const first = result.findIndex((m) => m.content.includes("fix the parser bug"));
-    const second = result.findIndex((m) => isCompactionMessage(m) && !m.content.includes("fix the parser bug"));
+    const first = result.messages.findIndex((m) => m.content.includes("fix the parser bug"));
+    const second = result.messages.findIndex(
+      (m) => isCompactionMessage(m) && !m.content.includes("fix the parser bug"),
+    );
 
     expect(first).toBeGreaterThanOrEqual(0);
     expect(second).toBeGreaterThan(first);
@@ -239,9 +243,9 @@ describe("lossless compaction pipeline", () => {
     // A window this small puts the token estimate over the soft threshold.
     const result = await compactHistory({ history, contextWindow: 4_000 });
 
-    expect(result[1]?.content).toContain("output masked");
-    expect(result.at(-1)?.content).toBe(history.at(-1)?.content);
-    expect(isValidToolChain(result)).toBe(true);
+    expect(result.messages[1]?.content).toContain("output masked");
+    expect(result.messages.at(-1)?.content).toBe(history.at(-1)?.content);
+    expect(isValidToolChain(result.messages)).toBe(true);
   });
 
   it("takes no LLM call when masking alone relieves the pressure", async () => {
