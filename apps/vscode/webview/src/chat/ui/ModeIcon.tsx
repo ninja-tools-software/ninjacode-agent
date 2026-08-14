@@ -1,7 +1,7 @@
-import { BotIcon, BugIcon, ChatIcon, PlanIcon } from "../../icons.js";
+import { BotIcon, BugIcon, ChatIcon, PlanIcon, type IconSize } from "../../icons.js";
 import type { Mode } from "../types.js";
 
-export function ModeIcon({ mode, size = 14 }: { mode: Mode; size?: number }) {
+export function ModeIcon({ mode, size = 14 }: { mode: Mode; size?: IconSize }) {
   switch (mode) {
     case "agent":
       return <BotIcon size={size} />;

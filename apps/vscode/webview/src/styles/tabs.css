@@ -1,7 +1,7 @@
 .session-tab-bar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   flex: 1;
   min-width: 0;
   overflow-x: auto;
@@ -15,28 +15,28 @@
 .session-tab {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   max-width: 180px;
-  height: 26px;
-  padding: 0 8px 0 10px;
-  border-radius: 6px;
+  height: var(--ctrl-md);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   background: transparent;
   color: var(--fg);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   flex-shrink: 0;
   min-width: 0;
   transition:
-    background-color var(--dur-fast) ease,
-    border-color var(--dur-fast) ease;
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 .session-tab:hover {
   background: var(--list-hover);
 }
 .session-tab.active {
-  background: color-mix(in srgb, var(--fg) 8%, var(--bg));
+  background: var(--surface-3);
   border-color: color-mix(in srgb, var(--border) 80%, transparent);
 }
 .session-tab-pin {
@@ -54,28 +54,33 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  margin-left: 2px;
+  width: var(--ctrl-sm);
+  height: var(--ctrl-sm);
+  margin-left: 0;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
   opacity: 0;
   flex-shrink: 0;
   transition:
-    opacity var(--dur-fast) ease,
-    background-color var(--dur-fast) ease,
-    color var(--dur-fast) ease;
+    opacity var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.session-tab-close svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 .session-tab:hover .session-tab-close,
-.session-tab.active .session-tab-close {
+.session-tab.active .session-tab-close,
+.session-tab:focus-within .session-tab-close {
   opacity: 1;
 }
 .session-tab-close:hover {
-  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  background: var(--surface-hover);
   color: var(--fg);
 }
 .session-tab-rename {
@@ -85,8 +90,8 @@
   background: var(--input-bg);
   color: var(--input-fg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }

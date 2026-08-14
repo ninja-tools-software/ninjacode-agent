@@ -1,0 +1,179 @@
+/*
+ * NinjaCode design tokens. Spec: apps/vscode/webview/design-system.md.
+ *
+ * Chrome (bg, fg, accent, fonts) bridges VS Code. Product language (type,
+ * space, controls, status, modes, elevation, motion) is owned here.
+ * Do not add isolated px / hex in domain CSS — compose these variables.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* —— Chrome (VS Code bridge) —— */
+  --bg: var(--vscode-editor-background);
+  --fg: var(--vscode-editor-foreground);
+  --border: var(--vscode-panel-border, #444);
+  --accent: var(--vscode-button-background);
+  --accent-fg: var(--vscode-button-foreground);
+  --muted: var(--vscode-descriptionForeground);
+  --input-bg: var(--vscode-input-background);
+  --input-fg: var(--vscode-input-foreground);
+  --font: var(--vscode-font-family);
+  --code-font: var(
+    --vscode-editor-font-family,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace
+  );
+  --focus: var(--vscode-focusBorder, var(--accent));
+  --list-hover: var(--vscode-list-hoverBackground, color-mix(in srgb, var(--fg) 6%, transparent));
+  --list-active: var(--vscode-list-activeSelectionBackground, var(--list-hover));
+  --panel: var(--vscode-editorWidget-background, var(--bg));
+
+  /* —— Surfaces —— */
+  --surface-1: color-mix(in srgb, var(--fg) 3%, transparent);
+  --surface-2: color-mix(in srgb, var(--fg) 5%, transparent);
+  --surface-3: color-mix(in srgb, var(--fg) 8%, transparent);
+  --surface-hover: color-mix(in srgb, var(--fg) 6%, transparent);
+  --overlay: color-mix(in srgb, var(--bg) 85%, transparent);
+  --card-pad: var(--space-2) var(--space-3);
+
+  /* —— Status (OKLCH ≈ historic #3fb950 / #d29922 / #f85149) —— */
+  --success-l: 0.698;
+  --success-c: 0.153;
+  --success-h: 145.3;
+  --warn-l: 0.706;
+  --warn-c: 0.141;
+  --warn-h: 82.5;
+  --danger-l: 0.672;
+  --danger-c: 0.195;
+  --danger-h: 25.4;
+  --success: oklch(var(--success-l) var(--success-c) var(--success-h));
+  --warn: oklch(var(--warn-l) var(--warn-c) var(--warn-h));
+  --danger: oklch(var(--danger-l) var(--danger-c) var(--danger-h));
+  --success-bg: color-mix(in srgb, var(--success) 14%, transparent);
+  --success-border: color-mix(in srgb, var(--success) 40%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 14%, transparent);
+  --warn-border: color-mix(in srgb, var(--warn) 40%, transparent);
+  --danger-bg: color-mix(in srgb, var(--danger) 14%, transparent);
+  --danger-border: color-mix(in srgb, var(--danger) 40%, transparent);
+
+  /* —— Modes (fg aliases keep historic names) —— */
+  --mode-agent-fg: var(--vscode-textLink-foreground, oklch(0.705 0.141 254.5));
+  --mode-plan-fg: oklch(0.724 0.155 52.6);
+  --mode-ask-fg: var(--success);
+  --mode-debug-fg: var(--danger);
+  --mode-agent: var(--mode-agent-fg);
+  --mode-plan: var(--mode-plan-fg);
+  --mode-ask: var(--mode-ask-fg);
+  --mode-debug: var(--mode-debug-fg);
+  --mode-agent-bg: color-mix(in srgb, var(--mode-agent-fg) 12%, transparent);
+  --mode-agent-border: color-mix(in srgb, var(--mode-agent-fg) 35%, transparent);
+  --mode-agent-ring: var(--mode-agent-fg);
+  --mode-plan-bg: color-mix(in srgb, var(--mode-plan-fg) 12%, transparent);
+  --mode-plan-border: color-mix(in srgb, var(--mode-plan-fg) 35%, transparent);
+  --mode-plan-ring: var(--mode-plan-fg);
+  --mode-ask-bg: color-mix(in srgb, var(--mode-ask-fg) 12%, transparent);
+  --mode-ask-border: color-mix(in srgb, var(--mode-ask-fg) 35%, transparent);
+  --mode-ask-ring: var(--mode-ask-fg);
+  --mode-debug-bg: color-mix(in srgb, var(--mode-debug-fg) 12%, transparent);
+  --mode-debug-border: color-mix(in srgb, var(--mode-debug-fg) 35%, transparent);
+  --mode-debug-ring: var(--mode-debug-fg);
+
+  /* —— Context segments (same mixes as the former .context-popover locals) —— */
+  --seg-history-accent: oklch(0.679 0.141 157);
+  --seg-tools-accent: oklch(0.695 0.141 78);
+  --seg-attached-accent: oklch(0.644 0.178 303);
+  --seg-system: var(--accent);
+  --seg-history: color-mix(in srgb, var(--accent) 45%, var(--seg-history-accent) 55%);
+  --seg-tools: color-mix(in srgb, var(--accent) 45%, var(--seg-tools-accent) 55%);
+  --seg-output: color-mix(in srgb, var(--fg) 38%, transparent);
+  --seg-attached: color-mix(in srgb, var(--accent) 45%, var(--seg-attached-accent) 55%);
+
+  /* —— Type —— */
+  --text-micro: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-display: 28px;
+  --leading-micro: 1.3;
+  --leading-sm: 1.4;
+  --leading-md: 1.45;
+  --leading-lg: 1.35;
+  --leading-display: 1.1;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* —— Space (4px grid) —— */
+  --space: 4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* —— Controls / icons —— */
+  --ctrl-sm: 22px;
+  --ctrl-md: 26px;
+  --ctrl-lg: 30px;
+  --icon-sm: 12px;
+  --icon-md: 14px;
+  --icon-lg: 16px;
+  --header-height: 32px;
+
+  /* —— Radius —— */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 999px;
+
+  /* —— Elevation (theme-aware; never raw black rgba).
+   * Overlay chrome (menus, tooltips, popovers, FAB) must NOT use these —
+   * a --fg mix reads as a halo on dark themes. Border only. */
+  --shadow-1: 0 2px 8px color-mix(in srgb, var(--fg) 18%, transparent);
+  --shadow-2: 0 4px 16px color-mix(in srgb, var(--fg) 22%, transparent);
+  --shadow-3: 0 10px 28px color-mix(in srgb, var(--fg) 28%, transparent);
+
+  /* —— Z-index —— */
+  --z-sticky: 2;
+  --z-overlay: 5;
+  --z-dock: 10;
+  --z-menu: 30;
+  --z-popover: 40;
+  --z-tooltip: 1000;
+
+  /* —— Motion —— */
+  --dur-instant: 90ms;
+  --dur-fast: 120ms;
+  --dur-med: 180ms;
+  --dur-slow: 240ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* —— Focus ring (:focus-visible on interactives; never on .composer-input / .composer-card) —— */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+}
+
+/* Light: lower L so status/mode text stays ≥ 4.5:1 on --bg. */
+body.vscode-light {
+  --success-l: 0.48;
+  --warn-l: 0.5;
+  --danger-l: 0.48;
+  --mode-plan-fg: oklch(0.55 0.155 52.6);
+}
+
+/* High contrast: prefer VS Code HC semantic tokens. */
+body.vscode-high-contrast,
+body.vscode-high-contrast-light {
+  --success: var(--vscode-testing-iconPassed, oklch(0.698 0.153 145.3));
+  --warn: var(--vscode-charts-yellow, oklch(0.706 0.141 82.5));
+  --danger: var(--vscode-errorForeground, oklch(0.672 0.195 25.4));
+  --mode-plan-fg: var(--vscode-charts-orange, oklch(0.724 0.155 52.6));
+}

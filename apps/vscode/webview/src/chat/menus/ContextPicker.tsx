@@ -82,14 +82,14 @@ function ContextPickerFooter({
 }) {
   return (
     <div className="context-picker-footer">
-      <button className="btn" data-tooltip="Attach the current editor selection" onClick={onAddSelection}>
-        + Current selection
+      <button className="btn" data-tooltip={tr("Attach the current editor selection")} onClick={onAddSelection}>
+        {tr("+ Current selection")}
       </button>
-      <button className="btn" data-tooltip="Pick files from disk" onClick={onPickFiles}>
-        Browse files…
+      <button className="btn" data-tooltip={tr("Pick files from disk")} onClick={onPickFiles}>
+        {tr("Browse files…")}
       </button>
-      <button className="icon-btn" onClick={onClose} data-tooltip="Close" aria-label="Close">
-        <CloseIcon size={13} />
+      <button className="icon-btn" onClick={onClose} data-tooltip={tr("Close")} aria-label={tr("Close")}>
+        <CloseIcon size={12} />
       </button>
     </div>
   );
@@ -155,20 +155,21 @@ export function ContextPicker({
   useEffect(() => setHighlight(0), [suggestions, queryType]);
   useEffect(() => inputRef.current?.focus(), []);
 
-  const typeLabel = CONTEXT_TYPES.find((t) => t.id === queryType)?.label.toLowerCase() ?? "context";
+  const typeMeta = CONTEXT_TYPES.find((ct) => ct.id === queryType);
+  const typeLabel = typeMeta ? tr(typeMeta.label).toLowerCase() : tr("context");
 
   return (
     <div
       className={animCls("context-picker anim-pop anim-pop-origin-bottom", closing && "anim-closing")}
       role="dialog"
-      aria-label="Attach context"
+      aria-label={tr("Attach context")}
     >
       <ContextPickerTypeBar queryType={queryType} onQueryType={onQueryType} />
       <input
         ref={inputRef}
         className="context-picker-search"
         value={query}
-        placeholder={`Search ${typeLabel}…`}
+        placeholder={tr("Search {0}…", typeLabel)}
         onChange={(e) => onQuery(e.target.value)}
         onKeyDown={onKeyDown}
       />

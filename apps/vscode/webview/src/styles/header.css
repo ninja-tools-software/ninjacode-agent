@@ -1,14 +1,14 @@
 .app-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 34px;
-  padding: 0 8px;
+  gap: var(--space-1);
+  height: var(--header-height);
+  padding: 0 var(--space-2);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   background: var(--bg);
-  z-index: 2;
+  z-index: var(--z-sticky);
 }
 
 .header-actions {
@@ -16,14 +16,6 @@
   gap: 2px;
   flex-shrink: 0;
   align-items: center;
-}
-.header-actions .icon-btn {
-  width: 30px;
-  height: 30px;
-}
-.header-actions .icon-btn svg {
-  width: 20px;
-  height: 20px;
 }
 
 .history-toggle.active {
@@ -34,42 +26,41 @@
 .session-menu-wrap { position: relative; }
 .menu-popover {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + var(--space-1));
   right: 0;
-  z-index: 40;
+  z-index: var(--z-popover);
   min-width: 160px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--bg);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-  padding: 4px;
+  background: var(--panel);
+  padding: var(--space-1);
   display: flex;
   flex-direction: column;
 }
 .menu-meta {
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
-  padding: 4px 8px 6px;
+  padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
   white-space: nowrap;
 }
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--fg);
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: var(--space-2);
+  font-size: var(--text-sm);
   cursor: pointer;
   text-align: left;
   white-space: nowrap;
   transition:
-    background-color var(--dur-fast) ease,
-    color var(--dur-fast) ease,
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
 .menu-item:active:not(:disabled) { transform: scale(0.98); }

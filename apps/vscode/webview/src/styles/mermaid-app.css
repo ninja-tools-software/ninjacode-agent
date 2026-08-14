@@ -14,7 +14,7 @@
 }
 .mermaid-app-loading {
   padding: 16px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .mermaid-app-body .mermaid-block {
   border: none;

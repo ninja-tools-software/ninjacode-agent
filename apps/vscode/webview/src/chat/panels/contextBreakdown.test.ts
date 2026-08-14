@@ -54,7 +54,7 @@ describe("computeBreakdown", () => {
   });
 
   it("mentions the file share of history when there is one", () => {
-    expect(computeBreakdown(usage({ files: 2_400 })).rows[1]!.detail).toBe("incl. 2.4K tok files");
+    expect(computeBreakdown(usage({ files: 2_400 })).rows[1]!.detail).toBe("2.4K");
     expect(computeBreakdown(usage()).rows[1]!.detail).toBeUndefined();
   });
 

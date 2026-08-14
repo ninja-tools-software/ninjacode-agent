@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArchiveIcon, CheckIcon, DotsIcon, ExportIcon, PinIcon, TrashIcon } from "../../icons.js";
+import { t } from "../../i18n.js";
 import { groupSessionsByRecency } from "../format.js";
 import { animCls } from "../hooks/useAnimatedPresence.js";
 import { useAnchoredMenu } from "../hooks/useAnchoredMenu.js";
@@ -48,7 +49,7 @@ function HistoryItemMenu({
           });
         }}
       >
-        <ArchiveIcon size={14} /> {session.archived ? "Unarchive" : "Archive"}
+        <ArchiveIcon size={14} /> {session.archived ? t("Unarchive") : t("Archive")}
       </button>
       <button
         type="button"
@@ -63,7 +64,7 @@ function HistoryItemMenu({
           });
         }}
       >
-        <ExportIcon size={14} /> Export
+        <ExportIcon size={14} /> {t("Export")}
       </button>
     </div>,
     document.body,
@@ -83,16 +84,16 @@ function HistoryItemMain({
     <button
       type="button"
       className="history-main"
-      data-tooltip={`Open conversation: ${session.title}`}
+      data-tooltip={t("Open conversation: {0}", session.title)}
       onClick={() => onOpen(session.id)}
     >
       <span className="history-active-icon" aria-hidden="true">
-        {active ? <CheckIcon size={10} /> : null}
+        {active ? <CheckIcon size={12} /> : null}
       </span>
       <span className="history-title">
         {session.pinned && (
-          <span className="history-pin" data-tooltip="Pinned">
-            <PinIcon size={9} filled />
+          <span className="history-pin" data-tooltip={t("Pinned")}>
+            <PinIcon size={12} filled />
           </span>
         )}
         {session.title}
@@ -116,9 +117,9 @@ function HistoryItemActions({
     <div className="history-item-actions">
       <button
         type="button"
-        className="icon-btn"
-        data-tooltip={session.pinned ? "Unpin" : "Pin"}
-        aria-label={session.pinned ? "Unpin" : "Pin"}
+        className="icon-btn icon-btn--sm"
+        data-tooltip={session.pinned ? t("Unpin") : t("Pin")}
+        aria-label={session.pinned ? t("Unpin") : t("Pin")}
         onClick={(e) => {
           e.stopPropagation();
           vscode.postMessage({ type: "pin_session", sessionId: session.id, pinned: !session.pinned });
@@ -130,9 +131,9 @@ function HistoryItemActions({
         <button
           ref={menu.buttonRef}
           type="button"
-          className={`icon-btn${menu.open ? " active" : ""}`}
-          data-tooltip="More actions"
-          aria-label="More actions"
+          className={`icon-btn icon-btn--sm${menu.open ? " active" : ""}`}
+          data-tooltip={t("More actions")}
+          aria-label={t("More actions")}
           aria-expanded={menu.open}
           onClick={(e) => {
             e.stopPropagation();
@@ -145,9 +146,9 @@ function HistoryItemActions({
       </div>
       <button
         type="button"
-        className="icon-btn"
-        data-tooltip="Delete"
-        aria-label="Delete"
+        className="icon-btn icon-btn--sm"
+        data-tooltip={t("Delete")}
+        aria-label={t("Delete")}
         onClick={(e) => {
           e.stopPropagation();
           onDelete(session.id);
@@ -196,7 +197,7 @@ function HistoryArchivedToggle({
   if (archivedCount === 0) return null;
   return (
     <button type="button" className="history-archived-toggle" onClick={onToggle}>
-      {showArchived ? "Hide archived" : `Show ${archivedCount} archived`}
+      {showArchived ? t("Hide archived") : t("Show {0} archived", archivedCount)}
     </button>
   );
 }
@@ -225,17 +226,17 @@ export function HistoryPanel({
       <input
         className="history-search"
         value={query}
-        placeholder="Search conversations…"
+        placeholder={t("Search conversations…")}
         onChange={(e) => onQuery(e.target.value)}
       />
       <div className="history-scroll">
-        {loading && <p className="muted history-empty">Loading…</p>}
+        {loading && <p className="muted history-empty">{t("Loading…")}</p>}
         {!loading && visible.length === 0 && (
-          <p className="muted history-empty">No conversations yet.</p>
+          <p className="muted history-empty">{t("No conversations yet.")}</p>
         )}
         {groups.map((group) => (
           <section key={group.label}>
-            <div className="history-group-label">{group.label}</div>
+            <div className="history-group-label">{t(group.label)}</div>
             <ul className="history-list">
               {group.sessions.map((s) => (
                 <HistoryItem

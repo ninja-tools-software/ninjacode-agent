@@ -51,7 +51,7 @@ export function computeBreakdown(usage: ContextUsage, attachedTokens = 0): Break
       key: "history",
       label: "History",
       tokens: usage.history,
-      detail: usage.files ? `incl. ${formatTokens(usage.files)} tok files` : undefined,
+      detail: usage.files ? formatTokens(usage.files) : undefined,
     },
     { key: "tools", label: "Tools", tokens: usage.tools },
     { key: "output", label: "Reserved for output", tokens: usage.output },

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { CopyIcon, EditIcon, ForkIcon } from "../../icons.js";
+import { t } from "../../i18n.js";
 import { RefBadge } from "../composer/RefBadge.jsx";
 import type { ContextRef, VsCodeApi } from "../types.js";
 
@@ -76,30 +77,30 @@ export function UserMessage({
       <span className="msg-user-text">{renderWithRefs(text, refs ?? [])}</span>
       <div className="msg-hover-actions">
         <button
-          className="icon-btn"
-          data-tooltip="Copy message"
-          aria-label="Copy message"
+          className="icon-btn icon-btn--sm"
+          data-tooltip={t("Copy message")}
+          aria-label={t("Copy message")}
           onClick={() => vscode.postMessage({ type: "copy_to_clipboard", text })}
         >
-          <CopyIcon size={13} />
+          <CopyIcon size={12} />
         </button>
         {canEditFork && (
           <>
             <button
-              className="icon-btn"
-              data-tooltip="Edit this message and resend"
-              aria-label="Edit this message and resend"
+              className="icon-btn icon-btn--sm"
+              data-tooltip={t("Edit this message and resend")}
+              aria-label={t("Edit this message and resend")}
               onClick={onEdit}
             >
-              <EditIcon size={13} />
+              <EditIcon size={12} />
             </button>
             <button
-              className="icon-btn"
-              data-tooltip="Fork the conversation from here"
-              aria-label="Fork the conversation from here"
+              className="icon-btn icon-btn--sm"
+              data-tooltip={t("Fork the conversation from here")}
+              aria-label={t("Fork the conversation from here")}
               onClick={onFork}
             >
-              <ForkIcon size={13} />
+              <ForkIcon size={12} />
             </button>
           </>
         )}
@@ -135,14 +136,14 @@ export function UserMessageEditor({
       <div className="msg-edit-actions">
         <button
           className="btn primary"
-          data-tooltip="Save edits and resend this message"
+          data-tooltip={t("Save edits and resend this message")}
           disabled={!text.trim()}
           onClick={() => onSave(text.trim())}
         >
-          Save &amp; resend
+          {t("Save & resend")}
         </button>
-        <button className="btn" data-tooltip="Cancel editing this message" onClick={onCancel}>
-          Cancel
+        <button className="btn" data-tooltip={t("Cancel editing this message")} onClick={onCancel}>
+          {t("Cancel")}
         </button>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { t } from "../i18n.js";
+
 interface ScrollToBottomButtonProps {
   visible: boolean;
   hasNewContent: boolean;
@@ -12,8 +14,8 @@ export function ScrollToBottomButton({ visible, hasNewContent, onClick }: Scroll
         type="button"
         className="scroll-bottom-btn"
         onClick={onClick}
-        aria-label="Scroll to bottom"
-        data-tooltip="Scroll to bottom"
+        aria-label={t("Scroll to bottom")}
+        data-tooltip={t("Scroll to bottom")}
       >
         <span className="scroll-bottom-btn__icon" aria-hidden="true">
           ↓

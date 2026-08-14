@@ -10,7 +10,7 @@ function ModeChips() {
       {MODE_META.map(({ id, label, hint }) => (
         <li key={id} className={`onb-mode mode-${id}`}>
           <span className="onb-mode-icon">
-            <ModeIcon mode={id} size={13} />
+            <ModeIcon mode={id} size={12} />
           </span>
           <strong>{t(label)}</strong>
           <span className="onb-mode-hint">{t(hint)}</span>

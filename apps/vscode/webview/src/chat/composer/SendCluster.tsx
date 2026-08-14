@@ -86,7 +86,7 @@ function RecordingSendCluster({ voiceLevel, onFinishVoice }: SendClusterProps) {
         <StopIcon />
       </button>
       <button className="send-btn" disabled data-tooltip={t("Listening…")} aria-label={t("Validate")}>
-        <CheckIcon size={18} />
+        <CheckIcon size={14} />
       </button>
     </div>
   );
@@ -100,7 +100,7 @@ function TranscribingSendButton({ voiceSetup }: SendClusterProps) {
       data-tooltip={voiceSetup ?? t("Transcribing…")}
       aria-label={t("Validate")}
     >
-      <CheckIcon size={18} />
+      <CheckIcon size={14} />
     </button>
   );
 }
@@ -148,7 +148,7 @@ function IdleSendCluster({
           aria-label={t("Send")}
           onClick={() => onSubmit()}
         >
-          <CheckIcon size={18} />
+          <CheckIcon size={14} />
         </button>
       </div>
     );

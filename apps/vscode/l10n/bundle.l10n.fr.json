@@ -96,5 +96,6 @@
   "An active NinjaCode Pass is required to set an overage limit.": "Un NinjaCode Pass actif est requis pour définir un plafond de dépassement.",
   "No billing customer on this account yet. Subscribe first.": "Pas encore de client de facturation sur ce compte. Abonnez-vous d’abord.",
   "Billing request failed: {0}": "Échec de la demande de facturation : {0}",
-  "NinjaCode Pass cancellation was withdrawn.": "L’annulation de NinjaCode Pass a été retirée."
+  "NinjaCode Pass cancellation was withdrawn.": "L’annulation de NinjaCode Pass a été retirée.",
+  "Toggle NinjaCode Chat (Cmd+Shift+L / Ctrl+Shift+L)": "Afficher ou masquer le chat NinjaCode (Cmd+Shift+L / Ctrl+Shift+L)"
 }

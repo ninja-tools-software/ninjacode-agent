@@ -211,7 +211,7 @@ function ActiveQuestionForm({
       <input
         className="question-free-text"
         type="text"
-        placeholder="Other…"
+        placeholder={t("Other…")}
         value={freeTextValue}
         onChange={(e) => onFreeTextChange(e.target.value)}
         onKeyDown={(e) => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import { PlayIcon } from "./icons.js";
+import { t } from "./i18n.js";
 import { PlanModelPicker } from "./chat/panels/PlanModelPicker.js";
 import type { SettingsState, VsCodeApi } from "./chat/types.js";
 
@@ -48,7 +49,7 @@ function usePlanDoc(vscode: VsCodeApi) {
 function PlanAppLoading() {
   return (
     <div className="plan-app">
-      <p className="muted plan-app-loading">Loading plan…</p>
+      <p className="muted plan-app-loading">{t("Loading plan…")}</p>
     </div>
   );
 }
@@ -67,7 +68,7 @@ function PlanAppToolbar({
   return (
     <header className="plan-app-toolbar">
       <div className="plan-app-title">
-        <strong>{doc.title || "Plan"}</strong>
+        <strong>{doc.title || t("Plan")}</strong>
         <span className="muted plan-app-path" data-tooltip={doc.relPath}>
           {doc.relPath}
         </span>
@@ -76,10 +77,10 @@ function PlanAppToolbar({
         <button
           type="button"
           className="btn"
-          data-tooltip="Open markdown preview in the editor"
+          data-tooltip={t("Open markdown preview in the editor")}
           onClick={() => vscode.postMessage({ type: "open_plan_markdown" })}
         >
-          Open markdown
+          {t("Open markdown")}
         </button>
         <div className="plan-execute-wrap">
           <PlanModelPicker busy={doc.busy} settings={mergedSettings} vscode={vscode} />
@@ -87,11 +88,11 @@ function PlanAppToolbar({
             type="button"
             className="btn-execute"
             disabled={doc.busy}
-            data-tooltip="Switch to Agent mode and implement this plan"
+            data-tooltip={t("Switch to Agent mode and implement this plan")}
             onClick={onExecute}
           >
             <PlayIcon size={14} />
-            <span>Execute plan</span>
+            <span>{t("Execute plan")}</span>
           </button>
         </div>
       </div>

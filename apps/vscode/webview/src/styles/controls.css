@@ -3,22 +3,19 @@
   border-color: var(--accent);
 }
 
-/* App-wide tooltip bubble (see GlobalTooltip in App.tsx) */
 .tooltip-bubble {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-tooltip);
   max-width: 260px;
-  padding: 4px 8px;
-  font-size: 11px;
-  line-height: 1.35;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-micro);
+  line-height: var(--leading-micro);
   border-radius: var(--radius-sm);
   background: var(--vscode-editorHoverWidget-background, var(--bg));
   color: var(--vscode-editorHoverWidget-foreground, var(--fg));
   border: 1px solid var(--vscode-editorHoverWidget-border, var(--border));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   white-space: pre-line;
-  /* Badge previews can be long: clip rather than covering the whole chat. */
   max-height: 40vh;
   overflow: hidden;
   animation: nc-fade-in var(--dur-fast) var(--ease-out) both;
@@ -31,14 +28,14 @@
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-sm);
   transition:
-    background-color var(--dur-fast) ease,
-    border-color var(--dur-fast) ease,
-    color var(--dur-fast) ease,
-    opacity var(--dur-fast) ease,
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
 .icon-btn:active:not(:disabled),
@@ -47,33 +44,51 @@
 .suggestion:active:not(:disabled) {
   transform: scale(0.96);
 }
-/* A .btn may hold an icon, a label, or both: centering as flex puts the glyph on
-   the text's optical center instead of its baseline, which is what made
-   icon+label buttons taller than their text-only neighbours. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
-/* Full-width option buttons wrap over several lines: they keep normal text flow. */
 .btn.question-option { display: block; }
+
 .icon-btn {
-  width: 28px;
-  height: 28px;
+  width: var(--ctrl-md);
+  height: var(--ctrl-md);
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
-  font-size: 14px;
 }
-/* Icônes plus lisibles dans les boutons (le composer .send-btn est exclu) */
-.icon-btn svg { width: 16px; height: 16px; }
+.icon-btn svg,
 .btn svg,
-.menu-item svg,
-.composer-pill svg,
-.icon-btn svg { width: 15px; height: 15px; }
-.chip-remove svg { width: 13px; height: 13px; }
+.menu-item svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex-shrink: 0;
+}
+.icon-btn--sm {
+  width: var(--ctrl-sm);
+  height: var(--ctrl-sm);
+  border-radius: var(--radius-sm);
+}
+.icon-btn--sm svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.icon-btn--lg {
+  width: var(--ctrl-lg);
+  height: var(--ctrl-lg);
+}
+.icon-btn--lg svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+.chip-remove svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
 .icon-btn:hover, .chip-btn:hover, .btn:hover, .suggestion:hover, .tier-card:hover {
   background: var(--list-hover);
 }
@@ -85,6 +100,36 @@
 .btn.danger { border-color: var(--danger); color: var(--danger); }
 .btn:disabled, .chip-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.icon-btn:focus-visible,
+.chip-btn:focus-visible,
+.btn:focus-visible,
+.suggestion:focus-visible,
+.tier-card:focus-visible,
+.send-btn:focus-visible,
+.composer-pill:focus-visible,
+.session-tab:focus-visible,
+.session-tab-close:focus-visible,
+.menu-item:focus-visible,
+.mode-menu-item:focus-visible,
+.model-menu-item:focus-visible,
+.model-menu-star:focus-visible,
+.model-menu-pill:focus-visible,
+.model-settings-item:focus-visible,
+.slash-item:focus-visible,
+.context-picker-item:focus-visible,
+.history-item:focus-visible,
+.plans-item:focus-visible,
+.tool-header:focus-visible,
+.collapsible-header:focus-visible,
+.scroll-bottom-btn:focus-visible,
+.ctrl:focus-visible,
+.select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .app-log-wrap {
   position: relative;
   flex: 1;
@@ -92,15 +137,14 @@
   flex-direction: column;
   min-height: 0;
 }
-#log { flex: 1; overflow: auto; overflow-anchor: none; padding: 12px; }
+#log { flex: 1; overflow: auto; overflow-anchor: none; padding: var(--space-3); }
 .log-content { min-height: min-content; }
-/* Positioned over #log rather than inside it, so it never changes scrollHeight. */
 .run-pill-overlay {
   position: absolute;
-  top: 8px;
+  top: var(--space-2);
   left: 0;
   right: 0;
-  z-index: 5;
+  z-index: var(--z-overlay);
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -110,10 +154,10 @@
 }
 .scroll-bottom-overlay {
   position: absolute;
-  bottom: 12px;
+  bottom: var(--space-3);
   left: 0;
   right: 0;
-  z-index: 5;
+  z-index: var(--z-overlay);
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -124,17 +168,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--ctrl-lg);
+  height: var(--ctrl-lg);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  background: var(--overlay);
   color: var(--fg);
-  font-size: 14px;
   line-height: 1;
   cursor: pointer;
   backdrop-filter: blur(4px);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.scroll-bottom-btn svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
 }
 .scroll-bottom-btn:hover {
   border-color: var(--accent);
@@ -142,11 +188,11 @@
 }
 .scroll-bottom-btn__dot {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
   background: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bg) 85%, transparent);
+  box-shadow: 0 0 0 2px var(--overlay);
 }

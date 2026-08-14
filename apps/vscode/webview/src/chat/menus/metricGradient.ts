@@ -1,9 +1,9 @@
-/** Theme semantic colors (match --success / --warn / --danger in base.css). */
+/** Theme semantic colors (match --success / --warn / --danger in tokens.css). */
+import { rgbCss, tokenToRgb, type Rgb } from "../../themeTokens.js";
+
 export const METRIC_GREEN = [63, 185, 80] as const;
 export const METRIC_YELLOW = [210, 153, 34] as const;
 export const METRIC_RED = [248, 81, 73] as const;
-
-type Rgb = readonly [number, number, number];
 
 function clamp01(t: number): number {
   return Math.min(1, Math.max(0, t));
@@ -18,8 +18,13 @@ export function lerpRgb(a: Rgb, b: Rgb, t: number): string {
   return `rgb(${r}, ${g}, ${bl})`;
 }
 
-function rgbCss(c: Rgb): string {
-  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+/** Status stops from CSS tokens; fallbacks are the historic GitHub-like RGB. */
+export function themeMetricStops(): { green: Rgb; yellow: Rgb; red: Rgb } {
+  return {
+    green: tokenToRgb("--success", METRIC_GREEN),
+    yellow: tokenToRgb("--warn", METRIC_YELLOW),
+    red: tokenToRgb("--danger", METRIC_RED),
+  };
 }
 
 /**

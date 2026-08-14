@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { CheckIcon, ChevronDownIcon, CloseIcon, LoaderIcon, StopIcon } from "../../icons.js";
+import { CheckIcon, ChevronDownIcon, CloseIcon, LoaderIcon, StopIcon, type IconSize } from "../../icons.js";
+import { t } from "../../i18n.js";
 import { animCls } from "../hooks/useAnimatedPresence.js";
 import type { TodoItem, TodoStatus } from "../types.js";
 
-function TodoStatusIcon({ status, size = 14 }: { status: TodoStatus; size?: number }) {
+function TodoStatusIcon({ status, size = 14 }: { status: TodoStatus; size?: IconSize }) {
   switch (status) {
     case "completed":
       return <CheckIcon size={size} className="todo-icon todo-icon-completed" />;
@@ -33,12 +34,12 @@ function TodoStatusIcon({ status, size = 14 }: { status: TodoStatus; size?: numb
 export function TodoItemsList({ todos }: { todos: TodoItem[] }) {
   return (
     <ul className="todo-items">
-      {todos.map((t) => (
-        <li key={t.id} className={`todo status-${t.status}`}>
+      {todos.map((todo) => (
+        <li key={todo.id} className={`todo status-${todo.status}`}>
           <span className="todo-mark" aria-hidden="true">
-            <TodoStatusIcon status={t.status} />
+            <TodoStatusIcon status={todo.status} />
           </span>
-          <span className="todo-content">{t.content}</span>
+          <span className="todo-content">{todo.content}</span>
         </li>
       ))}
     </ul>
@@ -84,7 +85,7 @@ export function TodoList({
         >
           <span className="collapsible-title">
             <CollapseChevron collapsed={collapsed} />
-            <strong>Tasks</strong>
+            <strong>{t("Tasks")}</strong>
           </span>
         </button>
         <div className="dock-panel-actions todos-header-actions">
@@ -95,12 +96,12 @@ export function TodoList({
             <button
               type="button"
               className="todos-stop"
-              data-tooltip="Stop the current agent run (Esc)"
-              aria-label="Stop agent"
+              data-tooltip={t("Stop the current agent run (Esc)")}
+              aria-label={t("Stop agent")}
               onClick={onStop}
             >
               <StopIcon />
-              <span>Stop</span>
+              <span>{t("Stop")}</span>
             </button>
           )}
         </div>

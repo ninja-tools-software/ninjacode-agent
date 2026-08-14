@@ -35,7 +35,7 @@ export function SessionTabBar({
   onClose: (tabId: OpenTabId) => void;
 }) {
   return (
-    <div className="session-tab-bar" role="tablist" aria-label="Open conversations">
+    <div className="session-tab-bar" role="tablist" aria-label={t("Open conversations")}>
       {tabIds.map((tabId) => {
         const { title, pinned } = tabTitleFor(tabId, sessions, fallbackTitles);
         const active = tabId === activeTabId;

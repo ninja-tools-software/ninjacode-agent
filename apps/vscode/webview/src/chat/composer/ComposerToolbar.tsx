@@ -35,7 +35,7 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
     <div className="composer-toolbar">
       <div className="composer-controls">
         <button
-          className={`icon-btn ${pickerOpen ? "active" : ""}`}
+          className={`icon-btn icon-btn--sm ${pickerOpen ? "active" : ""}`}
           data-tooltip={t("Attach context")}
           aria-label={t("Attach context")}
           onClick={onTogglePicker}

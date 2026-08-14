@@ -1,3 +1,4 @@
+import { t } from "../../i18n.js";
 import { animCls } from "../hooks/useAnimatedPresence.js";
 import type { Hypothesis } from "../types.js";
 
@@ -10,14 +11,15 @@ export function HypothesesPanel({
   debugLogCount: number;
   closing?: boolean;
 }) {
+  const logLabel = debugLogCount === 1 ? t("{0} log", debugLogCount) : t("{0} logs", debugLogCount);
   return (
     <div className={animCls("hypotheses panel-enter", closing && "anim-closing")}>
       <div className="hypotheses-header">
-        <strong>Hypotheses</strong>
-        <span className="log-count">{debugLogCount} log(s)</span>
+        <strong>{t("Hypotheses")}</strong>
+        <span className="log-count">{logLabel}</span>
       </div>
       {hypotheses.length === 0 ? (
-        <div className="hypotheses-empty">Waiting for hypotheses…</div>
+        <div className="hypotheses-empty">{t("Waiting for hypotheses…")}</div>
       ) : (
         <ul>
           {hypotheses.map((h) => (

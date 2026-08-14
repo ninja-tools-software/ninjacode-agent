@@ -1,7 +1,9 @@
 /*
  * Webview stylesheet. Split by domain, imported in cascade order: later files
  * may override earlier ones, so keep this list stable when adding a domain.
+ * tokens.css is the design-system source of truth (see design-system.md).
  */
+@import "./styles/tokens.css";
 @import "./styles/base.css";
 @import "./styles/header.css";
 @import "./styles/tabs.css";

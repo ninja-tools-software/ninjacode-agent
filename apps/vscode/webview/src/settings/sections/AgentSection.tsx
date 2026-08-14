@@ -53,9 +53,9 @@ export function AgentSection({ settings, vscode }: { settings: SettingsState; vs
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: 12 }}>
+      <div className="card card--spaced">
         <div className="card__label">{t("Language")}</div>
-        <p className="muted" style={{ marginTop: 0 }}>
+        <p className="muted">
           {t("UI language for NinjaCode chat and settings.")}
         </p>
         <div className="option-list">

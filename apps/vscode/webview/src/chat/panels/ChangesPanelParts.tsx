@@ -93,7 +93,7 @@ function AutoAcceptBadge({
         aria-label={t("Cancel auto-accept")}
         onClick={() => vscode.postMessage({ type: "cancel_auto_accept" })}
       >
-        <CloseIcon size={11} />
+        <CloseIcon size={12} />
       </button>
     </span>
   );
@@ -195,7 +195,7 @@ function ChangeListItemActions({
         aria-label={t("Show hunks")}
         onClick={() => onToggleHunks(path)}
       >
-        <DotsIcon size={13} />
+        <DotsIcon size={12} />
       </button>
       <button
         className="icon-btn"
@@ -203,7 +203,7 @@ function ChangeListItemActions({
         aria-label={t("Send feedback about this edit")}
         onClick={() => onToggleFeedback(path)}
       >
-        <ChatIcon size={13} />
+        <ChatIcon size={12} />
       </button>
       <button
         className="icon-btn"
@@ -211,7 +211,7 @@ function ChangeListItemActions({
         aria-label={t("Accept this file")}
         onClick={() => vscode.postMessage({ type: "accept_edit", path })}
       >
-        <CheckIcon size={13} />
+        <CheckIcon size={12} />
       </button>
       <button
         className="icon-btn"
@@ -219,7 +219,7 @@ function ChangeListItemActions({
         aria-label={t("Reject this file")}
         onClick={() => vscode.postMessage({ type: "reject_edit", path })}
       >
-        <CloseIcon size={13} />
+        <CloseIcon size={12} />
       </button>
     </div>
   );
@@ -240,11 +240,11 @@ function ChangeListItemRow({
     <div className="change-row">
       <button
         className="change-path"
-        data-tooltip="Open diff"
+        data-tooltip={t("Open diff")}
         onClick={() => vscode.postMessage({ type: "review_edit", path: change.path })}
       >
         {change.sensitive && (
-          <span className="badge warn" data-tooltip="Always reviewed">
+          <span className="badge warn" data-tooltip={t("Always reviewed")}>
             sensitive
           </span>
         )}

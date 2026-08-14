@@ -17,28 +17,26 @@
   flex-wrap: wrap;
 }
 .gw-error-badge {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   padding: 1px 7px;
   border-radius: var(--radius-full);
   color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  background: var(--warn-bg);
 }
 .gw-error.sev-block .gw-error-badge {
   color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  background: var(--danger-bg);
 }
-.gw-error-head strong { font-size: 13px; }
+.gw-error-head strong { font-size: var(--text-md); }
 .gw-error-body {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--muted);
   line-height: 1.4;
 }
 .gw-error-meta {
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--muted);
 }
 .gw-error-actions {
@@ -59,9 +57,9 @@
 .approval.resolved { opacity: 0.55; }
 /* Irreversible calls: the card itself carries the warning, not just the copy. */
 .approval.irreversible { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
-.approval-body p.approval-warning { color: var(--danger); font-weight: 600; }
+.approval-body p.approval-warning { color: var(--danger); font-weight: var(--weight-semibold); }
 .approval-body p { margin: 6px 0; color: var(--muted); }
-.approval-body code { font-size: 11px; word-break: break-all; }
+.approval-body code { font-size: var(--text-micro); word-break: break-all; }
 .approval-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
 /* Keep Approve/Deny tonal with other .btn actions; reveal danger only on hover. */
 .approval-actions .btn.danger {
@@ -91,11 +89,9 @@
   gap: 8px;
 }
 .question-step-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 .question-progress {
   display: flex;
@@ -105,7 +101,7 @@
 .question-progress-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--fg) 20%, transparent);
 }
 .question-progress-dot.active {
@@ -127,8 +123,8 @@
 .question-block-resolved + .question-block-resolved {
   margin-top: 8px;
 }
-.question-prompt { font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
-.question-hint { font-size: 11px; margin-bottom: 4px; }
+.question-prompt { font-weight: var(--weight-semibold); margin-bottom: 6px; line-height: 1.4; }
+.question-hint { font-size: var(--text-micro); margin-bottom: 4px; }
 .question-options { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .question-option {
   width: 100%;
@@ -137,8 +133,8 @@
   line-height: 1.35;
   padding: 6px 10px;
   transition:
-    background-color var(--dur-fast) ease,
-    border-color var(--dur-fast) ease,
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
 .question-option:active:not(:disabled) { transform: scale(0.98); }
@@ -148,7 +144,7 @@
 }
 .question-option-recommended {
   color: var(--muted);
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   margin-left: 6px;
 }
 .question-free-text {
@@ -161,10 +157,10 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .question-free-text:focus { outline: 1px solid var(--accent); }
-.question-answer { font-size: 12px; margin-top: 4px; }
+.question-answer { font-size: var(--text-sm); margin-top: 4px; }
 .question-actions {
   display: flex;
   justify-content: space-between;
@@ -190,12 +186,12 @@
 }
 .user-action-card.resolved { opacity: 0.6; }
 .user-action-header { display: flex; align-items: center; gap: 6px; }
-.user-action-icon { font-size: 13px; }
+.user-action-icon { font-size: var(--text-md); }
 .user-action-text { margin: 8px 0 4px; }
-.user-action-reason { margin: 0 0 6px; font-size: 12px; }
+.user-action-reason { margin: 0 0 6px; font-size: var(--text-sm); }
 .user-action-actions { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
 .user-action-actions .question-free-text { flex: 1; margin-top: 0; }
-.user-action-footer { margin-top: 6px; font-size: 12px; }
+.user-action-footer { margin-top: 6px; font-size: var(--text-sm); }
 
 .edits-bar {
   border-top: 1px solid var(--border);
@@ -249,11 +245,10 @@
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--accent) 10%, var(--bg));
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   color: var(--fg);
   backdrop-filter: blur(4px);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 60%, transparent);
 }
 .run-pill.run-waiting {
   border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
@@ -266,7 +261,7 @@
 .run-pill-dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--accent);
   animation: status-dot-pulse 1.2s ease-in-out infinite;
   flex-shrink: 0;
@@ -278,14 +273,14 @@
   background: transparent;
   border: none;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   padding: 2px 7px;
   border-radius: var(--radius-full);
   cursor: pointer;
   transition:
-    background-color var(--dur-fast) ease,
-    color var(--dur-fast) ease,
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
 .run-pill-stop:active:not(:disabled) { transform: scale(0.96); }
@@ -307,7 +302,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 .queue-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .queue-item {
@@ -322,10 +317,9 @@
 .queue-text {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .queue-actions { display: flex; gap: 2px; flex-shrink: 0; }
-.queue-actions .icon-btn { width: 26px; height: 26px; font-size: 11px; }

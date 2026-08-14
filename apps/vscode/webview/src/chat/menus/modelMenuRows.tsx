@@ -137,7 +137,7 @@ function ModelRow({
         className={`model-menu-item${selected ? " selected" : ""}`}
         onClick={onSelect}
       >
-        <span className="model-menu-check">{selected && <CheckIcon size={13} />}</span>
+        <span className="model-menu-check">{selected && <CheckIcon size={12} />}</span>
         <span className="model-menu-main">
           <span className="model-menu-label" data-tooltip={model.label}>
             {model.label}
@@ -177,7 +177,7 @@ function SettingsOptionRow({
       onClick={onSelect}
     >
       <span className="model-settings-check" aria-hidden={!selected}>
-        {selected ? <CheckIcon size={13} /> : null}
+        {selected ? <CheckIcon size={12} /> : null}
       </span>
       <span className="model-settings-item-label">{label}</span>
       <span className="model-settings-default">{isDefault ? t("Default") : ""}</span>

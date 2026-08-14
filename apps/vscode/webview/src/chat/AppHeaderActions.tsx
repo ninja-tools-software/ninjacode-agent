@@ -43,12 +43,12 @@ export function AppHeaderActions(props: HeaderActionsProps) {
     <div className="header-actions">
       <button
         type="button"
-        className="icon-btn"
+        className="icon-btn icon-btn--lg"
         data-tooltip={t("New chat")}
         aria-label={t("New chat")}
         onClick={props.onNewSession}
       >
-        <PlusIcon size={20} />
+        <PlusIcon size={16} />
       </button>
       <PlansHeaderPopover
         plansOpen={props.plansOpen}
@@ -89,12 +89,12 @@ export function AppHeaderActions(props: HeaderActionsProps) {
       />
       <button
         type="button"
-        className="icon-btn"
+        className="icon-btn icon-btn--lg"
         data-tooltip={t("Settings")}
         aria-label={t("Settings")}
         onClick={props.onOpenSettings}
       >
-        <SettingsIcon size={20} />
+        <SettingsIcon size={16} />
       </button>
     </div>
   );

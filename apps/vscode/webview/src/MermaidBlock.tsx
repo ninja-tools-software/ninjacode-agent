@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import mermaid from "mermaid";
+import { t } from "./i18n.js";
 import { sanitizeMermaidSource } from "./mermaidSanitize.js";
 import { initializeMermaidTheme, onEditorThemeChange } from "./mermaidTheme.js";
 import { queueMermaidRender } from "./mermaidRenderQueue.js";
@@ -18,7 +19,7 @@ async function renderDiagram(id: string, source: string): Promise<string> {
 }
 
 function MermaidToggleButton({ mode, onToggle }: { mode: ViewMode; onToggle: () => void }) {
-  const label = mode === "render" ? "Show source" : "Show diagram";
+  const label = mode === "render" ? t("Show source") : t("Show diagram");
   return (
     <button
       type="button"
@@ -159,7 +160,7 @@ function MermaidContent({
       ref={renderRef}
       role="button"
       tabIndex={0}
-      data-tooltip="Open diagram in editor tab"
+      data-tooltip={t("Open diagram in editor tab")}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

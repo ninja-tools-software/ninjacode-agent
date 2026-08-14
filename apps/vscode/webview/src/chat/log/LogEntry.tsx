@@ -41,12 +41,12 @@ function AssistantMessage({
       {text && (
         <div className="msg-hover-actions">
           <button
-            className="icon-btn"
-            data-tooltip={isFinal ? "Copy final response" : "Copy response"}
-            aria-label="Copy response"
+            className="icon-btn icon-btn--sm"
+            data-tooltip={isFinal ? t("Copy final response") : t("Copy response")}
+            aria-label={t("Copy response")}
             onClick={() => vscode.postMessage({ type: "copy_to_clipboard", text })}
           >
-            <CopyIcon size={13} />
+            <CopyIcon size={12} />
           </button>
         </div>
       )}
@@ -68,7 +68,7 @@ function ReasoningMessage({ text, isLive }: { text: string; isLive: boolean }) {
       >
         <CollapseChevron collapsed={collapsed} />
         {isLive && <span className="status-live-dot" aria-hidden="true" />}
-        <span className="reasoning-label">Reasoning</span>
+        <span className="reasoning-label">{t("Reasoning")}</span>
       </button>
       {!collapsed && (
         <div className="reasoning-body">

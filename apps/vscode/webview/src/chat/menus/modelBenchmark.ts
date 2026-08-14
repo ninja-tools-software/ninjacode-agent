@@ -1,11 +1,6 @@
 import type { BenchmarkDomain, ModelBenchmark, ModelLlmStats } from "@ninjacode/providers";
 import type { ModelInfo } from "../types.js";
-import {
-  gradientAtStops,
-  METRIC_GREEN,
-  METRIC_RED,
-  METRIC_YELLOW,
-} from "./metricGradient.js";
+import { gradientAtStops, themeMetricStops } from "./metricGradient.js";
 
 type IndexRow = {
   key: BenchmarkDomain;
@@ -69,7 +64,8 @@ export function llmStatsRows(stats: ModelLlmStats): LlmStatsRow[] {
 export function scoreColor(value: number, max = 100): string {
   const scale = max > 0 ? max : 100;
   const pct = (value / scale) * 100;
-  return gradientAtStops(pct, 30, 50, 70, METRIC_RED, METRIC_YELLOW, METRIC_GREEN);
+  const { green, yellow, red } = themeMetricStops();
+  return gradientAtStops(pct, 30, 50, 70, red, yellow, green);
 }
 
 /** Bar fill width as a percent of `max` (clamped 0–100). */

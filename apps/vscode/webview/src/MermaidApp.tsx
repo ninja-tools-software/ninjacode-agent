@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MermaidBlock } from "./MermaidBlock.js";
+import { t } from "./i18n.js";
 import type { VsCodeApi } from "./chat/types.js";
 
 function useMermaidDoc(vscode: VsCodeApi) {
@@ -22,7 +23,7 @@ function useMermaidDoc(vscode: VsCodeApi) {
 function MermaidAppLoading() {
   return (
     <div className="mermaid-app">
-      <p className="muted mermaid-app-loading">Loading diagram…</p>
+      <p className="muted mermaid-app-loading">{t("Loading diagram…")}</p>
     </div>
   );
 }

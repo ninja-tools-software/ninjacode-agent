@@ -27,7 +27,7 @@ function registerChatToggle(context: vscode.ExtensionContext, provider: ChatView
   const chatStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 88);
   chatStatusBar.command = "ninjacode.toggleChat";
   chatStatusBar.text = "$(ninjacode-shuriken) NinjaCode";
-  chatStatusBar.tooltip = "Toggle NinjaCode Chat (Cmd+Shift+L / Ctrl+Shift+L)";
+  chatStatusBar.tooltip = t("Toggle NinjaCode Chat (Cmd+Shift+L / Ctrl+Shift+L)");
   chatStatusBar.show();
 
   context.subscriptions.push(

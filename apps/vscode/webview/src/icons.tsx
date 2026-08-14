@@ -1,9 +1,11 @@
 import React from "react";
 
 /**
- * Minimal Lucide-style icon set (16px, stroke=currentColor) so every glyph in
- * the chat renders consistently across OSes instead of relying on emoji fonts.
+ * Minimal Lucide-style icon set (stroke=currentColor). Optical sizes follow
+ * the design-system scale: 12 / 14 / 16 (`--icon-sm/md/lg`).
  */
+
+export type IconSize = 12 | 14 | 16;
 
 function Svg({
   children,
@@ -14,7 +16,7 @@ function Svg({
   children: React.ReactNode;
   className?: string;
   filled?: boolean;
-  size?: number;
+  size?: IconSize;
 }) {
   return (
     <svg
@@ -34,7 +36,7 @@ function Svg({
   );
 }
 
-export function HistoryIcon({ size }: { size?: number }) {
+export function HistoryIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -44,7 +46,7 @@ export function HistoryIcon({ size }: { size?: number }) {
   );
 }
 
-export function PlusIcon({ size }: { size?: number }) {
+export function PlusIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M5 12h14" />
@@ -53,7 +55,7 @@ export function PlusIcon({ size }: { size?: number }) {
   );
 }
 
-export function SettingsIcon({ size }: { size?: number }) {
+export function SettingsIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
@@ -62,7 +64,7 @@ export function SettingsIcon({ size }: { size?: number }) {
   );
 }
 
-export function EditIcon({ size }: { size?: number }) {
+export function EditIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -71,7 +73,7 @@ export function EditIcon({ size }: { size?: number }) {
   );
 }
 
-export function PinIcon({ size, filled }: { size?: number; filled?: boolean }) {
+export function PinIcon({ size, filled }: { size?: IconSize; filled?: boolean }) {
   return (
     <Svg size={size} filled={filled}>
       <path
@@ -85,7 +87,7 @@ export function PinIcon({ size, filled }: { size?: number; filled?: boolean }) {
   );
 }
 
-export function ExportIcon({ size }: { size?: number }) {
+export function ExportIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -95,7 +97,7 @@ export function ExportIcon({ size }: { size?: number }) {
   );
 }
 
-export function ArchiveIcon({ size }: { size?: number }) {
+export function ArchiveIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <rect width="20" height="5" x="2" y="3" rx="1" />
@@ -105,7 +107,7 @@ export function ArchiveIcon({ size }: { size?: number }) {
   );
 }
 
-export function CopyIcon({ size }: { size?: number }) {
+export function CopyIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
@@ -114,7 +116,7 @@ export function CopyIcon({ size }: { size?: number }) {
   );
 }
 
-export function ForkIcon({ size }: { size?: number }) {
+export function ForkIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <circle cx="12" cy="18" r="3" />
@@ -126,7 +128,7 @@ export function ForkIcon({ size }: { size?: number }) {
   );
 }
 
-export function AttachIcon({ size }: { size?: number }) {
+export function AttachIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -134,7 +136,7 @@ export function AttachIcon({ size }: { size?: number }) {
   );
 }
 
-export function DotsIcon({ size }: { size?: number }) {
+export function DotsIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size} filled>
       <circle cx="5" cy="12" r="1.6" />
@@ -144,7 +146,7 @@ export function DotsIcon({ size }: { size?: number }) {
   );
 }
 
-export function ChevronDownIcon({ size }: { size?: number }) {
+export function ChevronDownIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="m6 9 6 6 6-6" />
@@ -152,7 +154,7 @@ export function ChevronDownIcon({ size }: { size?: number }) {
   );
 }
 
-export function ChevronUpIcon({ size }: { size?: number }) {
+export function ChevronUpIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="m18 15-6-6-6 6" />
@@ -160,7 +162,7 @@ export function ChevronUpIcon({ size }: { size?: number }) {
   );
 }
 
-export function ChevronLeftIcon({ size }: { size?: number }) {
+export function ChevronLeftIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="m15 18-6-6 6-6" />
@@ -168,7 +170,7 @@ export function ChevronLeftIcon({ size }: { size?: number }) {
   );
 }
 
-export function ChartIcon({ size }: { size?: number }) {
+export function ChartIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M3 3v18h18" />
@@ -179,7 +181,7 @@ export function ChartIcon({ size }: { size?: number }) {
   );
 }
 
-export function SearchIcon({ size }: { size?: number }) {
+export function SearchIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <circle cx="11" cy="11" r="8" />
@@ -188,7 +190,7 @@ export function SearchIcon({ size }: { size?: number }) {
   );
 }
 
-export function BrainIcon({ size }: { size?: number }) {
+export function BrainIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
@@ -203,7 +205,7 @@ export function BrainIcon({ size }: { size?: number }) {
   );
 }
 
-export function EyeIcon({ size }: { size?: number }) {
+export function EyeIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
@@ -264,7 +266,7 @@ export function FlagEuIcon() {
   );
 }
 
-export function CheckIcon({ size, className }: { size?: number; className?: string }) {
+export function CheckIcon({ size, className }: { size?: IconSize; className?: string }) {
   return (
     <Svg size={size} className={className}>
       <path d="M20 6 9 17l-5-5" />
@@ -272,7 +274,7 @@ export function CheckIcon({ size, className }: { size?: number; className?: stri
   );
 }
 
-export function CloseIcon({ size, className }: { size?: number; className?: string }) {
+export function CloseIcon({ size, className }: { size?: IconSize; className?: string }) {
   return (
     <Svg size={size} className={className}>
       <path d="M18 6 6 18" />
@@ -281,7 +283,7 @@ export function CloseIcon({ size, className }: { size?: number; className?: stri
   );
 }
 
-export function ArrowUpIcon({ size }: { size?: number }) {
+export function ArrowUpIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M12 19V5" />
@@ -290,7 +292,7 @@ export function ArrowUpIcon({ size }: { size?: number }) {
   );
 }
 
-export function ArrowDownIcon({ size }: { size?: number }) {
+export function ArrowDownIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M12 5v14" />
@@ -299,7 +301,7 @@ export function ArrowDownIcon({ size }: { size?: number }) {
   );
 }
 
-export function BoltIcon({ size }: { size?: number }) {
+export function BoltIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
@@ -308,7 +310,7 @@ export function BoltIcon({ size }: { size?: number }) {
 }
 
 /** Magic wand — prompt enhancement (gateway). */
-export function WandIcon({ size }: { size?: number }) {
+export function WandIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" />
@@ -323,7 +325,7 @@ export function WandIcon({ size }: { size?: number }) {
   );
 }
 
-export function StarIcon({ size, filled }: { size?: number; filled?: boolean }) {
+export function StarIcon({ size, filled }: { size?: IconSize; filled?: boolean }) {
   return (
     <Svg size={size} filled={filled}>
       <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" />
@@ -331,7 +333,7 @@ export function StarIcon({ size, filled }: { size?: number; filled?: boolean }) 
   );
 }
 
-export function ChatIcon({ size }: { size?: number }) {
+export function ChatIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
@@ -339,7 +341,7 @@ export function ChatIcon({ size }: { size?: number }) {
   );
 }
 
-export function BotIcon({ size }: { size?: number }) {
+export function BotIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M12 8V4H8" />
@@ -352,7 +354,7 @@ export function BotIcon({ size }: { size?: number }) {
   );
 }
 
-export function PlanIcon({ size }: { size?: number }) {
+export function PlanIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
@@ -365,7 +367,7 @@ export function PlanIcon({ size }: { size?: number }) {
   );
 }
 
-export function BugIcon({ size }: { size?: number }) {
+export function BugIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="m8 2 1.88 1.88" />
@@ -385,7 +387,7 @@ export function BugIcon({ size }: { size?: number }) {
   );
 }
 
-export function TrashIcon({ size }: { size?: number }) {
+export function TrashIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size}>
       <path d="M3 6h18" />
@@ -395,7 +397,7 @@ export function TrashIcon({ size }: { size?: number }) {
   );
 }
 
-export function PlayIcon({ size }: { size?: number }) {
+export function PlayIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size} filled>
       <polygon points="10,8 16,12 10,16" stroke="none" />
@@ -404,7 +406,7 @@ export function PlayIcon({ size }: { size?: number }) {
 }
 
 /** Partial arc used with `.todo-spin` for in-progress todo status. */
-export function LoaderIcon({ size, className }: { size?: number; className?: string }) {
+export function LoaderIcon({ size, className }: { size?: IconSize; className?: string }) {
   return (
     <Svg size={size} className={className}>
       <path d="M12 2a10 10 0 0 1 10 10" />
@@ -412,7 +414,6 @@ export function LoaderIcon({ size, className }: { size?: number; className?: str
   );
 }
 
-/** Filled send arrow, sized for the round send button. */
 /** Filled microphone, sized for the round send/mic button. */
 export function MicIcon() {
   return (

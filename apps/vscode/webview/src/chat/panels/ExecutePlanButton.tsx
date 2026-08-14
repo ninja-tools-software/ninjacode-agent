@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PlayIcon } from "../../icons.js";
+import { t } from "../../i18n.js";
 import type { SettingsState, VsCodeApi } from "../types.js";
 import { PlanModelPicker } from "./PlanModelPicker.js";
 
@@ -41,11 +42,11 @@ export function ExecutePlanButton({
         type="button"
         className="btn-execute"
         disabled={busy}
-        data-tooltip="Switch to Agent mode and implement this plan"
+        data-tooltip={t("Switch to Agent mode and implement this plan")}
         onClick={execute}
       >
         <PlayIcon size={14} />
-        <span>Execute plan</span>
+        <span>{t("Execute plan")}</span>
         <kbd className="btn-execute-kbd">{executeShortcutLabel()}</kbd>
       </button>
     </div>

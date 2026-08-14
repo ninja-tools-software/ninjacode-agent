@@ -65,7 +65,7 @@ export function RefBadge({
           aria-label={`Remove ${refItem.label}`}
           onClick={() => onRemove(refItem)}
         >
-          <CloseIcon size={10} />
+          <CloseIcon size={12} />
         </button>
       )}
     </span>

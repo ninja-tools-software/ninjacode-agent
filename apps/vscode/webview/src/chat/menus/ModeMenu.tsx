@@ -38,7 +38,7 @@ function ModeMenuDropdown({
             <span className="mode-menu-item-label">{t(label)}</span>
             <span className="mode-menu-item-hint">{t(hint)}</span>
           </span>
-          <span className="mode-menu-item-check">{id === mode && <CheckIcon size={13} />}</span>
+          <span className="mode-menu-item-check">{id === mode && <CheckIcon size={12} />}</span>
         </button>
       ))}
     </div>

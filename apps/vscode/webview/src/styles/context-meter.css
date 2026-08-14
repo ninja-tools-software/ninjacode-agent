@@ -15,21 +15,19 @@
   height: 100%;
   border-radius: var(--radius-full);
   background: var(--accent);
-  transition: width 0.2s ease;
+  transition: width var(--dur-slow) var(--ease-out);
 }
 .context-meter-fill.level-warn { background: var(--warn); }
 .context-meter-fill.level-danger { background: var(--danger); }
 .context-meter-label {
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
   font-family: var(--code-font);
   white-space: nowrap;
   flex-shrink: 0;
 }
 .context-compact-btn {
-  width: 20px;
-  height: 20px;
-  font-size: 11px;
+  font-size: var(--text-micro);
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
@@ -41,20 +39,14 @@
   cursor: pointer;
 }
 .context-popover {
-  --seg-system: var(--accent);
-  --seg-history: color-mix(in srgb, var(--accent) 45%, #2fb571 55%);
-  --seg-tools: color-mix(in srgb, var(--accent) 45%, #d5900f 55%);
-  --seg-output: color-mix(in srgb, var(--fg) 38%, transparent);
-  --seg-attached: color-mix(in srgb, var(--accent) 45%, #a371f7 55%);
   position: absolute;
   bottom: calc(100% + 8px);
   left: 0;
   right: 0;
-  z-index: 30;
+  z-index: var(--z-menu);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--panel, var(--bg));
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -64,8 +56,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
 .context-popover-title {
   display: flex;
@@ -75,7 +67,7 @@
 .context-popover-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--accent);
   flex-shrink: 0;
 }
@@ -83,8 +75,8 @@
 .context-popover-dot.level-danger { background: var(--danger); }
 .context-popover-pct {
   font-family: var(--code-font);
-  font-weight: 600;
-  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-micro);
   color: var(--muted);
   padding: 1px 6px;
   border-radius: var(--radius-full);
@@ -109,7 +101,7 @@
 }
 .context-popover-segment {
   height: 100%;
-  transition: width 0.2s ease;
+  transition: width var(--dur-slow) var(--ease-out);
 }
 .context-popover-segment + .context-popover-segment {
   border-left: 1px solid color-mix(in srgb, var(--bg) 60%, transparent);
@@ -134,11 +126,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
   font-family: var(--code-font);
 }
-.context-popover-total-used { color: var(--fg); font-weight: 600; }
+.context-popover-total-used { color: var(--fg); font-weight: var(--weight-semibold); }
 .context-popover-total-sep { opacity: 0.6; }
 .context-popover-total-free { color: var(--muted); }
 
@@ -160,10 +152,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--ctrl-sm);
+  height: var(--ctrl-sm);
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--accent-fg);
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -179,13 +171,13 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--text-micro);
 }
-.context-popover-row-label { color: var(--fg); font-weight: 500; }
+.context-popover-row-label { color: var(--fg); font-weight: var(--weight-medium); }
 .context-popover-row-value {
   color: var(--muted);
   font-family: var(--code-font);
-  font-size: 10px;
+  font-size: var(--text-micro);
   white-space: nowrap;
 }
 .context-popover-row-bar {
@@ -197,10 +189,10 @@
 .context-popover-row-fill {
   height: 100%;
   border-radius: var(--radius-full);
-  transition: width 0.2s ease;
+  transition: width var(--dur-slow) var(--ease-out);
 }
 .context-popover-row-detail {
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
 }
 .context-popover-actions {
@@ -211,12 +203,12 @@
   padding-top: 9px;
 }
 .context-popover-compact {
-  font-size: 11px;
+  font-size: var(--text-micro);
   padding: 4px 12px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 .context-popover-hint {
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
 }
 .context-popover-hint code {

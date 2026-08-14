@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../../i18n.js";
 import type { UserActionLogItem, VsCodeApi } from "../types.js";
 
 export function UserActionCard({ item, vscode }: { item: UserActionLogItem; vscode: VsCodeApi }) {
@@ -15,24 +16,24 @@ export function UserActionCard({ item, vscode }: { item: UserActionLogItem; vsco
     <div className={`user-action-card panel-enter msg-enter${item.resolved ? " resolved" : ""}`}>
       <div className="user-action-header">
         <span className="user-action-icon">⏸</span>
-        <strong>Manual action required</strong>
+        <strong>{t("Manual action required")}</strong>
       </div>
       <p className="user-action-text">{item.action}</p>
       {item.reason && <p className="muted user-action-reason">{item.reason}</p>}
       {item.resolved ? (
         <div className="user-action-footer muted">
           {item.cancelled
-            ? "Cancelled — the run was stopped."
+            ? t("Cancelled — the run was stopped.")
             : item.comment
-              ? `Done — ${item.comment}`
-              : "Done — the run resumed."}
+              ? t("Done — {0}", item.comment)
+              : t("Done — the run resumed.")}
         </div>
       ) : (
         <div className="user-action-actions">
           <input
             className="question-free-text"
             type="text"
-            placeholder="Optional comment for the agent…"
+            placeholder={t("Optional comment for the agent…")}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             onKeyDown={(e) => {
@@ -40,7 +41,7 @@ export function UserActionCard({ item, vscode }: { item: UserActionLogItem; vsco
             }}
           />
           <button className="btn primary" onClick={done}>
-            I&apos;m done — resume
+            {t("I'm done — resume")}
           </button>
         </div>
       )}

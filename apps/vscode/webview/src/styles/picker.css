@@ -2,7 +2,7 @@
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--muted);
 }
 .chip {
@@ -23,7 +23,7 @@
   align-items: center;
   gap: 4px;
   cursor: default;
-  font-size: 11px;
+  font-size: var(--text-micro);
   background: color-mix(in srgb, var(--fg) 5%, transparent);
 }
 .attachment-icon { opacity: 0.85; }
@@ -38,7 +38,7 @@
   border: none;
   color: var(--muted);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-md);
   line-height: 1;
   padding: 0 0 0 2px;
   display: inline-flex;
@@ -92,21 +92,21 @@
   cursor: pointer;
   color: var(--fg);
   transition:
-    background-color var(--dur-fast) ease,
+    background-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
 .context-picker-item:active:not(:disabled) { transform: scale(0.98); cursor: grabbing; }
 .context-picker-item:hover { background: var(--list-hover); }
 .context-picker-item.highlighted { background: var(--list-active, var(--list-hover)); }
 .context-picker-label {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-family: var(--code-font);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
 }
-.context-picker-detail { font-size: 10px; color: var(--muted); }
+.context-picker-detail { font-size: var(--text-micro); color: var(--muted); }
 .context-picker-footer {
   display: flex;
   justify-content: space-between;
@@ -137,14 +137,14 @@
   padding: 7px 10px;
   cursor: pointer;
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--text-sm);
   transition:
-    background-color var(--dur-fast) ease,
+    background-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
 .slash-item:active:not(:disabled) { transform: scale(0.98); }
 .slash-item:hover, .slash-item.active { background: var(--list-hover); }
-.slash-name { font-family: var(--code-font); font-weight: 600; flex-shrink: 0; }
+.slash-name { font-family: var(--code-font); font-weight: var(--weight-semibold); flex-shrink: 0; }
 .slash-desc {
   color: var(--muted);
   overflow: hidden;

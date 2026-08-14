@@ -35,7 +35,7 @@ function availableTabs(model: ModelInfo): BenchTab[] {
 function BenchmarkEmptyState() {
   return (
     <div className="model-bench-empty">
-      <ChartIcon size={22} />
+      <ChartIcon size={16} />
       <div className="model-bench-empty-title">{t("No benchmark data yet")}</div>
       <p className="model-bench-empty-hint">
         {t(

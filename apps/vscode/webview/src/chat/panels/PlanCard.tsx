@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChatMarkdown } from "../../ChatMarkdown.js";
+import { t } from "../../i18n.js";
 import { animCls } from "../hooks/useAnimatedPresence.js";
 import type { PlanState, SettingsState, TodoItem, VsCodeApi } from "../types.js";
 import { ExecutePlanButton } from "./ExecutePlanButton.js";
@@ -13,7 +14,7 @@ function PlanCardHeader({ plan }: { plan: PlanState }) {
   return (
     <div className="plan-card-header">
       <div>
-        <strong>{plan.title || "Plan"}</strong>
+        <strong>{plan.title || t("Plan")}</strong>
         <span className="muted plan-path" data-tooltip={plan.path}>
           {plan.path}
         </span>
@@ -35,7 +36,7 @@ function PlanCardPreview({ content }: { content: string }) {
       </div>
       {truncated && (
         <button type="button" className="plan-show-more" onClick={() => setExpanded((v) => !v)}>
-          {expanded ? "Show less" : "Show more"}
+          {expanded ? t("Show less") : t("Show more")}
         </button>
       )}
     </>
@@ -47,7 +48,7 @@ function PlanCardTodos({ todos }: { todos: TodoItem[] }) {
   return (
     <div className="plan-todos">
       <div className="todos-header">
-        <strong>Tasks</strong>
+        <strong>{t("Tasks")}</strong>
         <span className="log-count">
           {countDone(todos)}/{todos.length}
         </span>
@@ -84,10 +85,10 @@ export function PlanCard({
         <button
           type="button"
           className="btn plan-view-btn"
-          data-tooltip="Open the full plan"
+          data-tooltip={t("Open the full plan")}
           onClick={() => vscode.postMessage({ type: "open_plan", planId: plan.id })}
         >
-          View plan
+          {t("View plan")}
         </button>
         <ExecutePlanButton busy={busy} settings={settings} vscode={vscode} />
       </div>
@@ -109,11 +110,11 @@ export function PlanCompactRow({
     <button
       type="button"
       className="plan-compact-row msg-enter"
-      data-tooltip="Open this plan revision"
+      data-tooltip={t("Open this plan revision")}
       onClick={() => vscode.postMessage({ type: "open_plan", ...(planId ? { planId } : {}) })}
     >
-      <span className="plan-compact-label">Plan updated</span>
-      <span className="plan-compact-title">{title || "Plan"}</span>
+      <span className="plan-compact-label">{t("Plan updated")}</span>
+      <span className="plan-compact-title">{title || t("Plan")}</span>
     </button>
   );
 }

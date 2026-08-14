@@ -8,7 +8,7 @@
 .model-menu-detail-icons > svg {
   grid-area: 1 / 1;
   opacity: 0.9;
-  transition: opacity var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .model-menu-detail-icons > svg:last-child {
   opacity: 0;
@@ -31,7 +31,7 @@
   align-items: center;
   justify-content: center;
   width: auto;
-  min-height: 18px;
+  min-height: var(--icon-md);
   flex-shrink: 0;
   background: transparent;
   border: none;
@@ -40,10 +40,10 @@
   cursor: pointer;
   opacity: 0;
   transition:
-    opacity var(--dur-fast) ease,
-    color var(--dur-fast) ease,
-    background-color var(--dur-fast) ease,
-    filter var(--dur-fast) ease;
+    opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    filter var(--dur-fast) var(--ease-out);
 }
 .model-menu-row:hover .model-menu-bench,
 .model-menu-bench:focus-visible {
@@ -71,15 +71,15 @@
   border: none;
   border-radius: var(--radius-sm);
   padding: 1px 4px;
-  font-size: 10px;
+  font-size: var(--text-micro);
   font-family: var(--code-font);
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
   --metric-tone: var(--success);
-  transition: background-color var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .model-menu-perf-body {
   display: flex;
@@ -87,7 +87,7 @@
   align-items: flex-end;
   gap: 2px;
   min-width: 0;
-  transition: opacity var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .model-menu-perf-value {
   min-width: 1.25em;
@@ -117,7 +117,7 @@
   opacity: 0;
   color: var(--accent);
   pointer-events: none;
-  transition: opacity var(--dur-fast) ease;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .model-menu-perf:hover .model-menu-perf-body,
 .model-menu-perf:focus-visible .model-menu-perf-body {
@@ -168,8 +168,8 @@
 }
 
 .model-bench-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -182,7 +182,7 @@
 }
 .model-bench-tabs button {
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-micro);
   padding: 5px 8px;
 }
 
@@ -194,7 +194,7 @@
 }
 
 .model-bench-scale {
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
   letter-spacing: 0.01em;
 }
@@ -219,16 +219,16 @@
 }
 
 .model-bench-gauge-label {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
   color: var(--fg);
 }
 
 .model-bench-gauge-value {
   font-family: var(--code-font);
-  font-size: 11px;
+  font-size: var(--text-micro);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--muted);
 }
 .model-bench-gauge-value.missing { opacity: 0.7; }
@@ -266,9 +266,7 @@
 }
 
 .model-bench-chips-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--text-micro);
   color: var(--muted);
 }
 
@@ -279,13 +277,11 @@
 }
 
 .model-bench-chip {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-size: var(--text-micro);
   border-radius: var(--radius-full);
   padding: 1px 7px;
   line-height: 1.5;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   border: 1px solid transparent;
 }
 .model-bench-chip.tone-success {
@@ -300,9 +296,7 @@
 }
 
 .model-bench-arena-subtitle {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--text-micro);
   color: var(--muted);
 }
 
@@ -326,16 +320,16 @@
 }
 
 .model-bench-arena-label {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
   color: var(--fg);
 }
 
 .model-bench-arena-elo {
   font-family: var(--code-font);
-  font-size: 11px;
+  font-size: var(--text-micro);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: var(--fg);
   display: inline-flex;
   align-items: baseline;
@@ -343,11 +337,9 @@
 }
 
 .model-bench-arena-elo-unit {
-  font-size: 9px;
-  font-weight: 500;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .model-bench-arena-bar {
@@ -366,7 +358,7 @@
 
 .model-bench-arena-win {
   align-self: flex-start;
-  font-size: 10px;
+  font-size: var(--text-micro);
   font-family: var(--code-font);
   font-variant-numeric: tabular-nums;
   color: var(--accent);
@@ -381,7 +373,7 @@
   margin: 4px 4px 0;
   padding-top: 8px;
   border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
   line-height: 1.4;
 }
@@ -397,13 +389,13 @@
 }
 .model-bench-empty svg { opacity: 0.55; }
 .model-bench-empty-title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   color: var(--fg);
 }
 .model-bench-empty-hint {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--text-micro);
   line-height: 1.4;
   max-width: 28em;
 }

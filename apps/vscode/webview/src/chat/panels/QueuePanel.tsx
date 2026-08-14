@@ -1,4 +1,5 @@
 import { ArrowDownIcon, ArrowUpIcon, CloseIcon } from "../../icons.js";
+import { t } from "../../i18n.js";
 import { animCls } from "../hooks/useAnimatedPresence.js";
 import type { QueuedMessage, VsCodeApi } from "../types.js";
 
@@ -14,9 +15,11 @@ export function QueuePanel({
   return (
     <div className={animCls("queue-panel panel-enter", closing && "anim-closing")}>
       <div className="queue-header">
-        <strong>Queued</strong>
+        <strong>{t("Queued")}</strong>
         <span className="muted">
-          {queue.length} message{queue.length === 1 ? "" : "s"} — will send after the current run
+          {queue.length === 1
+            ? t("{0} message — will send after the current run", queue.length)
+            : t("{0} messages — will send after the current run", queue.length)}
         </span>
       </div>
       <ul className="queue-list">
@@ -26,8 +29,8 @@ export function QueuePanel({
             <div className="queue-actions">
               <button
                 className="icon-btn"
-                data-tooltip="Move up"
-                aria-label="Move up"
+                data-tooltip={t("Move up")}
+                aria-label={t("Move up")}
                 disabled={i === 0}
                 onClick={() => vscode.postMessage({ type: "reorder_queue", queueId: q.id, direction: "up" })}
               >
@@ -35,8 +38,8 @@ export function QueuePanel({
               </button>
               <button
                 className="icon-btn"
-                data-tooltip="Move down"
-                aria-label="Move down"
+                data-tooltip={t("Move down")}
+                aria-label={t("Move down")}
                 disabled={i === queue.length - 1}
                 onClick={() =>
                   vscode.postMessage({ type: "reorder_queue", queueId: q.id, direction: "down" })
@@ -46,8 +49,8 @@ export function QueuePanel({
               </button>
               <button
                 className="icon-btn"
-                data-tooltip="Remove"
-                aria-label="Remove"
+                data-tooltip={t("Remove")}
+                aria-label={t("Remove")}
                 onClick={() => vscode.postMessage({ type: "remove_queued", queueId: q.id })}
               >
                 <CloseIcon size={12} />

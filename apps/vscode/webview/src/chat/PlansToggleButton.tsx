@@ -14,14 +14,14 @@ export function PlansToggleButton({
   return (
     <button
       type="button"
-      className={`icon-btn plans-toggle${plansOpen ? " active" : ""}`}
+      className={`icon-btn icon-btn--lg plans-toggle${plansOpen ? " active" : ""}`}
       data-tooltip={label}
       aria-label={label}
       aria-expanded={plansOpen}
       disabled={plansLoading}
       onClick={onToggle}
     >
-      <PlanIcon size={20} />
+      <PlanIcon size={16} />
     </button>
   );
 }

@@ -35,6 +35,10 @@ Two processes, one contract. Most bugs here come from state that exists on both 
 
 `webview/src/styles.css` is an import index only. Rules live in `styles/*.css`, imported in cascade order — later files may override earlier ones, so add to the file matching the zone rather than appending to the index.
 
+`styles/tokens.css` is the design-system source of truth (spec: `apps/vscode/webview/design-system.md`). New styles compose those tokens — no isolated `px`, hex, or `rgba(0,0,0,*)`. A new size that is not `--text-*`, `--space-*`, `--ctrl-*`, or `--icon-*` is a bug; change the scale in the spec first. JS that needs a semantic color reads `themeTokens.ts` (`readToken` / `tokenToRgb`), never a duplicate hex.
+
+Overlays (menus, tooltips, popovers, pickers, FAB, run-pill) separate with `1px solid var(--border)` only — no `box-shadow` (it reads as a halo on dark themes). The chat composer (`.composer-card` / `.composer-input`) never takes a focus ring or a focus `border-color`; the caret is enough.
+
 ## Build
 
 `pnpm --filter ninjacode build` runs deps, then the webview (Vite), then the extension (esbuild). `typecheck` covers both tsconfigs — run it, the webview has its own.

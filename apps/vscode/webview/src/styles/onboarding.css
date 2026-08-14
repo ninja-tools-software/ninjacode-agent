@@ -35,14 +35,14 @@
 }
 .onb-hero h2 {
   margin: 2px 0 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
   line-height: 1.3;
 }
 .onb-hero p {
   margin: 0;
   max-width: 46ch;
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   line-height: 1.45;
   color: var(--muted);
 }
@@ -55,8 +55,8 @@
 }
 .onb-card-title {
   margin: 0;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
 /* The Pass card is the one action we want taken: tint it with the accent. */
 .onb-pass {
@@ -73,18 +73,16 @@
 }
 .onb-pass-head h3 {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
   line-height: 1.3;
 }
 .onb-badge {
   padding: 2px 8px;
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--accent) 24%, transparent);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
 }
 
 .onb-points {
@@ -101,8 +99,8 @@
 }
 .onb-point-icon {
   flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+  width: var(--ctrl-sm);
+  height: var(--ctrl-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -111,20 +109,20 @@
   color: var(--fg);
 }
 .onb-point-icon svg {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 .onb-point-body {
   min-width: 0;
 }
 .onb-point-body strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.35;
 }
 .onb-point-body p {
   margin: 1px 0 0;
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   line-height: 1.45;
   color: var(--muted);
 }
@@ -138,8 +136,8 @@
 .onb-cta {
   flex: 1 1 104px;
   padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
 /* The default .btn border disappears on dark themes; the secondary CTA needs to
    read as a button even when it wraps onto its own row. */
@@ -148,7 +146,7 @@
 }
 .onb-fineprint {
   margin: 8px 0 0;
-  font-size: 11px;
+  font-size: var(--text-micro);
   line-height: 1.45;
   color: var(--muted);
 }
@@ -161,7 +159,7 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   line-height: 1.45;
 }
 .onb-line {
@@ -176,8 +174,8 @@
   color: var(--muted);
 }
 .onb-line-icon svg {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 .onb-line-body {
   min-width: 0;
@@ -197,7 +195,7 @@
   display: grid;
   grid-template-columns: 14px auto 1fr;
   gap: 0 6px;
-  font-size: 11px;
+  font-size: var(--text-micro);
   line-height: 1.5;
 }
 .onb-mode-icon {
@@ -222,7 +220,7 @@
 .onb-skip {
   margin: 0;
   text-align: center;
-  font-size: 11px;
+  font-size: var(--text-micro);
   line-height: 1.5;
   color: var(--muted);
 }

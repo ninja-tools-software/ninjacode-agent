@@ -25,7 +25,7 @@ function anchoredStyle(anchor: DOMRect, menuWidth: number): CSSProperties {
     (openUp ? spaceAbove : spaceBelow) - VIEWPORT_MARGIN,
   );
 
-  const base: CSSProperties = { position: "fixed", left, maxHeight, zIndex: 1000 };
+  const base: CSSProperties = { position: "fixed", left, maxHeight };
   return openUp
     ? { ...base, bottom: window.innerHeight - anchor.top + MENU_GAP, top: "auto" }
     : { ...base, top: anchor.bottom + MENU_GAP, bottom: "auto" };

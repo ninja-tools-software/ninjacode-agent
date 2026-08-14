@@ -95,8 +95,8 @@ function AdvancedSignIn(props: {
   onWait: () => void;
 }) {
   return (
-    <details className="account-advanced" style={{ marginTop: "1.25rem" }}>
-      <summary className="muted" style={{ cursor: "pointer" }}>
+    <details className="account-advanced">
+      <summary className="muted">
         {t("Other sign-in options")}
       </summary>
       <MagicLinkField {...props} />

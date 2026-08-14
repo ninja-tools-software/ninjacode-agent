@@ -1,4 +1,4 @@
-import { ChartIcon, ChevronDownIcon, ChevronUpIcon, SearchIcon } from "../../icons.js";
+import { ChartIcon, ChevronDownIcon, ChevronUpIcon, SearchIcon, type IconSize } from "../../icons.js";
 import { t } from "../../i18n.js";
 import type { ModelInfo, ModelSortId } from "../types.js";
 import { costIndexColor, formatCostIndex } from "./costIndexTone.js";
@@ -52,7 +52,7 @@ function SortHeaderButton({
     >
       <span className="model-menu-metrics-sort-label">{label}</span>
       <span className="model-menu-metrics-sort-chevron" aria-hidden="true">
-        {previewDirection === "desc" ? <ChevronDownIcon size={10} /> : <ChevronUpIcon size={10} />}
+        {previewDirection === "desc" ? <ChevronDownIcon size={12} /> : <ChevronUpIcon size={12} />}
       </span>
     </button>
   );
@@ -89,7 +89,7 @@ export function ModelMetricsHeader({
   );
 }
 
-function DetailHintIcons({ size }: { size: number }) {
+function DetailHintIcons({ size }: { size: IconSize }) {
   return (
     <span className="model-menu-detail-icons" aria-hidden="true">
       <ChartIcon size={size} />
@@ -136,7 +136,7 @@ function ModelPerfButton({
           <span className="model-menu-perf-fill" style={{ width: `${width}%` }} />
         </span>
       </span>
-      <DetailHintIcons size={10} />
+      <DetailHintIcons size={12} />
     </button>
   );
 }

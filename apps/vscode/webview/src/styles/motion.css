@@ -114,8 +114,8 @@
   animation: nc-pop-in var(--dur-fast) var(--ease-pop) both;
 }
 
-details[open] > .tool-body,
-details[open] > .mcp-tools {
+.tool-card.is-open > .tool-body,
+.tool-card.is-open > .mcp-tools {
   animation: nc-slide-down-in var(--dur-med) var(--ease-out) both;
 }
 
@@ -135,8 +135,8 @@ details[open] > .mcp-tools {
   .msg-enter,
   .screen-enter,
   .send-btn-state,
-  details[open] > .tool-body,
-  details[open] > .mcp-tools,
+  .tool-card.is-open > .tool-body,
+  .tool-card.is-open > .mcp-tools,
   .hunk-list,
   .feedback-box,
   .tooltip-bubble {

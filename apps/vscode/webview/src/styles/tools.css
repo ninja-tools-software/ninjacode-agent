@@ -1,52 +1,54 @@
 .tool-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  margin: 3px 0;
+  margin: var(--space-1) 0;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
-.tool-card.tool-done summary {
+.tool-card.tool-done .tool-header {
   opacity: 0.95;
 }
 .tool-card.tool-error {
-  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  border-color: var(--danger-border);
 }
-/* Tool cards (reads, writes, shell, todos, …): drop the card fill and border for
-   a cleaner, less boxy log. This now also covers in-flight (running) cards — e.g.
-   a shell command awaiting approval — which previously kept the default border
-   and the grey summary fill. Only the error state keeps an accent border so
-   failures stay easy to spot. */
 .tool-card.tool-done,
 .tool-card.tool-running {
   border-color: transparent;
 }
-.tool-card.tool-done summary,
-.tool-card.tool-running summary {
+.tool-card.tool-done .tool-header,
+.tool-card.tool-running .tool-header {
   background: transparent;
 }
-.tool-card summary {
+.tool-header {
+  width: 100%;
   cursor: pointer;
   padding: var(--card-pad);
   background: var(--surface-2);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  column-gap: 8px;
-  min-height: 32px;
-  list-style: none;
+  column-gap: var(--space-2);
+  min-height: var(--ctrl-lg);
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
-.tool-card summary::-webkit-details-marker { display: none; }
 .tool-status {
   opacity: 0.85;
-  font-size: 11px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.1em;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   line-height: 1;
 }
+.tool-status svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
 .tool-status-running {
-  animation: tool-spin 1s linear infinite;
+  animation: tool-spin var(--dur-slow) linear infinite;
   display: inline-flex;
 }
 @keyframes tool-spin {
@@ -54,7 +56,7 @@
   to { transform: rotate(360deg); }
 }
 .tool-label {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -67,7 +69,7 @@
   gap: 8px;
   min-width: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-micro);
   line-height: 1;
 }
 .tool-target {
@@ -82,32 +84,30 @@
 .tool-line-range {
   flex-shrink: 0;
   font-family: var(--code-font);
-  font-size: 10px;
+  font-size: var(--text-micro);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--vscode-badge-background, rgba(127, 127, 127, 0.18));
   color: var(--vscode-badge-foreground, var(--muted));
   opacity: 0.85;
 }
 .tool-body {
   border-top: 1px solid var(--border);
-  padding: 8px 10px;
+  padding: var(--card-pad);
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .tool-section-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--text-micro);
   color: var(--muted);
   margin-bottom: 4px;
 }
 .tool-card pre {
   margin: 0;
-  padding: 8px 10px;
+  padding: var(--card-pad);
   max-height: 200px;
   overflow: auto;
-  font-size: 11px;
+  font-size: var(--text-micro);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-1);
@@ -124,7 +124,7 @@
 }
 .btn-split.primary {
   background: var(--accent);
-  color: var(--accent-fg, #fff);
+  color: var(--accent-fg);
 }
 .btn-split-main,
 .btn-split-chevron {
@@ -135,11 +135,11 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
   padding: 6px 10px;
-  transition: background var(--dur-fast) ease;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 .btn-split-main:hover:not(:disabled),
 .btn-split-chevron:hover:not(:disabled) {

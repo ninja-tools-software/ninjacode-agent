@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { CheckIcon, DotsIcon, TrashIcon } from "../../icons.js";
+import { t } from "../../i18n.js";
 import { groupSessionsByRecency } from "../format.js";
 import { animCls } from "../hooks/useAnimatedPresence.js";
 import { useAnchoredMenu } from "../hooks/useAnchoredMenu.js";
@@ -47,7 +48,7 @@ function PlanItemMenu({
           vscode.postMessage({ type: "open_plan", planId: plan.id });
         }}
       >
-        Open preview
+        {t("Open preview")}
       </button>
       <button
         type="button"
@@ -58,7 +59,7 @@ function PlanItemMenu({
           onDelete(plan.id);
         }}
       >
-        <TrashIcon size={14} /> Delete
+        <TrashIcon size={14} /> {t("Delete")}
       </button>
     </div>,
     document.body,
@@ -78,11 +79,11 @@ function PlanItemMain({
     <button
       type="button"
       className="plans-main"
-      data-tooltip={`Open plan: ${plan.title}`}
+      data-tooltip={t("Open plan: {0}", plan.title)}
       onClick={() => onOpen(plan.id)}
     >
       <span className="plans-active-icon" aria-hidden="true">
-        {active ? <CheckIcon size={10} /> : null}
+        {active ? <CheckIcon size={12} /> : null}
       </span>
       <span className="plans-copy">
         <span className="plans-title">{plan.title}</span>
@@ -112,24 +113,24 @@ function PlanItemActions({
       {!active && (
         <button
           type="button"
-          className="icon-btn"
-          data-tooltip="Use this plan in the current session"
-          aria-label="Activate plan"
+          className="icon-btn icon-btn--sm"
+          data-tooltip={t("Use this plan in the current session")}
+          aria-label={t("Activate plan")}
           onClick={(e) => {
             e.stopPropagation();
             onActivate(plan.id);
           }}
         >
-          Use
+          {t("Use")}
         </button>
       )}
       <div className="plans-item-menu-wrap">
         <button
           ref={menu.buttonRef}
           type="button"
-          className={`icon-btn${menu.open ? " active" : ""}`}
-          data-tooltip="More actions"
-          aria-label="More actions"
+          className={`icon-btn icon-btn--sm${menu.open ? " active" : ""}`}
+          data-tooltip={t("More actions")}
+          aria-label={t("More actions")}
           aria-expanded={menu.open}
           onClick={(e) => {
             e.stopPropagation();
@@ -195,15 +196,15 @@ export function PlansPanel({
       <input
         className="plans-search"
         value={query}
-        placeholder="Search plans…"
+        placeholder={t("Search plans…")}
         onChange={(e) => onQuery(e.target.value)}
       />
       <div className="plans-scroll">
-        {loading && <p className="muted plans-empty">Loading…</p>}
-        {!loading && plans.length === 0 && <p className="muted plans-empty">No plans yet.</p>}
+        {loading && <p className="muted plans-empty">{t("Loading…")}</p>}
+        {!loading && plans.length === 0 && <p className="muted plans-empty">{t("No plans yet.")}</p>}
         {groups.map((group) => (
           <section key={group.label}>
-            <div className="plans-group-label">{group.label}</div>
+            <div className="plans-group-label">{t(group.label)}</div>
             <ul className="plans-list">
               {group.sessions.map((p) => (
                 <PlanItem

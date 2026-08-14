@@ -49,7 +49,7 @@ function SessionTabContent({
     <>
       {pinned && (
         <span className="session-tab-pin" aria-hidden="true">
-          <PinIcon size={10} filled />
+          <PinIcon size={12} filled />
         </span>
       )}
       <span className="session-tab-label">{title}</span>

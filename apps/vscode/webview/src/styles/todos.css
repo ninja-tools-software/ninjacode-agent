@@ -12,7 +12,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   min-height: 32px;
 }
 .dock-panel-toggle {
@@ -27,7 +27,7 @@
 }
 
 .todos ul, .hypotheses ul, .todo-items { margin: 6px 0 0; padding-left: 0; list-style: none; }
-.todos { font-size: 12px; color: var(--muted); }
+.todos { font-size: var(--text-sm); color: var(--muted); }
 .todos-stop {
   display: inline-flex;
   align-items: center;
@@ -36,14 +36,14 @@
   border: none;
   color: var(--muted);
   font: inherit;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   padding: 2px 7px;
   border-radius: var(--radius-full);
   cursor: pointer;
   transition:
-    background-color var(--dur-fast) ease,
-    color var(--dur-fast) ease,
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
 }
 .todos-stop:active:not(:disabled) { transform: scale(0.96); }
@@ -110,7 +110,7 @@ button.collapsible-title {
   align-items: flex-start;
   margin: 5px 0;
   line-height: 1.35;
-  transition: color var(--dur-fast) ease;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 .todo-mark {
   flex-shrink: 0;
@@ -120,7 +120,7 @@ button.collapsible-title {
   align-items: center;
   justify-content: center;
   color: var(--muted);
-  transition: color var(--dur-fast) ease, transform var(--dur-fast) var(--ease-pop);
+  transition: color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-pop);
 }
 .todo-icon {
   display: block;
@@ -154,11 +154,11 @@ button.collapsible-title {
 }
 .todo-content {
   color: var(--fg);
-  transition: color var(--dur-fast) ease, text-decoration-color var(--dur-fast) ease;
+  transition: color var(--dur-fast) var(--ease-out), text-decoration-color var(--dur-fast) var(--ease-out);
 }
 .todo.status-pending .todo-content { color: var(--muted); }
 .todo.status-in_progress .todo-mark { color: var(--warn); }
-.todo.status-in_progress .todo-content { color: var(--fg); font-weight: 600; }
+.todo.status-in_progress .todo-content { color: var(--fg); font-weight: var(--weight-semibold); }
 .todo.status-completed .todo-mark { color: var(--success); }
 .todo.status-completed .todo-content {
   color: var(--muted);
@@ -175,22 +175,20 @@ button.collapsible-title {
   align-items: center;
   gap: 8px;
 }
-.log-count { font-size: 11px; color: var(--muted); }
-.hypotheses-empty { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.log-count { font-size: var(--text-micro); color: var(--muted); }
+.hypotheses-empty { font-size: var(--text-sm); color: var(--muted); margin-top: 4px; }
 .hyp {
   display: flex;
   gap: 8px;
   align-items: flex-start;
   margin: 6px 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.35;
 }
 .hyp-badge {
   flex-shrink: 0;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  border-radius: 4px;
+  font-size: var(--text-micro);
+  border-radius: var(--radius-sm);
   padding: 1px 5px;
   border: 1px solid var(--border);
 }
@@ -207,5 +205,5 @@ button.collapsible-title {
   background: color-mix(in srgb, var(--warn) 20%, transparent);
   border-color: var(--warn);
 }
-.hyp-id { font-weight: 600; font-family: var(--code-font); flex-shrink: 0; }
+.hyp-id { font-weight: var(--weight-semibold); font-family: var(--code-font); flex-shrink: 0; }
 .hyp-desc { min-width: 0; overflow-wrap: anywhere; }

@@ -44,7 +44,6 @@ function useAnchoredModelMenu(menuOpen: boolean) {
       left: pos.left,
       width: MENU_WIDTH,
       maxHeight: Math.max(120, pos.maxHeight),
-      zIndex: 1000,
       ...(pos.openUp ? { bottom: pos.bottom, top: "auto" } : { top: pos.top, bottom: "auto" }),
     });
   };
@@ -108,7 +107,7 @@ function PlanModelMenuItem({
       className={`model-menu-item${selected ? " selected" : ""}${hasCost ? " has-cost" : ""}`}
       onClick={() => onSelect(model.id)}
     >
-      <span className="model-menu-check">{selected && <CheckIcon size={13} />}</span>
+      <span className="model-menu-check">{selected && <CheckIcon size={12} />}</span>
       <span className="model-menu-main">
         <span className="model-menu-label" data-tooltip={model.label}>
           {model.label}
@@ -156,7 +155,7 @@ function PlanModelMenuList({
       )}
       style={menuStyle}
       role="listbox"
-      aria-label="Execute with model"
+      aria-label={t("Execute with model")}
     >
       <div className="model-menu-section">
         {models.map((m) => (
@@ -194,11 +193,11 @@ function PlanModelPickerTrigger({
       disabled={busy}
       aria-expanded={menuOpen}
       aria-haspopup="listbox"
-      data-tooltip="Choose model for plan execution"
+      data-tooltip={t("Choose model for plan execution")}
       onClick={onToggle}
     >
       <span className="plan-model-pick-label">{label}</span>
-      <ChevronDownIcon size={11} />
+      <ChevronDownIcon size={12} />
     </button>
   );
 }

@@ -47,16 +47,16 @@ function SessionStatsSummary({
       onClick={() => onToggle(!expanded)}
     >
       <span className="session-stats-metric" data-tooltip={t("Input tokens sent this session")}>
-        <ArrowUpIcon size={11} />
+        <ArrowUpIcon size={12} />
         {formatTokens(usage.inputTokens)}
       </span>
       <span className="session-stats-metric" data-tooltip={t("Output tokens generated")}>
-        <ArrowDownIcon size={11} />
+        <ArrowDownIcon size={12} />
         {formatTokens(usage.outputTokens)}
       </span>
       {usage.cacheReadTokens > 0 && (
         <span className="session-stats-metric cached" data-tooltip={t("Input tokens served from cache")}>
-          <BoltIcon size={11} />
+          <BoltIcon size={12} />
           {formatTokens(usage.cacheReadTokens)}
         </span>
       )}

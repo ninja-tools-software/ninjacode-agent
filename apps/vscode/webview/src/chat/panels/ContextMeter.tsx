@@ -3,6 +3,7 @@ import { ArrowUpIcon, AttachIcon, BotIcon, DotsIcon, HistoryIcon, SettingsIcon }
 import { formatTokens } from "../format.js";
 import { animCls, useAnimatedPresence } from "../hooks/useAnimatedPresence.js";
 import { useDismiss } from "../hooks/useDismiss.js";
+import { t } from "../../i18n.js";
 import type { ContextUsage } from "../types.js";
 import { computeBreakdown, rowPercent, type BreakdownRow } from "./contextBreakdown.js";
 
@@ -44,10 +45,10 @@ function ContextMeterOverview({
         })}
       </div>
       <div className="context-popover-total">
-        <span className="context-popover-total-used">{formatTokens(projected)} tok used</span>
+        <span className="context-popover-total-used">{t("{0} tok used", formatTokens(projected))}</span>
         <span className="context-popover-total-sep">·</span>
         <span className="context-popover-total-free">
-          {formatTokens(freeTokens)} tok free of {formatTokens(window)}
+          {t("{0} tok free of {1}", formatTokens(freeTokens), formatTokens(window))}
         </span>
       </div>
     </>
@@ -70,8 +71,8 @@ function ContextMeterRows({
             <span className={`context-popover-row-icon seg-${row.key}`}>{ROW_ICONS[row.key]}</span>
             <div className="context-popover-row-main">
               <div className="context-popover-row-top">
-                <span className="context-popover-row-label">{row.label}</span>
-                <span className="context-popover-row-value">{formatTokens(row.tokens)} tok</span>
+                <span className="context-popover-row-label">{t(row.label)}</span>
+                <span className="context-popover-row-value">{t("{0} tok", formatTokens(row.tokens))}</span>
               </div>
               <div className="context-popover-row-bar">
                 <div
@@ -79,7 +80,13 @@ function ContextMeterRows({
                   style={{ width: `${Math.max(row.tokens > 0 ? 2 : 0, rowPct)}%` }}
                 />
               </div>
-              {row.detail ? <span className="context-popover-row-detail">{row.detail}</span> : null}
+              {row.detail ? (
+                <span className="context-popover-row-detail">
+                  {row.key === "history"
+                    ? t("incl. {0} tok files", row.detail)
+                    : t(row.detail)}
+                </span>
+              ) : null}
             </div>
           </div>
         );
@@ -116,12 +123,12 @@ function ContextMeterPopover({
         closing && "anim-closing",
       )}
       role="dialog"
-      aria-label="Context usage details"
+      aria-label={t("Context usage details")}
     >
       <div className="context-popover-header">
         <div className="context-popover-title">
           <span className={`context-popover-dot level-${level}`} />
-          <span>Context window</span>
+          <span>{t("Context window")}</span>
         </div>
         <span className={`context-popover-pct level-${level}`}>{Math.round(pct)}%</span>
       </div>
@@ -138,11 +145,9 @@ function ContextMeterPopover({
             onCompact();
           }}
         >
-          Compact now
+          {t("Compact now")}
         </button>
-        <span className="context-popover-hint">
-          or type <code>/compact</code>
-        </span>
+        <span className="context-popover-hint">{t("or type /compact")}</span>
       </div>
     </div>
   );
@@ -184,15 +189,15 @@ function ContextMeterBar({
         {formatTokens(projected)} / {formatTokens(window)}
       </span>
       <button
-        className="icon-btn context-compact-btn"
-        data-tooltip="Context usage details"
-        aria-label="Context usage details"
+        className="icon-btn icon-btn--sm context-compact-btn"
+        data-tooltip={t("Context usage details")}
+        aria-label={t("Context usage details")}
         onClick={(e) => {
           e.stopPropagation();
           onToggle();
         }}
       >
-        <DotsIcon size={13} />
+        <DotsIcon size={12} />
       </button>
     </div>
   );

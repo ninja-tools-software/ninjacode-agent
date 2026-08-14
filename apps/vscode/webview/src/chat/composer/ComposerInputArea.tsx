@@ -1,4 +1,5 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { t } from "../../i18n.js";
 import type { GhostCaret } from "../dnd/dropTargetTypes.js";
 import type { ComposerInputEvents } from "./composerInputEvents.js";
 import type { useComposerEditor } from "./useComposerEditor.js";
@@ -37,7 +38,7 @@ export function ComposerInputArea({
         suppressContentEditableWarning
         role="textbox"
         aria-multiline="true"
-        aria-label="Message"
+        aria-label={t("Message")}
         spellCheck
         data-placeholder={placeholder}
         onInput={inputEvents.onInput}
