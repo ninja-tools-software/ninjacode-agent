@@ -68,7 +68,7 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
     history: state.history,
     pinnedTask: deps.pinnedTask,
     provider: deps.provider,
-    model: deps.utilityModel ?? deps.model,
+    model: deps.model,
     contextWindow: deps.contextWindow,
     systemTokens,
     toolTokens,

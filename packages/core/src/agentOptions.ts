@@ -27,8 +27,7 @@ export interface AgentOptions {
   maxTokens?: number;
   model?: string;
   /**
-   * Cheap model for internal harness calls (compaction summarization).
-   * Falls back to `model` when unset.
+   * Cheap model for economy-tier sub-agents. Compaction always uses `model`.
    */
   utilityModel?: string;
   sessionId?: string;

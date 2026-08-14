@@ -148,7 +148,6 @@ export class AgentRunner {
         agentDir,
         mode: config.mode,
         model: config.model,
-        utilityModel: config.kind === "gateway" ? "deepseek-v4-flash" : undefined,
         maxTokens: config.maxTokens,
         reasoningEffort: config.reasoningEffort,
         thinkingBudgetTokens: config.thinkingBudgetTokens,

@@ -98,7 +98,7 @@ export class Agent {
       history: this.runtime.history,
       pinnedTask: this.runtime.pinnedTask,
       provider: this.config.provider,
-      model: this.config.utilityModel ?? this.config.model,
+      model: this.config.model,
       contextWindow: this.config.contextWindow,
       workspaceRoot: this.config.workspaceRoot,
       agentDir: this.config.agentDir,
