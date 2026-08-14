@@ -1,5 +1,12 @@
 import * as vscode from "vscode";
-import type { AgentLogEntry, AgentMode, Checkpoint, RunState } from "@ninjacode/core";
+import {
+  toolOutputLimit,
+  truncateToolOutput,
+  type AgentLogEntry,
+  type AgentMode,
+  type Checkpoint,
+  type RunState,
+} from "@ninjacode/core";
 import type { GatewayErrorInfo, HostToWebview } from "../protocol.js";
 import type { ProposedEditsStore } from "../proposedEdits.js";
 import type { SessionRuntimeManager } from "../sessionRuntime.js";
@@ -166,7 +173,9 @@ export class AgentEventBridge {
         id,
         name: p.name,
         status: p.error ? "error" : "done",
-        output: p.output?.slice(0, 4000),
+        output: p.output
+          ? truncateToolOutput(p.output, toolOutputLimit(p.name))
+          : undefined,
         error: p.error,
         durationMs,
         lineRange: formatToolLineRange(p.name, undefined, p.meta),

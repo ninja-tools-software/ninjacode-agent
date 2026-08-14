@@ -35,9 +35,9 @@ export function computeCompactionLimits(contextWindow?: number): CompactionLimit
   const hardLimit = Math.max(softLimit + 10, HISTORY_HARD_LIMIT);
   const keepRecent = Math.min(KEEP_RECENT, Math.max(8, Math.floor(softLimit * 0.75)));
   const tokenSoftThreshold =
-    contextWindow && contextWindow > 0 ? Math.floor(contextWindow * 0.72) : 0;
-  const tokenHardThreshold =
     contextWindow && contextWindow > 0 ? Math.floor(contextWindow * 0.85) : 0;
+  const tokenHardThreshold =
+    contextWindow && contextWindow > 0 ? Math.floor(contextWindow * 0.95) : 0;
   return {
     softLimit,
     hardLimit,

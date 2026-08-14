@@ -1,4 +1,4 @@
-import type { PersistedSession } from "@ninjacode/core";
+import { toolOutputLimit, truncateToolOutput, type PersistedSession } from "@ninjacode/core";
 import type { Message } from "@ninjacode/providers";
 import type { ChangeItem, HydratePayload, UiLogItem } from "../protocol.js";
 import type { ProposedEditsStore } from "../proposedEdits.js";
@@ -115,6 +115,29 @@ function appendAssistantMessage(
   }
 }
 
+/** Prefixes the tool pipeline writes on failure — not the word "error" in a file. */
+const TOOL_FAILURE_PREFIXES = [
+  "Tool error [",
+  "✗",
+  "Blocked by PreToolUse hook:",
+  "Tool call aborted by user.",
+  "Aborted by user before this tool call ran.",
+  "User denied this tool call.",
+  "Approval wait aborted by user.",
+  "Denied:",
+  "Approval required for ",
+  "Unknown tool:",
+] as const;
+
+/** True when persisted tool output is a failure, not a successful payload that mentions "error". */
+export function toolOutputLooksLikeError(output: string): boolean {
+  const text = output.trimStart();
+  if (TOOL_FAILURE_PREFIXES.some((prefix) => text.startsWith(prefix))) return true;
+  return (
+    /^Tool \S+ circuit-open /.test(text) || /^Tool call \S+ had truncated JSON arguments/.test(text)
+  );
+}
+
 function appendToolResult(
   log: UiLogItem[],
   openTools: Array<{ name: string; id: string }>,
@@ -123,18 +146,18 @@ function appendToolResult(
 ): void {
   const name = m.name ?? "tool";
   if (isInteractiveUserTool(name)) return;
-  const output = (m.content ?? "").slice(0, 4000);
+  const output = truncateToolOutput(m.content ?? "", toolOutputLimit(name));
   const matchedIdx = openTools.findIndex((t) => t.name === name);
   const matched = matchedIdx >= 0 ? openTools.splice(matchedIdx, 1)[0] : undefined;
   const id = matched?.id ?? `hist-${toolIdx.value++}`;
   const existingIdx = log.findIndex((item) => item.kind === "tool" && item.id === id);
   const item = existingIdx >= 0 ? log[existingIdx] : undefined;
-  const status = output.toLowerCase().includes("error") || output.startsWith("✗") ? "error" : "done";
+  const status = toolOutputLooksLikeError(output) ? "error" : "done";
   if (item?.kind === "tool") {
     log[existingIdx] = { ...item, output, status };
     return;
   }
-  log.push({ kind: "tool", id, name, label: toolLabel(name), status: "done", output });
+  log.push({ kind: "tool", id, name, label: toolLabel(name), status, output });
 }
 
 /** Rebuild the chat log from persisted history when a session is re-opened. */

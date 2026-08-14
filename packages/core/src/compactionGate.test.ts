@@ -27,8 +27,8 @@ describe("computeCompactionLimits", () => {
     const limits = computeCompactionLimits(500_000);
     expect(limits.softLimit).toBe(400);
     expect(limits.hardLimit).toBe(410);
-    expect(limits.tokenSoftThreshold).toBe(360_000);
-    expect(limits.tokenHardThreshold).toBe(425_000);
+    expect(limits.tokenSoftThreshold).toBe(425_000);
+    expect(limits.tokenHardThreshold).toBe(475_000);
   });
 });
 
@@ -63,7 +63,8 @@ describe("resolveCompactionTrigger", () => {
 
   it("reports token_soft when estimated tokens cross the soft threshold", () => {
     const limits = computeCompactionLimits(4_000);
-    const heavy: Message[] = [{ role: "user", content: "x".repeat(12_000) }];
+    // Soft = floor(4000 * 0.85) = 3400 tokens ≈ 13.6k chars; stay under hard (3800).
+    const heavy: Message[] = [{ role: "user", content: "x".repeat(14_500) }];
     expect(resolveCompactionTrigger(heavy, limits, { contextWindow: 4_000 })).toBe("token_soft");
   });
 });

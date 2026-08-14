@@ -43,6 +43,13 @@ let modelsCache:
   | { key: string; at: number; result: Extract<GatewayModelsResult, { ok: true }> }
   | undefined;
 
+/** Last successful gateway catalog without network I/O (TTL-aware). */
+export function peekCachedGatewayModels(): ModelInfo[] | undefined {
+  if (!modelsCache) return undefined;
+  if (Date.now() - modelsCache.at >= MODELS_CACHE_TTL_MS) return undefined;
+  return modelsCache.result.models;
+}
+
 export async function fetchGatewayModels(
   gatewayBase: string,
   apiKey?: string,

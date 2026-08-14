@@ -9,6 +9,7 @@ import { ToolError } from "@ninjacode/tools";
 import type { ToolCall } from "@ninjacode/providers";
 import type { PermissionEngine } from "./permissions.js";
 import { ToolCircuitBreaker } from "./reliability.js";
+import { toolOutputLimit, truncateToolOutput } from "./context.js";
 import { classifyToolFailure } from "./toolErrors.js";
 import type { HookRunResult } from "./hooks.js";
 import type { ApprovalHandler, RunState, ToolInvocation } from "./types.js";
@@ -187,7 +188,7 @@ export class ToolPipeline {
 
     await this.deps.emit("tool_end", {
       name: ctx.tool.name,
-      output: output.slice(0, 2000),
+      output: truncateToolOutput(output, toolOutputLimit(ctx.tool.name)),
       meta: result.meta,
     });
     this.deps.logAgentEvent("tool_result", `${ctx.tool.name}: ok (${output.length} chars)`, output);

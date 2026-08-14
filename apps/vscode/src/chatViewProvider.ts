@@ -153,6 +153,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const payload = await this.settingsService.buildPayload();
     if (gen !== this.settingsPushGen) return;
     this.core.post(undefined, { type: "settings", ...payload });
+    // Model / context window changes should refresh the meter baseline.
+    void this.sessions.publishContextUsage();
   }
 
   /** Slash-command sources for the composer. MCP servers are connected here too so the

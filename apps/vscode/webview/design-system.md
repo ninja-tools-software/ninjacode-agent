@@ -241,6 +241,8 @@ Active = `scale(0.96)` avec `--ease-out` / `--dur-fast` (sauf reduced-motion). D
 
 Carte : radius `--radius-lg`, fond `--input-bg`, bordure `--border` **fixe** (pas de `:focus-within` coloré). Toolbar : attach `--ctrl-sm`, pills mode/modèle, send cluster (send / stop / mic / enhance / spectrum). Send = cercle `--ctrl-md`. Overlays : ContextPicker, Autocomplete, ContextMeter, menus mode/modèle — z `--z-menu`, bordure `--border`, **pas de `box-shadow`**.
 
+**ContextMeter** (au-dessus du composer) : chrome discret — piste 2px, opacité ~0.72 au repos, petit `%` tabular (`10px` / `--code-font`). Détail tokens + breakdown uniquement dans le popover au clic. Visible dès que la fenêtre de contexte est connue (baseline host ou fallback `modelInfo` / settings).
+
 ### Navigation
 
 Session tabs = hauteur `--ctrl-md`. Header cible `--header-height` 32px. Settings : nav + section `.card` (`--surface-1`, `--radius-lg`). History / Plans = popover, bordure `--border`, z `--z-popover`, **pas d’ombre**.

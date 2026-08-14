@@ -3,7 +3,6 @@ import { t } from "../locale.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
-  Agent,
   CheckpointManager,
   checkpointIdForUserMessageOrdinal,
   deleteSession,
@@ -16,13 +15,11 @@ import {
   renameSession,
   setSessionFlags,
   truncateSessionAtUserMessageOrdinal,
-  type AgentMode,
   type PersistedSession,
 } from "@ninjacode/core";
-import { getModelInfo, type ProviderKind } from "@ninjacode/providers";
-import { createDefaultToolRegistry } from "@ninjacode/tools";
 import type { ProposedEditsStore } from "../proposedEdits.js";
 import type { ChatCore } from "./chatCore.js";
+import { publishActiveContextUsage } from "./contextUsageRefresh.js";
 import type { McpService } from "./mcpService.js";
 import { buildChangesPayload, buildHydratePayload, historyToUiLog } from "./sessionHydrator.js";
 import { seedSessionUsage } from "./sessionUsage.js";
@@ -98,10 +95,15 @@ export class SessionsController {
         onboardingDismissed: this.deps.onboardingDismissed(),
       }),
     });
-    if (sid && !runtime?.ui.contextUsage && (runtime?.ui.log.length ?? 0) > 0) {
-      void this.refreshContextUsage(sid);
-    }
+    // Always publish a meter snapshot: empty drafts, missing mirror usage, or
+    // window:0 estimates after reload should still show a baseline bar.
+    void this.publishContextUsage();
     this.pushChanges();
+  }
+
+  /** Best-effort context meter refresh for the active session or draft. */
+  publishContextUsage(): Promise<void> {
+    return publishActiveContextUsage(this.core, this.deps.mcp);
   }
 
   newSession(): void {
@@ -114,6 +116,7 @@ export class SessionsController {
     this.core.post(undefined, { type: "session_changed", activeSessionId: undefined });
     this.core.post(undefined, { type: "status", text: "New session started." });
     void this.pushSessions();
+    void this.publishContextUsage();
   }
 
   async switchSession(sessionId: string): Promise<void> {
@@ -145,8 +148,8 @@ export class SessionsController {
       }
 
       this.core.activeSessionId = sessionId;
-      if (!runtime.ui.contextUsage) await this.refreshContextUsage(sessionId, saved ?? undefined);
-
+      // Seed the mirror before hydrate so the snapshot already carries usage when known.
+      await this.publishContextUsage();
       this.core.post(undefined, {
         type: "hydrate",
         ...buildHydratePayload({
@@ -160,6 +163,7 @@ export class SessionsController {
       await this.deps.syncPlanPanel(sessionId);
       this.pushChanges();
       await this.pushSessions();
+      // pushSettings also refreshes the meter after the session model is adopted.
       await this.deps.pushSettings();
     } finally {
       this.core.post(undefined, { type: "sessions_loading", loading: false });
@@ -298,63 +302,4 @@ export class SessionsController {
     vscode.window.showInformationMessage(t("Exported conversation to {0}.", path.basename(uri.fsPath)));
   }
 
-  /** Estimate and publish context usage (e.g. after loading a session from disk). */
-  async refreshContextUsage(sessionId: string, saved?: PersistedSession): Promise<void> {
-    const root = this.core.workspaceRoot();
-    const runtime = this.core.runtimes.get(sessionId);
-    if (!root || !runtime) return;
-
-    try {
-      const usage = runtime.agent
-        ? await runtime.agent.previewContextUsage()
-        : await this.estimateFromDisk(root, sessionId, saved);
-      if (usage) this.core.post(sessionId, { type: "context_usage", ...usage });
-    } catch {
-      // Best effort — the meter stays hidden if estimation fails.
-    }
-  }
-
-  private async estimateFromDisk(
-    root: string,
-    sessionId: string,
-    saved?: PersistedSession,
-  ): Promise<Awaited<ReturnType<typeof Agent.estimateContextForSession>> | undefined> {
-    const agentDir = path.join(root, ".ninjacode");
-    const session = saved ?? (await loadSessionSafe(agentDir, sessionId));
-    if (!session || session.history.length === 0) return undefined;
-
-    const tools = createDefaultToolRegistry();
-    for (const t of await this.deps.mcp.tools(root)) tools.register(t);
-
-    return Agent.estimateContextForSession(
-      buildContextEstimateArgs(root, agentDir, session, tools),
-    );
-  }
-}
-
-function buildContextEstimateArgs(
-  root: string,
-  agentDir: string,
-  session: PersistedSession,
-  tools: ReturnType<typeof createDefaultToolRegistry>,
-): Parameters<typeof Agent.estimateContextForSession>[0] {
-  const cfg = vscode.workspace.getConfiguration("ninjacode");
-  const kind = cfg.get<ProviderKind>("provider") ?? "gateway";
-  const model = session.config.model ?? (cfg.get<string>("model") || undefined);
-  const configuredWindow = cfg.get<number>("contextWindow") ?? 0;
-  const modelInfo = getModelInfo(kind, model ?? "");
-  return {
-    workspaceRoot: root,
-    agentDir,
-    mode: session.config.mode ?? cfg.get<AgentMode>("mode") ?? "agent",
-    history: session.history,
-    tools,
-    contextWindow:
-      configuredWindow > 0
-        ? Math.min(configuredWindow, modelInfo?.contextWindow ?? configuredWindow)
-        : modelInfo?.contextWindow,
-    maxTokens: modelInfo?.maxOutput ?? 8192,
-    providerKind: kind,
-    model,
-  };
 }

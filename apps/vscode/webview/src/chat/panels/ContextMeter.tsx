@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowUpIcon, AttachIcon, BotIcon, DotsIcon, HistoryIcon, SettingsIcon } from "../../icons.js";
+import { ArrowUpIcon, AttachIcon, BotIcon, HistoryIcon, SettingsIcon } from "../../icons.js";
 import { formatTokens } from "../format.js";
 import { animCls, useAnimatedPresence } from "../hooks/useAnimatedPresence.js";
 import { useDismiss } from "../hooks/useDismiss.js";
@@ -168,38 +168,25 @@ function ContextMeterBar({
   window: number;
   onToggle: () => void;
 }) {
+  const rounded = Math.round(pct);
+  const title = `${formatTokens(projected)} / ${formatTokens(window)} · ${t("Context usage details")}`;
   return (
-    <div
+    <button
+      type="button"
       className="context-meter"
-      role="button"
-      tabIndex={0}
       aria-expanded={open}
+      aria-label={title}
+      title={title}
       onClick={onToggle}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onToggle();
-        }
-      }}
     >
-      <div className="context-meter-bar">
-        <div className={`context-meter-fill level-${level}`} style={{ width: `${Math.max(2, pct)}%` }} />
+      <div className="context-meter-bar" aria-hidden="true">
+        <div
+          className={`context-meter-fill level-${level}`}
+          style={{ width: `${pct > 0 ? Math.max(1.5, pct) : 0}%` }}
+        />
       </div>
-      <span className="context-meter-label">
-        {formatTokens(projected)} / {formatTokens(window)}
-      </span>
-      <button
-        className="icon-btn icon-btn--sm context-compact-btn"
-        data-tooltip={t("Context usage details")}
-        aria-label={t("Context usage details")}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-      >
-        <DotsIcon size={12} />
-      </button>
-    </div>
+      <span className={`context-meter-pct level-${level}`}>{rounded}%</span>
+    </button>
   );
 }
 

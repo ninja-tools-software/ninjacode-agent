@@ -2,41 +2,58 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 2px 4px;
+  width: 100%;
+  margin: 0;
+  padding: 0 2px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.context-meter:hover,
+.context-meter:focus-visible,
+.context-meter[aria-expanded="true"] {
+  opacity: 1;
+}
+.context-meter:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 .context-meter-bar {
   flex: 1;
-  height: 5px;
+  height: 2px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--fg) 12%, transparent);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
   overflow: hidden;
 }
 .context-meter-fill {
   height: 100%;
   border-radius: var(--radius-full);
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
   transition: width var(--dur-slow) var(--ease-out);
 }
-.context-meter-fill.level-warn { background: var(--warn); }
-.context-meter-fill.level-danger { background: var(--danger); }
-.context-meter-label {
-  font-size: var(--text-micro);
-  color: var(--muted);
+.context-meter-fill.level-warn { background: color-mix(in srgb, var(--warn) 80%, transparent); }
+.context-meter-fill.level-danger { background: color-mix(in srgb, var(--danger) 85%, transparent); }
+.context-meter-pct {
+  font-size: 10px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--muted) 88%, transparent);
   font-family: var(--code-font);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: 2.25em;
+  text-align: right;
 }
-.context-compact-btn {
-  font-size: var(--text-micro);
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
-}
+.context-meter-pct.level-warn { color: var(--warn); }
+.context-meter-pct.level-danger { color: var(--danger); }
 
 .context-meter-wrap {
   position: relative;
-}
-.context-meter-wrap .context-meter {
-  cursor: pointer;
 }
 .context-popover {
   position: absolute;
