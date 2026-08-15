@@ -34,7 +34,8 @@ function maskedContent(message: Message): string {
   const annotation = message.content.match(PATH_ANNOTATION)?.[0] ?? "";
   return (
     `${annotation}[output masked to save context — ${message.name} produced ` +
-    `${message.content.length} chars earlier in this session; call the tool again if you still need it]`
+    `${message.content.length} chars earlier in this session. Do not re-read this; ` +
+    "the content is already in the conversation. Grep for a specific symbol if a detail is missing.]"
   );
 }
 

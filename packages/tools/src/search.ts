@@ -29,11 +29,123 @@ async function findRgBinary(): Promise<string | null> {
   return "rg"; // system ripgrep fallback
 }
 
-function cappedGrepOutput(lines: string[], max: number): string {
-  const capped = lines.length >= max;
-  const body = lines.join("\n") || "(no matches)";
-  const note = `[showing first ${max} matches — raise max_results or narrow the pattern]`;
-  return capped ? `${body}\n${note}` : body;
+const DEFAULT_GREP_CONTEXT = 2;
+
+function formatGrepOutput(opts: {
+  lines: string[];
+  matchCount: number;
+  max: number;
+  emptyHint?: string;
+}): string {
+  if (opts.matchCount === 0) return opts.emptyHint ?? "(no matches)";
+  const body = opts.lines.join("\n");
+  if (opts.matchCount >= opts.max) {
+    return `${body}\n[showing first ${opts.max} matches — raise max_results or narrow the pattern]`;
+  }
+  return body;
+}
+
+function grepEmptyHint(opts: { glob?: string; path: string }): string {
+  const details: string[] = [];
+  if (opts.glob) {
+    details.push(
+      `glob ${JSON.stringify(opts.glob)} — try without glob, or a gitignore-style pattern such as *.ts (matches any directory). Brace patterns like *.{ts,tsx} are expanded automatically.`,
+    );
+  }
+  if (opts.path && opts.path !== ".") {
+    details.push(`path ${JSON.stringify(opts.path)}`);
+  }
+  if (details.length === 0) return "(no matches)";
+  return `(no matches)\n[${details.join("; ")}]`;
+}
+
+/** Expand `{a,b}` gitignore-style alternatives, including nested groups. */
+export function expandBraceGlobs(pattern: string): string[] {
+  const match = /\{([^{}]+)\}/.exec(pattern);
+  if (!match || match.index === undefined) return [pattern];
+  const alts = match[1]!.split(",");
+  const out: string[] = [];
+  for (const alt of alts) {
+    const next = pattern.slice(0, match.index) + alt + pattern.slice(match.index + match[0].length);
+    out.push(...expandBraceGlobs(next));
+  }
+  return [...new Set(out)];
+}
+
+function rgGlobArgs(fileGlob?: string): string[] {
+  if (!fileGlob) return [];
+  return expandBraceGlobs(fileGlob).flatMap((g) => ["--glob", g]);
+}
+
+function grepContextArgs(args: Record<string, unknown>): string[] {
+  const context =
+    typeof args.context_lines === "number"
+      ? args.context_lines
+      : typeof args.after !== "number" && typeof args.before !== "number"
+        ? DEFAULT_GREP_CONTEXT
+        : undefined;
+  const out: string[] = [];
+  if (typeof context === "number" && context > 0) out.push("-C", String(Math.floor(context)));
+  if (typeof args.after === "number" && args.after > 0) out.push("-A", String(Math.floor(args.after)));
+  if (typeof args.before === "number" && args.before > 0) out.push("-B", String(Math.floor(args.before)));
+  return out;
+}
+
+function resolveGrepContext(args: Record<string, unknown>): { before: number; after: number } {
+  const fallback =
+    typeof args.after !== "number" && typeof args.before !== "number" ? DEFAULT_GREP_CONTEXT : 0;
+  const context = typeof args.context_lines === "number" ? Math.max(0, Math.floor(args.context_lines)) : fallback;
+  const after = typeof args.after === "number" ? Math.max(0, Math.floor(args.after)) : context;
+  const before = typeof args.before === "number" ? Math.max(0, Math.floor(args.before)) : context;
+  return { before, after };
+}
+
+/** Match lines from `rg -n` use `path:line:` ; context uses `path-line-`. */
+function isGrepMatchLine(line: string): boolean {
+  return /[^:\n]:\d+:/.test(line);
+}
+
+function takeGrepMatches(
+  rawLines: string[],
+  max: number,
+): { lines: string[]; matchCount: number } {
+  const lines: string[] = [];
+  let matchCount = 0;
+  let pendingSep = false;
+  for (const line of rawLines) {
+    if (line === "--") {
+      pendingSep = true;
+      continue;
+    }
+    if (!line) continue;
+    const isMatch = isGrepMatchLine(line);
+    if (isMatch) {
+      if (matchCount >= max) break;
+      if (pendingSep && lines.length > 0) lines.push("--");
+      pendingSep = false;
+      matchCount += 1;
+      lines.push(line);
+      continue;
+    }
+    if (matchCount >= max) continue;
+    if (pendingSep && lines.length > 0) {
+      lines.push("--");
+      pendingSep = false;
+    }
+    lines.push(line);
+  }
+  return { lines, matchCount };
+}
+
+function relativizeGrepLine(line: string, workspaceRoot: string): string {
+  if (line === "--") return line;
+  const root = workspaceRoot.replace(/[\\/]+$/, "");
+  if (line.startsWith(root)) {
+    let rest = line.slice(root.length);
+    if (rest.startsWith("/") || rest.startsWith("\\")) rest = rest.slice(1);
+    return rest.replace(/\\/g, "/");
+  }
+  return line.replace(/\\/g, "/");
 }
 
 export const globTool: Tool = {
@@ -85,16 +197,30 @@ export const globTool: Tool = {
 
 export const grepTool: Tool = {
   name: "grep",
-  description: "Search file contents with a regular expression (ripgrep when available).",
+  description:
+    "Search file contents with a regular expression (ripgrep when available). " +
+    "Returns surrounding lines (default 2) so you often do not need a follow-up read_file. " +
+    "glob is gitignore-style: *.ts matches at any depth; brace patterns like *.{ts,tsx} are expanded. " +
+    "Prefer this over run_shell with rg.",
   risk: "read_only",
   inputSchema: {
     type: "object",
     properties: {
       pattern: { type: "string", description: "Regex pattern" },
       path: { type: "string", description: "File or directory (default: .)" },
-      glob: { type: "string", description: "Optional file glob filter" },
+      glob: {
+        type: "string",
+        description:
+          "Optional gitignore-style file filter (e.g. *.ts or **/*.tsx). Brace sets like *.{ts,tsx} are expanded. *.ts matches nested files.",
+      },
       case_insensitive: { type: "boolean" },
-      max_results: { type: "number" },
+      max_results: { type: "number", description: "Max matching lines across the whole search (default 50)" },
+      context_lines: {
+        type: "number",
+        description: "Lines of context before and after each match (default 2). Equivalent to rg -C.",
+      },
+      after: { type: "number", description: "Lines after each match (rg -A). Overrides the after side of context_lines." },
+      before: { type: "number", description: "Lines before each match (rg -B). Overrides the before side of context_lines." },
     },
     required: ["pattern"],
   },
@@ -105,8 +231,9 @@ export const grepTool: Tool = {
     const pattern = String(args.pattern ?? "");
     const sub = toWorkspaceRelative(ctx.workspaceRoot, String(args.path ?? "."));
     const fileGlob = args.glob ? String(args.glob) : undefined;
-    const max = typeof args.max_results === "number" ? args.max_results : 50;
+    const max = typeof args.max_results === "number" && args.max_results > 0 ? Math.floor(args.max_results) : 50;
     const abs = resolveInWorkspace(ctx.workspaceRoot, sub);
+    const emptyHint = grepEmptyHint({ glob: fileGlob, path: sub });
 
     const rg = await findRgBinary();
     if (rg) {
@@ -115,10 +242,9 @@ export const grepTool: Tool = {
         "--no-heading",
         "--color",
         "never",
-        "--max-count",
-        String(max),
+        ...grepContextArgs(args),
         ...(args.case_insensitive ? ["-i"] : []),
-        ...(fileGlob ? ["--glob", fileGlob] : []),
+        ...rgGlobArgs(fileGlob),
         ...ripgrepIgnoreArgs(),
         "-e",
         pattern,
@@ -133,22 +259,16 @@ export const grepTool: Tool = {
         if (result.code > 1) {
           throw new Error(result.stderr || `rg exit ${result.code}`);
         }
-        const lines = result.stdout
-          .split("\n")
-          .filter(Boolean)
-          .slice(0, max)
-          .map((line) => {
-            // Make paths relative to workspace
-            if (line.startsWith(ctx.workspaceRoot)) {
-              return path.relative(ctx.workspaceRoot, line.split(":")[0]!) +
-                ":" +
-                line.slice(line.indexOf(":") + 1);
-            }
-            return line.replace(ctx.workspaceRoot + path.sep, "");
-          });
+        const relativized = result.stdout.split("\n").map((line) => relativizeGrepLine(line, ctx.workspaceRoot));
+        const taken = takeGrepMatches(relativized, max);
         return {
-          output: cappedGrepOutput(lines, max),
-          meta: { count: lines.length, engine: "ripgrep" },
+          output: formatGrepOutput({
+            lines: taken.lines,
+            matchCount: taken.matchCount,
+            max,
+            emptyHint,
+          }),
+          meta: { count: taken.matchCount, engine: "ripgrep" },
         };
       } catch {
         // fall through to JS
@@ -162,6 +282,8 @@ export const grepTool: Tool = {
       fileGlob,
       caseInsensitive: Boolean(args.case_insensitive),
       max,
+      emptyHint,
+      ...resolveGrepContext(args),
     });
   },
 };
@@ -173,10 +295,30 @@ interface JsGrepOptions {
   fileGlob?: string;
   caseInsensitive: boolean;
   max: number;
+  before: number;
+  after: number;
+  emptyHint: string;
+}
+
+function formatJsGrepHit(
+  rel: string,
+  matchLine: number,
+  fileLines: string[],
+  before: number,
+  after: number,
+): string[] {
+  const start = Math.max(1, matchLine - before);
+  const end = Math.min(fileLines.length, matchLine + after);
+  const out: string[] = [];
+  for (let n = start; n <= end; n++) {
+    const sep = n === matchLine ? ":" : "-";
+    out.push(`${rel}${sep}${n}${sep}${fileLines[n - 1] ?? ""}`);
+  }
+  return out;
 }
 
 async function jsGrep(opts: JsGrepOptions): Promise<ToolResult> {
-  const { ctx, abs, pattern, fileGlob, caseInsensitive, max } = opts;
+  const { ctx, abs, pattern, fileGlob, caseInsensitive, max, before, after, emptyHint } = opts;
   let re: RegExp;
   try {
     re = new RegExp(pattern, caseInsensitive ? "i" : undefined);
@@ -192,8 +334,9 @@ async function jsGrep(opts: JsGrepOptions): Promise<ToolResult> {
 
   const filtered = fileGlob ? files.filter((f) => matchGlob(f, fileGlob)) : files;
   const hits: string[] = [];
+  let matchCount = 0;
   for (const rel of filtered) {
-    if (hits.length >= max) break;
+    if (matchCount >= max) break;
     const fileAbs = path.join(ctx.workspaceRoot, rel);
     let content: string;
     try {
@@ -203,14 +346,19 @@ async function jsGrep(opts: JsGrepOptions): Promise<ToolResult> {
     }
     if (content.includes("\0")) continue;
     const lines = content.split("\n");
+    const relPosix = rel.replace(/\\/g, "/");
     for (let i = 0; i < lines.length; i++) {
-      if (hits.length >= max) break;
-      if (re.test(lines[i]!)) hits.push(`${rel}:${i + 1}:${lines[i]}`);
+      if (matchCount >= max) break;
+      re.lastIndex = 0;
+      if (!re.test(lines[i]!)) continue;
+      if (hits.length > 0) hits.push("--");
+      hits.push(...formatJsGrepHit(relPosix, i + 1, lines, before, after));
+      matchCount += 1;
     }
   }
   return {
-    output: cappedGrepOutput(hits, max),
-    meta: { count: hits.length, engine: "js-fallback" },
+    output: formatGrepOutput({ lines: hits, matchCount, max, emptyHint }),
+    meta: { count: matchCount, engine: "js-fallback" },
   };
 }
 
@@ -386,13 +534,25 @@ async function fallbackCodebaseSearch(
   return toCodebaseHits(scores, limit);
 }
 
-function matchGlob(relPath: string, pattern: string): boolean {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+function globToRegExpSource(pattern: string): string {
+  return pattern
+    .replace(/[.+^$()|[\]\\]/g, "\\$&")
     .replace(/\*\*/g, "{{GLOBSTAR}}")
     .replace(/\*/g, "[^/]*")
     .replace(/\?/g, "[^/]")
     .replace(/{{GLOBSTAR}}/g, ".*");
-  const re = new RegExp(`^${escaped}$`);
-  return re.test(relPath) || re.test(relPath.replace(/\\/g, "/"));
+}
+
+function matchOneGlob(relPath: string, pattern: string): boolean {
+  const normalized = relPath.replace(/\\/g, "/");
+  const pat = pattern.replace(/\\/g, "/");
+  const source = pat.includes("/")
+    ? globToRegExpSource(pat)
+    : `(?:.*/)?${globToRegExpSource(pat)}`;
+  return new RegExp(`^${source}$`).test(normalized);
+}
+
+/** gitignore-style glob: `*.ts` matches nested files; `{ts,tsx}` braces are expanded. */
+export function matchGlob(relPath: string, pattern: string): boolean {
+  return expandBraceGlobs(pattern).some((alt) => matchOneGlob(relPath, alt));
 }

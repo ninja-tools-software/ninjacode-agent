@@ -40,6 +40,7 @@ describe("maskOldObservations", () => {
     const masked = maskOldObservations(history);
 
     expect(masked[0]?.content).toContain("output masked");
+    expect(masked[0]?.content).toContain("Do not re-read this");
     expect(masked[3]?.content).toContain("output masked");
     expect(masked[4]?.content).toBe(history[4]?.content);
     expect(masked.at(-1)?.content).toBe(history.at(-1)?.content);

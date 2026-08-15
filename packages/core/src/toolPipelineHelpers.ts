@@ -42,11 +42,32 @@ function safeRisk(tool: Tool, args: Record<string, unknown>): RiskClass {
   }
 }
 
+const PARALLEL_META_TOOLS = new Set(["delegate", "todo_write", "write_scratchpad", "write_plan"]);
+const PARALLEL_WRITE_TOOLS = new Set(["edit_file", "write_file", "apply_patch"]);
+
+function writeTarget(tool: Tool, args: Record<string, unknown>): string {
+  if (typeof args.path === "string" && args.path.trim()) return args.path;
+  return safeTarget(tool, args);
+}
+
+/**
+ * A batch can run concurrently when nothing in it races:
+ * - all read-only (plus delegate / todo / scratchpad / plan), or
+ * - writes that each target a distinct file (reads may mix in).
+ * Two edits to the same path, shell, delete, and user prompts stay sequential.
+ */
 export function isParallelizableBatch(registry: ToolRegistry, toolCalls: ToolCall[]): boolean {
-  return toolCalls.every((tc) => {
+  const writePaths = new Set<string>();
+  for (const tc of toolCalls) {
     const t = registry.get(tc.name);
-    return t && (t.risk === "read_only" || tc.name === "delegate");
-  });
+    if (!t) return false;
+    if (t.risk === "read_only" || PARALLEL_META_TOOLS.has(tc.name)) continue;
+    if (!PARALLEL_WRITE_TOOLS.has(tc.name)) return false;
+    const path = writeTarget(t, tc.arguments);
+    if (writePaths.has(path)) return false;
+    writePaths.add(path);
+  }
+  return true;
 }
 
 interface ApprovalDeps {

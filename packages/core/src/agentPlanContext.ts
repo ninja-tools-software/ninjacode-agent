@@ -5,9 +5,17 @@ import { buildSystemPrompt } from "./rules.js";
 import type { AgentMode } from "./types.js";
 import type { SkillDefinition } from "./skills.js";
 
-export async function readAgentScratchpad(agentDir: string): Promise<string> {
+/** Must match `scratchpadFilename` in @ninjacode/tools (per-session notes). */
+function scratchpadFilename(sessionId?: string): string {
+  const id = sessionId?.trim();
+  if (!id) return "scratchpad.md";
+  return `scratchpad.${id.replace(/[/\\]/g, "_")}.md`;
+}
+
+export async function readAgentScratchpad(agentDir: string, sessionId?: string): Promise<string> {
+  const file = path.join(agentDir, scratchpadFilename(sessionId));
   try {
-    return await fs.readFile(path.join(agentDir, "scratchpad.md"), "utf8");
+    return await fs.readFile(file, "utf8");
   } catch {
     return "";
   }

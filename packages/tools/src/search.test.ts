@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { globTool, grepTool, searchCodebaseTool } from "./search.js";
+import { globTool, grepTool, searchCodebaseTool, matchGlob, expandBraceGlobs } from "./search.js";
 import type { ToolContext } from "./types.js";
 
 let dir: string;
@@ -90,5 +90,40 @@ describe("grepTool", () => {
     const result = await grepTool.execute(ctx(), { pattern: "needle", path: "src", max_results: 50 });
 
     expect(result.output).toContain("[showing first 50 matches — raise max_results or narrow the pattern]");
+    expect(result.meta?.count).toBe(50);
+  });
+
+  it("includes surrounding lines so a follow-up read is often unnecessary", async () => {
+    await fs.mkdir(path.join(dir, "src"), { recursive: true });
+    await fs.writeFile(
+      path.join(dir, "src", "app.ts"),
+      "const a = 1;\nconst needle = 2;\nconst b = 3;\n",
+      "utf8",
+    );
+
+    const result = await grepTool.execute(ctx(), { pattern: "needle", context_lines: 1 });
+    expect(result.output).toMatch(/app\.ts-1-const a = 1;/);
+    expect(result.output).toMatch(/app\.ts:2:const needle = 2;/);
+    expect(result.output).toMatch(/app\.ts-3-const b = 3;/);
+  });
+
+  it("hints when a glob filter yields no matches", async () => {
+    await fs.mkdir(path.join(dir, "src"), { recursive: true });
+    await fs.writeFile(path.join(dir, "src", "app.ts"), "export const needle = 1;\n", "utf8");
+
+    const result = await grepTool.execute(ctx(), { pattern: "needle", glob: "*.md" });
+    expect(result.output).toContain("(no matches)");
+    expect(result.output).toContain("glob");
+  });
+});
+
+describe("matchGlob", () => {
+  it("matches *.ts at any directory depth and expands braces", () => {
+    expect(matchGlob("src/app.ts", "*.ts")).toBe(true);
+    expect(matchGlob("app.ts", "*.ts")).toBe(true);
+    expect(matchGlob("src/app.tsx", "*.ts")).toBe(false);
+    expect(matchGlob("src/app.tsx", "*.{ts,tsx}")).toBe(true);
+    expect(matchGlob("src/app.ts", "*.{ts,tsx}")).toBe(true);
+    expect(expandBraceGlobs("*.{ts,tsx}")).toEqual(["*.ts", "*.tsx"]);
   });
 });

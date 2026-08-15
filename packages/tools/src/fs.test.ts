@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { READ_FILE_MAX_CHARS, readFileTool, writeFileTool } from "./fs.js";
+import { READ_FILE_MAX_CHARS, editFileTool, readFileTool, writeFileTool } from "./fs.js";
 import type { ToolContext } from "./types.js";
 import { ToolError } from "./types.js";
 
@@ -107,5 +107,36 @@ describe("write_file verification", () => {
       content: "<html><body><script>console.log(1)</script></body></html>",
     });
     expect(result.output).not.toContain("Verification warning");
+  });
+});
+
+describe("edit_file", () => {
+  it("includes nearby lines when old_string is missing", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "nc-edit-"));
+    await fs.writeFile(
+      path.join(root, "app.ts"),
+      "const alpha = 1;\nconst beta = 2;\nconst gamma = 3;\n",
+      "utf8",
+    );
+
+    await expect(
+      editFileTool.execute(ctx(root), {
+        path: "app.ts",
+        old_string: "const beta = 99;",
+        new_string: "const beta = 2;",
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining("Nearby lines:"),
+    });
+
+    try {
+      await editFileTool.execute(ctx(root), {
+        path: "app.ts",
+        old_string: "const beta = 99;",
+        new_string: "const beta = 2;",
+      });
+    } catch (e) {
+      expect((e as Error).message).toContain("const beta = 2;");
+    }
   });
 });

@@ -65,16 +65,24 @@ export const todoWriteTool: Tool = {
   },
 };
 
+export function scratchpadFilename(sessionId?: string): string {
+  const id = sessionId?.trim();
+  if (!id) return "scratchpad.md";
+  return `scratchpad.${id.replace(/[/\\]/g, "_")}.md`;
+}
+
 export const writeScratchpadTool: Tool = {
   name: "write_scratchpad",
-  description: "Write durable notes/plan to the agent scratchpad (survives context compaction).",
+  description:
+    "Write durable notes to the current session's scratchpad (survives context compaction). " +
+    "Defaults to a per-session file so notes from other chats are not injected.",
   risk: "write",
   inputSchema: {
     type: "object",
     properties: {
       filename: {
         type: "string",
-        description: "Filename under .ninjacode/ (default: scratchpad.md)",
+        description: "Filename under .ninjacode/ (default: scratchpad.<sessionId>.md)",
       },
       content: { type: "string" },
       append: { type: "boolean" },
@@ -85,7 +93,7 @@ export const writeScratchpadTool: Tool = {
     return String(args.filename ?? "scratchpad.md");
   },
   async execute(ctx, args): Promise<ToolResult> {
-    const filename = String(args.filename ?? "scratchpad.md").replace(/[/\\]/g, "_");
+    const filename = String(args.filename ?? scratchpadFilename(ctx.sessionId)).replace(/[/\\]/g, "_");
     const content = String(args.content ?? "");
     const append = Boolean(args.append);
     await fs.mkdir(ctx.agentDir, { recursive: true });

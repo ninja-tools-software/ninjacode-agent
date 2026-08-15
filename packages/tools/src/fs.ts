@@ -220,6 +220,31 @@ export const writeFileTool: Tool = {
   },
 };
 
+function nearestEditSnippet(content: string, oldStr: string, radius = 5): string {
+  const lines = content.split("\n");
+  const needle = oldStr.split("\n")[0]?.trim() ?? "";
+  if (!needle || lines.length === 0) {
+    return lines.slice(0, 12).map((l, i) => `${i + 1}|${l}`).join("\n");
+  }
+
+  let bestIdx = -1;
+  let bestScore = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    let score = 0;
+    const n = Math.min(line.length, needle.length);
+    while (score < n && line[score] === needle[score]) score++;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx < 0 || bestScore < 4) return "";
+  const start = Math.max(0, bestIdx - radius);
+  const end = Math.min(lines.length, bestIdx + radius + 1);
+  return lines.slice(start, end).map((l, i) => `${start + i + 1}|${l}`).join("\n");
+}
+
 export const editFileTool: Tool = {
   name: "edit_file",
   description:
@@ -252,7 +277,11 @@ export const editFileTool: Tool = {
     }
     const count = content.split(oldStr).length - 1;
     if (count === 0) {
-      throw new ToolError(`old_string not found in ${rel}`, "invalid_args");
+      const snippet = nearestEditSnippet(content, oldStr);
+      const hint = snippet
+        ? `\nNearby lines:\n${snippet}`
+        : "";
+      throw new ToolError(`old_string not found in ${rel}${hint}`, "invalid_args");
     }
     if (count > 1 && !replaceAll) {
       throw new ToolError(

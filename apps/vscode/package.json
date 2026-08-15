@@ -2,7 +2,7 @@
   "name": "ninjacode",
   "displayName": "%ninjacode.displayName%",
   "description": "%ninjacode.description%",
-  "version": "0.2.37",
+  "version": "0.2.38",
   "publisher": "ninjacode",
   "icon": "media/icon.png",
   "license": "GPL-2.0-only",

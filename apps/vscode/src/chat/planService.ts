@@ -24,9 +24,9 @@ const TASKS_END = "<!-- ninjacode:tasks:end -->";
 function executePlanPrompt(relPath: string): string {
   return (
     `Implement the plan in \`${relPath}\`. ` +
-    "Follow it step by step; do not re-plan unless blocked. A todo checklist of the plan's tasks already exists — " +
-    "as you work, use todo_write (merge=true) to mark each task in_progress before you start it and completed once you have verified it. " +
-    "Keep exactly one task in_progress at a time."
+    "Do not re-plan or re-explore the codebase unless blocked: the plan already lists the files and steps. " +
+    "Apply the changes directly. Batch todo_write (merge=true) in the same turn as the edits — never a turn whose only tool is todo_write. " +
+    "Keep at most one task in_progress. Verify with read_lints or tests, not by re-reading files you just wrote."
   );
 }
 

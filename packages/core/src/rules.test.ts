@@ -234,18 +234,31 @@ describe("writeRule / readRuleBody / deleteRule", () => {
 });
 
 describe("buildSystemPrompt", () => {
-  it("asks PLAN mode to finalize the plan with a todo_write checklist", () => {
+  it("asks PLAN mode to write the plan and todo checklist in the same turn", () => {
     const prompt = buildSystemPrompt({ mode: "plan", workspaceRoot: "/repo" });
     expect(prompt).toContain("PLAN mode");
     expect(prompt).toContain("todo_write");
-    expect(prompt.toLowerCase()).toContain("checklist");
+    expect(prompt).toContain("SAME turn");
+    expect(prompt).toContain("8 exploration");
+    expect(prompt).toContain("delegate");
   });
 
-  it("tells AGENT mode to reuse an existing plan checklist and update statuses", () => {
+  it("tells AGENT mode to reuse an existing plan checklist and batch todos with work", () => {
     const prompt = buildSystemPrompt({ mode: "agent", workspaceRoot: "/repo" });
     expect(prompt).toContain("todo_write");
     expect(prompt).toContain("in_progress");
     expect(prompt.toLowerCase()).toContain("reuse");
+    expect(prompt).toContain("SAME turn as the work");
+    expect(prompt).not.toContain("Prefer small precise edits");
+  });
+
+  it("forbids re-reading after a successful edit and asks for parallel reads", () => {
+    const prompt = buildSystemPrompt({ mode: "agent", workspaceRoot: "/repo" });
+    expect(prompt).toContain("do NOT read_file the result");
+    expect(prompt).toContain("read_lints");
+    expect(prompt).toContain("in parallel");
+    expect(prompt).toContain("Do not pass small limit values");
+    expect(prompt).toContain("Prefer the grep tool");
   });
 });
 

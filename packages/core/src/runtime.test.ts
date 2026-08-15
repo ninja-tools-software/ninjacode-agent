@@ -69,3 +69,40 @@ describe("buildAgentRuntime", () => {
     expect(runtime.tools.get("web_search")).toBeUndefined();
   });
 });
+
+describe("isParallelizableBatch", () => {
+  it("allows mixing reads with todo_write and distinct-file edits", async () => {
+    const { createDefaultToolRegistry } = await import("@ninjacode/tools");
+    const { isParallelizableBatch } = await import("./toolPipelineHelpers.js");
+    const tools = createDefaultToolRegistry();
+
+    expect(
+      isParallelizableBatch(tools, [
+        { id: "1", name: "read_file", arguments: { path: "a.ts" } },
+        { id: "2", name: "todo_write", arguments: { todos: [] } },
+        { id: "3", name: "grep", arguments: { pattern: "x" } },
+      ]),
+    ).toBe(true);
+
+    expect(
+      isParallelizableBatch(tools, [
+        { id: "1", name: "edit_file", arguments: { path: "a.ts", old_string: "a", new_string: "b" } },
+        { id: "2", name: "edit_file", arguments: { path: "b.ts", old_string: "a", new_string: "b" } },
+      ]),
+    ).toBe(true);
+
+    expect(
+      isParallelizableBatch(tools, [
+        { id: "1", name: "edit_file", arguments: { path: "a.ts", old_string: "a", new_string: "b" } },
+        { id: "2", name: "edit_file", arguments: { path: "a.ts", old_string: "c", new_string: "d" } },
+      ]),
+    ).toBe(false);
+
+    expect(
+      isParallelizableBatch(tools, [
+        { id: "1", name: "read_file", arguments: { path: "a.ts" } },
+        { id: "2", name: "run_shell", arguments: { command: "ls" } },
+      ]),
+    ).toBe(false);
+  });
+});

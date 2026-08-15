@@ -12,7 +12,8 @@ export function registerDelegateToolIfNeeded(opts: {
   onEvent?: AgentEventHandler;
 }): void {
   const { agentOptions, config, tools, createSubAgent, onEvent } = opts;
-  if (agentOptions.enableSubagents === false || config.mode !== "agent") return;
+  if (agentOptions.enableSubagents === false) return;
+  if (config.mode !== "agent" && config.mode !== "plan") return;
   if (tools.get("delegate")) return;
   tools.register(
     createDelegateTool({

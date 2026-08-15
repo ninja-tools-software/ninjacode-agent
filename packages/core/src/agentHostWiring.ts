@@ -93,7 +93,7 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
     diagnosticsProvider: host.diagnosticsProvider,
     cacheStats: host.cacheStats,
     signal: host.signal,
-    readScratchpad: () => readAgentScratchpad(host.agentDir),
+    readScratchpad: () => readAgentScratchpad(host.agentDir, host.sessionId),
     readActivePlan: () => readAgentActivePlan(host.agentDir, host.planId),
     estimateUsage: (system: string, history: Message[], toolSpecs: ToolSpec[]) =>
       estimateAgentUsage({
@@ -170,7 +170,7 @@ export function buildRunLoopPrepareInput(host: AgentHostBindings & {
     pendingCheckpointId: host.pendingCheckpointId,
     globalTurn: host.globalTurn,
     toolCallFingerprints: host.toolCallFingerprints,
-    readScratchpad: () => readAgentScratchpad(host.agentDir),
+    readScratchpad: () => readAgentScratchpad(host.agentDir, host.sessionId),
     readActivePlan: () => readAgentActivePlan(host.agentDir, host.planId),
     buildSystem: (opts) =>
       buildAgentSystemPrompt({

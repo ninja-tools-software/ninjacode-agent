@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "@ninjacode/providers";
-import { editProgressWarning, hasMutatedWorkspace } from "./editProgress.js";
+import { editProgressWarning, hasMutatedWorkspace, hasWrittenPlan } from "./editProgress.js";
 
 function assistant(...tools: string[]): Message {
   return {
@@ -50,5 +50,17 @@ describe("editProgressWarning", () => {
     expect(editProgressWarning({ turn: 25, maxTurns: 50, mutated: false })).toContain(
       "25 turns remain",
     );
+  });
+
+  it("treats write_plan as progress in plan mode and nudges earlier", () => {
+    expect(hasWrittenPlan([assistant("write_plan")])).toBe(true);
+    expect(editProgressWarning({ turn: 8, maxTurns: 64, mutated: false, goal: "plan" })).toMatch(
+      /no plan has been written/,
+    );
+    expect(editProgressWarning({ turn: 25, maxTurns: 64, mutated: false, goal: "plan" })).toMatch(
+      /write_plan/,
+    );
+    expect(editProgressWarning({ turn: 8, maxTurns: 64, mutated: true, goal: "plan" })).toBeUndefined();
+    expect(editProgressWarning({ turn: 32, maxTurns: 64, mutated: false, goal: "plan" })).toBeUndefined();
   });
 });

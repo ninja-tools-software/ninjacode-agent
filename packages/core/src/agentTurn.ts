@@ -12,7 +12,7 @@ import {
   syncVolatileContext,
   truncateToolResult,
 } from "./agentTurnLlm.js";
-import { editProgressWarning, hasMutatedWorkspace } from "./editProgress.js";
+import { editProgressWarning, hasMutatedWorkspace, hasWrittenPlan, type ProgressGoal } from "./editProgress.js";
 import { repeatedReadWarning } from "./readChurn.js";
 import type { AgentTurnDeps, AgentTurnOutcome } from "./agentTurnTypes.js";
 
@@ -80,7 +80,8 @@ async function handleToolTurn(
     editProgressWarning({
       turn: deps.turn + 1,
       maxTurns: deps.maxTurns,
-      mutated: hasMutatedWorkspace(state.history),
+      mutated: progressMutated(deps),
+      goal: progressGoal(deps),
     }),
   ].filter((line): line is string => line !== undefined);
   if (guidance.length > 0) {
@@ -89,4 +90,20 @@ async function handleToolTurn(
 
   await deps.persist();
   return { kind: "continue" };
+}
+
+function progressGoal(deps: AgentTurnDeps): ProgressGoal | undefined {
+  const canEdit = Boolean(
+    deps.modeTools.get("edit_file") || deps.modeTools.get("write_file") || deps.modeTools.get("apply_patch"),
+  );
+  if (canEdit) return "edit";
+  if (deps.modeTools.get("write_plan")) return "plan";
+  return undefined;
+}
+
+function progressMutated(deps: AgentTurnDeps): boolean {
+  const goal = progressGoal(deps);
+  if (goal === "plan") return hasWrittenPlan(deps.state.history);
+  if (goal === "edit") return hasMutatedWorkspace(deps.state.history);
+  return true;
 }
