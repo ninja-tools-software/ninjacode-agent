@@ -15,6 +15,7 @@ import {
 import { editProgressWarning, hasMutatedWorkspace, hasWrittenPlan, type ProgressGoal } from "./editProgress.js";
 import { repeatedReadWarning } from "./readChurn.js";
 import type { AgentTurnDeps, AgentTurnOutcome } from "./agentTurnTypes.js";
+import type { ToolInvocation } from "./types.js";
 
 export type { AgentTurnDeps, AgentTurnMutableState } from "./agentTurnTypes.js";
 export { buildUserMessageContent, dropOrphanUserMessage } from "./agentTurnLlm.js";
@@ -36,6 +37,13 @@ export async function runAgentTurn(deps: AgentTurnDeps): Promise<AgentTurnOutcom
   }
 
   return handleToolTurn(deps, completion);
+}
+
+/** True when this turn successfully wrote the plan (plan mode hard-stop signal). */
+export function successfulWritePlan(invocations: ToolInvocation[]): boolean {
+  return invocations.some(
+    (inv) => inv.toolCall.name === "write_plan" && inv.approved && !inv.error,
+  );
 }
 
 async function handleToolTurn(
@@ -73,6 +81,16 @@ async function handleToolTurn(
     await deps.persist();
     await deps.setState("stopped");
     return { kind: "stopped", message: loop.message };
+  }
+
+  // PLAN mode: a successful write_plan ends the run. Same-batch tools (todo_write)
+  // already ran; follow-up user messages may call write_plan again to overwrite.
+  if (progressGoal(deps) === "plan" && successfulWritePlan(invocations)) {
+    const answer = completion.text.trim() || "Plan ready.";
+    await deps.persist();
+    await deps.emit("done", { answer, cacheStats: deps.getCacheStats() });
+    await deps.setState("completed");
+    return { kind: "done", answer };
   }
 
   const guidance = [

@@ -241,6 +241,10 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("SAME turn");
     expect(prompt).toContain("8 exploration");
     expect(prompt).toContain("delegate");
+    expect(prompt).toContain("harness stops the run");
+    expect(prompt).toContain("Do not mark todos in_progress");
+    expect(prompt).toContain("update the plan by calling write_plan again");
+    expect(prompt).toContain("Execute plan");
   });
 
   it("tells AGENT mode to reuse an existing plan checklist and batch todos with work", () => {

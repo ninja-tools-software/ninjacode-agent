@@ -589,7 +589,30 @@ describe("Agent codebase index wiring", () => {
 });
 
 describe("write_plan session store", () => {
-  it("keeps a single plan file when write_plan is called twice in one run", async () => {
+  function planAgent(opts: {
+    workspaceRoot: string;
+    agentDir: string;
+    sessionId: string;
+    provider: MockProvider;
+  }): Agent {
+    const tools = createDefaultToolRegistry();
+    const permissions = new PermissionEngine(defaultPermissionPolicy("autonomous"));
+    permissions.update({ allowlist: tools.names() });
+    return new Agent({
+      provider: opts.provider,
+      tools,
+      permissions,
+      workspaceRoot: opts.workspaceRoot,
+      agentDir: opts.agentDir,
+      sessionId: opts.sessionId,
+      mode: "plan",
+      enableCheckpoints: false,
+      persistSessions: false,
+      enableSubagents: false,
+    });
+  }
+
+  it("ends the run after a successful write_plan in plan mode", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nc-agent-plan-"));
     const workspaceRoot = path.join(dir, "ws");
     const agentDir = path.join(workspaceRoot, ".ninjacode");
@@ -605,10 +628,19 @@ describe("write_plan session store", () => {
             name: "write_plan",
             arguments: { title: "First", content: "Body v1" },
           },
+          {
+            id: "call_todo",
+            name: "todo_write",
+            arguments: {
+              merge: false,
+              todos: [{ id: "step-1", content: "Do the thing", status: "pending" }],
+            },
+          },
         ],
       },
+      // Must not be consumed: harness hard-stops after successful write_plan.
       {
-        text: "Revising…",
+        text: "Should not run",
         toolCalls: [
           {
             id: "call_2",
@@ -617,30 +649,70 @@ describe("write_plan session store", () => {
           },
         ],
       },
-      { text: "Plan ready." },
     ]);
-    const tools = createDefaultToolRegistry();
-    const permissions = new PermissionEngine(defaultPermissionPolicy("autonomous"));
-    permissions.update({ allowlist: tools.names() });
 
-    const agent = new Agent({
-      provider,
-      tools,
-      permissions,
-      workspaceRoot,
-      agentDir,
-      sessionId,
-      mode: "plan",
-      enableCheckpoints: false,
-      persistSessions: false,
-      enableSubagents: false,
-    });
-
+    const agent = planAgent({ workspaceRoot, agentDir, sessionId, provider });
     const outcome = await agent.run("Create a plan");
     expect(outcome.completed).toBe(true);
+    expect(outcome.answer).toBe("Planning…");
+    expect(outcome.turns).toHaveLength(1);
+    expect(outcome.turns[0]?.toolInvocations.map((i) => i.toolCall.name)).toEqual([
+      "write_plan",
+      "todo_write",
+    ]);
+    const plans = await listPlans(agentDir);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.title).toBe("First");
+  });
+
+  it("allows a follow-up run to overwrite the session plan via write_plan", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nc-agent-plan-"));
+    const workspaceRoot = path.join(dir, "ws");
+    const agentDir = path.join(workspaceRoot, ".ninjacode");
+    await fs.mkdir(agentDir, { recursive: true });
+    const sessionId = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff";
+
+    const provider = new MockProvider([
+      {
+        text: "First plan",
+        toolCalls: [
+          {
+            id: "call_1",
+            name: "write_plan",
+            arguments: { title: "First", content: "Body v1" },
+          },
+        ],
+      },
+      {
+        text: "Revised plan",
+        toolCalls: [
+          {
+            id: "call_2",
+            name: "write_plan",
+            arguments: { title: "Second", content: "Body v2" },
+          },
+        ],
+      },
+    ]);
+    const agent = planAgent({ workspaceRoot, agentDir, sessionId, provider });
+
+    const first = await agent.run("Create a plan");
+    expect(first.completed).toBe(true);
+    expect(first.answer).toBe("First plan");
+    expect(first.turns).toHaveLength(1);
+
+    const second = await agent.run("Update the plan");
+    expect(second.completed).toBe(true);
+    expect(second.answer).toBe("Revised plan");
+    // Only the follow-up turn is in this outcome; prior turns stay on the agent.
+    expect(second.turns.length).toBeGreaterThanOrEqual(1);
+    const lastTurn = second.turns[second.turns.length - 1];
+    expect(lastTurn?.toolInvocations[0]?.toolCall.name).toBe("write_plan");
+
     const plans = await listPlans(agentDir);
     expect(plans).toHaveLength(1);
     expect(plans[0]?.title).toBe("Second");
+    expect(plans[0]?.preview).toContain("Body v2");
   });
 });
 

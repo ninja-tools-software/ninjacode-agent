@@ -25,6 +25,10 @@ describe("write_plan tool", () => {
     await fs.rm(agentDir, { recursive: true, force: true });
   });
 
+  it("documents that PLAN mode ends the run after a successful write", () => {
+    expect(writePlanTool.description).toMatch(/harness ends the run/i);
+  });
+
   it("writes a plan file under .ninjacode/plans", async () => {
     const result = await writePlanTool.execute(ctx, {
       title: "Feature plan",

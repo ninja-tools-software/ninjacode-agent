@@ -6,7 +6,8 @@ export const writePlanTool: Tool = {
   name: "write_plan",
   description:
     "Create or update the implementation plan for the current session. " +
-    "Always overwrites the session's existing plan — there is exactly one plan per session, never create a second one.",
+    "Always overwrites the session's existing plan — there is exactly one plan per session, never create a second one. " +
+    "In PLAN mode the harness ends the run after a successful write_plan; later user messages can call it again to overwrite.",
   risk: "write",
   inputSchema: {
     type: "object",
