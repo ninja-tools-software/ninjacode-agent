@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DRAFT_TAB_ID, fallbackTitleFromLog, isDraftTab, shouldPromoteDraftTab, type OpenTabId } from "../state/openTabs.js";
 import type { ChatAction, ChatState } from "../state/chatReducer.js";
 import type { SettingsState } from "../types.js";
@@ -81,6 +81,9 @@ interface TabShellOptions {
 }
 
 export function useChatShellTabs({ vscode, dispatch, state, tabs, setHistoryOpen }: TabShellOptions) {
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+
   const switchHostToTab = useCallback(
     (tabId: OpenTabId) => {
       if (isDraftTab(tabId)) {
@@ -93,24 +96,28 @@ export function useChatShellTabs({ vscode, dispatch, state, tabs, setHistoryOpen
     [dispatch, vscode],
   );
 
+  // Only re-sync when the host active session changes. Re-running on every local
+  // tabs mutation re-opens a just-closed active tab while switch_session is in flight.
   useEffect(() => {
     const sid = state.activeSessionId;
     if (!sid) return;
-    if (shouldPromoteDraftTab(tabs.tabs, sid)) {
-      tabs.promoteDraftTab(sid);
+    const current = tabsRef.current;
+    if (shouldPromoteDraftTab(current.tabs, sid)) {
+      current.promoteDraftTab(sid);
       return;
     }
-    if (!tabs.tabs.tabIds.includes(sid)) tabs.openTab(sid, true);
-    else if (tabs.tabs.activeTabId !== sid) tabs.activateTab(sid);
-  }, [state.activeSessionId, tabs]);
+    if (!current.tabs.tabIds.includes(sid)) current.openTab(sid, true);
+    else if (current.tabs.activeTabId !== sid) current.activateTab(sid);
+  }, [state.activeSessionId]);
 
   useEffect(() => {
     if (state.sessionsLoading) return;
-    for (const tabId of tabs.tabs.tabIds) {
+    const current = tabsRef.current;
+    for (const tabId of current.tabs.tabIds) {
       if (isDraftTab(tabId) || tabId === state.activeSessionId) continue;
-      if (!state.sessions.some((s) => s.id === tabId)) tabs.removeSessionTab(tabId);
+      if (!state.sessions.some((s) => s.id === tabId)) current.removeSessionTab(tabId);
     }
-  }, [state.activeSessionId, state.sessions, state.sessionsLoading, tabs]);
+  }, [state.activeSessionId, state.sessions, state.sessionsLoading]);
 
   const handleTabSelect = useCallback(
     (tabId: OpenTabId) => {

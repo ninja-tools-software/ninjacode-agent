@@ -55,6 +55,16 @@ describe("openTabs", () => {
     expect(activateTab(base, "s2").activeTabId).toBe("s2");
   });
 
+  it("openTab is a no-op when already open and active", () => {
+    const base = { tabIds: ["s1", "s2"], activeTabId: "s1" };
+    expect(openTab(base, "s1", true)).toBe(base);
+  });
+
+  it("activateTab is a no-op when already active", () => {
+    const base = { tabIds: ["s1", "s2"], activeTabId: "s1" };
+    expect(activateTab(base, "s1")).toBe(base);
+  });
+
   it("removeSessionTab behaves like closeTab", () => {
     const next = removeSessionTab({ tabIds: ["s1", "s2"], activeTabId: "s1" }, "s1");
     expect(next.tabIds).toEqual(["s2"]);

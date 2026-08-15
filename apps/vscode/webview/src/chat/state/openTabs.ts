@@ -44,15 +44,16 @@ export function openTab(
   tabId: OpenTabId,
   makeActive = true,
 ): OpenTabsState {
-  const tabIds = state.tabIds.includes(tabId) ? state.tabIds : [...state.tabIds, tabId];
-  return {
-    tabIds,
-    activeTabId: makeActive ? tabId : state.activeTabId,
-  };
+  const exists = state.tabIds.includes(tabId);
+  const tabIds = exists ? state.tabIds : [...state.tabIds, tabId];
+  const activeTabId = makeActive ? tabId : state.activeTabId;
+  if (exists && activeTabId === state.activeTabId) return state;
+  return { tabIds, activeTabId };
 }
 
 export function activateTab(state: OpenTabsState, tabId: OpenTabId): OpenTabsState {
   if (!state.tabIds.includes(tabId)) return openTab(state, tabId, true);
+  if (state.activeTabId === tabId) return state;
   return { ...state, activeTabId: tabId };
 }
 
