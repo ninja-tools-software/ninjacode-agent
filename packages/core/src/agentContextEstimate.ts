@@ -43,5 +43,6 @@ export async function estimateContextForSession(opts: {
     reservedOutput: opts.maxTokens,
     cacheReadTokens: opts.cacheReadTokens,
     cacheWriteTokens: opts.cacheWriteTokens,
+    model: opts.model,
   });
 }

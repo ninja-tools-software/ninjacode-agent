@@ -1,4 +1,4 @@
-import type { LlmProvider, Message } from "@ninjacode/providers";
+import type { LlmProvider, Message, TokenUsage } from "@ninjacode/providers";
 import {
   compactResult,
   computeCompactionLimits,
@@ -106,6 +106,16 @@ export interface CompactionInfo {
   tokensBefore: number;
   /** Estimated tokens of the resulting summary message. */
   tokensAfter: number;
+  /** Model actually used, or `heuristic` for the guarded local fallback. */
+  model: string;
+  /** Provider usage for this compaction call, tracked separately by BudgetTracker. */
+  usage?: TokenUsage;
+  /** Wall-clock duration of the compaction call. */
+  durationMs: number;
+  /** Whether provider-native compaction was used. */
+  native: boolean;
+  /** Whether the provider failed and the local heuristic was used. */
+  fallback: boolean;
 }
 
 /**
@@ -116,21 +126,28 @@ export async function compactHistory(options: {
   pinnedTask?: string;
   provider?: LlmProvider;
   model?: string;
+  budgetModel?: string;
   contextWindow?: number;
   systemTokens?: number;
   toolTokens?: number;
+  reservedOutputTokens?: number;
+  safetyMarginTokens?: number;
   signal?: AbortSignal;
   force?: boolean;
   onCompaction?: (info: CompactionInfo) => void | Promise<void>;
 }): Promise<CompactHistoryResult> {
   const original = options.history;
   const msgs = compactHistoryLossless(original);
-  const limits = computeCompactionLimits(options.contextWindow);
+  const limits = computeCompactionLimits(options.contextWindow, {
+    reservedOutputTokens: options.reservedOutputTokens,
+    safetyMarginTokens: options.safetyMarginTokens,
+  });
   const gate = {
     force: options.force,
     contextWindow: options.contextWindow,
     systemTokens: options.systemTokens,
     toolTokens: options.toolTokens,
+    model: options.budgetModel ?? options.model,
   };
 
   if (shouldSkipCompaction(msgs, limits, gate)) return compactResult(original, msgs);
@@ -143,7 +160,22 @@ export async function compactHistory(options: {
     return compactResult(original, masked);
   }
 
-  const split = splitHistoryForCompaction(masked, options.pinnedTask, limits.keepRecent);
+  const recentTokenBudget =
+    limits.targetTokens > 0
+      ? Math.max(
+          256,
+          limits.targetTokens -
+            (options.systemTokens ?? 0) -
+            (options.toolTokens ?? 0) -
+            SUMMARY_MAX_TOKENS,
+        )
+      : 0;
+  const split = splitHistoryForCompaction(
+    masked,
+    limits.keepRecent,
+    recentTokenBudget,
+    options.budgetModel ?? options.model,
+  );
   if (!split) return compactResult(original, msgs);
 
   const summary = await buildCompactionSummary({
@@ -160,24 +192,38 @@ export async function compactHistory(options: {
 
 function splitHistoryForCompaction(
   msgs: Message[],
-  pinnedTask: string | undefined,
   keepRecent: number,
+  recentTokenBudget: number,
+  model?: string,
 ): {
   system: Message[];
-  pinnedList: Message[];
   recent: Message[];
   older: Message[];
 } | null {
   const system = msgs.filter((m) => m.role === "system");
   const nonSystem = msgs.filter((m) => m.role !== "system");
-  const pinned = extractPinnedMessages(nonSystem, pinnedTask);
-  const compactable = nonSystem.filter((m) => !pinned.has(m));
-  let start = Math.max(0, compactable.length - keepRecent);
-  start = alignCompactionStart(compactable, start);
+  const priorSummaries = nonSystem.filter(isCompactionMessage);
+  const compactable = nonSystem.filter((m) => !isCompactionMessage(m));
+  let start =
+    recentTokenBudget > 0
+      ? recentTailStart(compactable, recentTokenBudget, model)
+      : alignCompactionStart(compactable, Math.max(0, compactable.length - keepRecent));
   const recent = compactable.slice(start);
-  const older = compactable.slice(0, start);
+  const older = [...priorSummaries, ...compactable.slice(0, start)];
   if (older.length === 0) return null;
-  return { system, pinnedList: nonSystem.filter((m) => pinned.has(m)), recent, older };
+  return { system, recent, older };
+}
+
+function recentTailStart(messages: Message[], budget: number, model?: string): number {
+  let accepted = messages.length;
+  for (let cursor = messages.length - 1; cursor >= 0; cursor -= 1) {
+    const candidate = alignCompactionStart(messages, cursor);
+    if (candidate >= accepted) continue;
+    if (estimateTokens(messages.slice(candidate), model) > budget) break;
+    accepted = candidate;
+    cursor = candidate;
+  }
+  return accepted;
 }
 
 async function buildCompactionSummary(opts: {
@@ -186,7 +232,7 @@ async function buildCompactionSummary(opts: {
   older: Message[];
   pinnedTask?: string;
   signal?: AbortSignal;
-}): Promise<string> {
+}): Promise<CompactionSummary> {
   if (opts.provider) {
     return summarizeWithLlm({
       provider: opts.provider,
@@ -196,7 +242,14 @@ async function buildCompactionSummary(opts: {
       signal: opts.signal,
     });
   }
-  return summarizeMessagesHeuristic(opts.older);
+  const startedAt = Date.now();
+  return {
+    text: summarizeMessagesHeuristic(opts.older),
+    model: "heuristic",
+    durationMs: Date.now() - startedAt,
+    native: false,
+    fallback: true,
+  };
 }
 
 async function finalizeCompaction(
@@ -206,21 +259,19 @@ async function finalizeCompaction(
   },
   split: {
     system: Message[];
-    pinnedList: Message[];
     recent: Message[];
     older: Message[];
   },
-  summary: string,
+  summary: CompactionSummary,
   trigger: CompactionTrigger,
 ): Promise<Message[]> {
   const pin = options.pinnedTask ? `Pinned original task:\n${options.pinnedTask}\n\n` : "";
-  const summaryContent = `${COMPACTION_MARKER}\n${pin}${summary}`;
+  const summaryContent = `${COMPACTION_MARKER}\n${pin}${summary.text}`;
 
-  // The new summary covers the range *after* the pinned messages (which include
-  // earlier summaries), so it belongs between them and the verbatim tail.
+  // Every prior summary is input to this compaction and replaced atomically.
+  // Therefore the model view contains exactly one canonical summary.
   const result = normalizeToolHistory([
     ...split.system,
-    ...split.pinnedList,
     { role: "user", content: summaryContent },
     ...split.recent,
   ]);
@@ -229,8 +280,13 @@ async function finalizeCompaction(
     trigger,
     messagesSummarized: split.older.length,
     messagesKept: split.recent.length,
-    tokensBefore: estimateTokens(split.older),
-    tokensAfter: estimateTokens([{ role: "user", content: summaryContent }]),
+    tokensBefore: estimateTokens(split.older, summary.model),
+    tokensAfter: estimateTokens([{ role: "user", content: summaryContent }], summary.model),
+    model: summary.model,
+    usage: summary.usage,
+    durationMs: summary.durationMs,
+    native: summary.native,
+    fallback: summary.fallback,
   });
 
   return result;
@@ -246,7 +302,7 @@ export function compactHistorySync(history: Message[], pinnedTask?: string): Mes
   let start = Math.max(0, nonSystem.length - KEEP_RECENT);
   start = alignCompactionStart(nonSystem, start);
   const recent = nonSystem.slice(start);
-  const older = nonSystem.slice(0, start);
+  const older = nonSystem.slice(0, start).filter((message) => !isCompactionMessage(message));
   if (older.length === 0) return msgs;
   const pin = pinnedTask ? `Pinned original task:\n${pinnedTask}\n\n` : "";
   return normalizeToolHistory([
@@ -268,21 +324,34 @@ const SUMMARY_INSTRUCTIONS = [
   "You compress the history of a coding-agent session so the agent can resume without the transcript.",
   "Output exactly these sections, in this order, with these headings and nothing else:",
   "",
-  "## Intent",
-  "The user's goal and any stated constraint, kept verbatim where it is a requirement.",
+  "## Task",
+  "The user's current goal, kept verbatim where wording is a requirement.",
+  "## Constraints",
+  "Explicit requirements, prohibitions, compatibility constraints and conflicting instructions with their resolution.",
   "## Files touched",
   "One line per file: workspace-relative path — what changed in it, or what was learned from it.",
   "## Decisions",
   "Each choice made and why, so it is not revisited.",
-  "## Errors",
-  "Failures encountered and what they revealed. Quote short error strings exactly.",
-  "## Next steps",
-  "What remains to do, as an ordered list.",
+  "## Validation",
+  "Tests, checks and commands already run, including exact failures that remain.",
+  "## Open work",
+  "What remains to do, in execution order.",
+  "## Archives",
+  "Artifact IDs and what recoverable raw content each one contains.",
   "",
   "Rules: keep file paths, symbol names, commands and error strings exact.",
   "Drop tool output dumps, narration and anything already reflected in the code.",
   "Write \"None\" under a section that has nothing.",
 ].join("\n");
+
+interface CompactionSummary {
+  text: string;
+  model: string;
+  usage?: TokenUsage;
+  durationMs: number;
+  native: boolean;
+  fallback: boolean;
+}
 
 async function summarizeWithLlm(opts: {
   provider: LlmProvider;
@@ -290,11 +359,13 @@ async function summarizeWithLlm(opts: {
   older: Message[];
   pinnedTask?: string;
   signal?: AbortSignal;
-}): Promise<string> {
-  const transcript = summarizeMessagesHeuristic(opts.older);
-  if (opts.signal?.aborted) return transcript;
+}): Promise<CompactionSummary> {
+  if (opts.signal?.aborted) throw abortError(opts.signal);
+  const startedAt = Date.now();
+  const transcript = serializeCompactionSegment(opts.older);
   try {
-    const completion = await opts.provider.complete({
+    const native = typeof opts.provider.compactContext === "function";
+    const request: import("@ninjacode/providers").CompletionRequest = {
       model: opts.model,
       maxTokens: SUMMARY_MAX_TOKENS,
       temperature: 0,
@@ -306,45 +377,77 @@ async function summarizeWithLlm(opts: {
           content: `${opts.pinnedTask ? `Original task: ${opts.pinnedTask}\n\n` : ""}Transcript to compress:\n${transcript}`,
         },
       ],
-    });
-    return completion.text.trim() || transcript;
-  } catch {
-    return transcript;
+    };
+    const completion = native
+      ? await opts.provider.compactContext!(request)
+      : await opts.provider.complete(request);
+    return {
+      text: completion.text.trim() || summarizeMessagesHeuristic(opts.older),
+      model: completion.resolvedModel ?? completion.model ?? opts.model ?? opts.provider.name,
+      usage: completion.usage,
+      durationMs: Date.now() - startedAt,
+      native,
+      fallback: completion.text.trim().length === 0,
+    };
+  } catch (error) {
+    if (opts.signal?.aborted) throw abortError(opts.signal);
+    return {
+      text: summarizeMessagesHeuristic(opts.older),
+      model: opts.model ?? opts.provider.name,
+      durationMs: Date.now() - startedAt,
+      native: false,
+      fallback: true,
+    };
   }
+}
+
+function abortError(signal: AbortSignal): DOMException {
+  return new DOMException(String(signal.reason ?? "Compaction aborted"), "AbortError");
+}
+
+function serializeCompactionSegment(messages: Message[]): string {
+  return messages
+    .map((message, index) =>
+      JSON.stringify({
+        index,
+        role: message.role,
+        name: message.name,
+        toolCallId: message.toolCallId,
+        toolCalls: message.toolCalls,
+        content: message.content,
+        attachments: message.parts?.map((part) => part.type),
+      }),
+    )
+    .join("\n");
 }
 
 function summarizeMessagesHeuristic(messages: Message[]): string {
-  const lines: string[] = [];
-  for (const m of messages) {
-    if (m.role === "user") lines.push(`User: ${m.content.slice(0, 200)}`);
-    else if (m.role === "assistant") {
-      const tools = m.toolCalls?.map((t) => t.name).join(", ");
-      lines.push(
-        `Assistant: ${m.content.slice(0, 150)}${tools ? ` [tools: ${tools}]` : ""}`,
-      );
-    } else if (m.role === "tool") {
-      lines.push(`Tool(${m.name ?? "?"}): ${m.content.slice(0, 100)}`);
-    }
-  }
-  return lines.slice(-40).join("\n");
-}
-
-/** Pin earlier summaries, the original task, and user-stated constraints. */
-function extractPinnedMessages(history: Message[], pinnedTask?: string): Set<Message> {
-  const pinned = new Set<Message>();
-
-  for (const m of history) {
-    if (isCompactionMessage(m)) {
-      pinned.add(m);
-      continue;
-    }
-    if (m.role !== "user" || !pinnedTask) continue;
-    if (m.content.includes(pinnedTask.slice(0, Math.min(80, pinnedTask.length)))) {
-      pinned.add(m);
-    }
-    if (/must not|do not|never|required|constraint/i.test(m.content)) {
-      pinned.add(m);
-    }
-  }
-  return pinned;
+  const sample = [
+    ...messages.slice(0, 12),
+    ...messages.slice(Math.max(12, Math.floor(messages.length / 2) - 6), Math.floor(messages.length / 2) + 6),
+    ...messages.slice(-16),
+  ].filter((message, index, all) => all.indexOf(message) === index);
+  const lines = sample.map((message) => {
+    const tools = message.toolCalls?.map((tool) => tool.name).join(", ");
+    return `${message.role}${message.name ? `(${message.name})` : ""}: ${message.content.slice(0, 240)}${tools ? ` [tools: ${tools}]` : ""}`;
+  });
+  const artifacts = messages
+    .flatMap((message) => message.content.match(/[a-f0-9]{64}/g) ?? [])
+    .filter((id, index, all) => all.indexOf(id) === index);
+  return [
+    "## Task",
+    lines.filter((line) => line.startsWith("user:")).at(0) ?? "None",
+    "## Constraints",
+    "Provider compaction failed; consult the archived compaction segment for exact constraints.",
+    "## Files touched",
+    "See archived compaction segment.",
+    "## Decisions",
+    ...lines.filter((line) => line.startsWith("assistant:")),
+    "## Validation",
+    ...lines.filter((line) => line.startsWith("tool(")),
+    "## Open work",
+    lines.at(-1) ?? "None",
+    "## Archives",
+    artifacts.length > 0 ? artifacts.join("\n") : "See the compaction event artifact.",
+  ].join("\n");
 }

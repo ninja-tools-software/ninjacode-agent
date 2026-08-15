@@ -39,6 +39,8 @@ export interface ToolInvocation {
   /** Time spent waiting for user approval, excluded from execution time. */
   approvalWaitMs?: number;
   error?: string;
+  /** Immutable archive of the full, pre-truncation output. */
+  artifactId?: string;
   /** Structured metadata from the tool result (e.g. served read range). */
   meta?: Record<string, unknown>;
 }
@@ -89,6 +91,8 @@ export interface ApprovalRequest {
    * than the exact `target`. Empty/absent means remember the exact target.
    */
   grantScopes?: string[];
+  /** False when this dynamic call must be approved again on every execution. */
+  canRemember?: boolean;
   /**
    * The call was classified as irreversible (see `Tool.riskFor`) — hosts should
    * warn more loudly than for an ordinary approval, and it can never be

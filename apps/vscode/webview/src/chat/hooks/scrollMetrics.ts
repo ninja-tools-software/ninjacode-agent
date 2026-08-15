@@ -1,7 +1,7 @@
 /** How far from the bottom still counts as "following the conversation". */
 export const NEAR_BOTTOM_PX = 64;
 
-export interface ScrollMetrics {
+interface ScrollMetrics {
   scrollTop: number;
   scrollHeight: number;
   clientHeight: number;

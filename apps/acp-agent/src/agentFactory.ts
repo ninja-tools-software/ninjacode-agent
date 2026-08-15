@@ -1,11 +1,21 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { Agent, buildAgentRuntime, loadMcpConfig, loadMcpTools } from "@ninjacode/core";
+import {
+  Agent,
+  buildAgentRuntime,
+  createDeviceOAuthHost,
+  createMemorySecretStore,
+  createOAuthAuthPort,
+  DEFAULT_RUN_TIMEOUT_MS,
+  loadMcpConfig,
+  loadMcpTools,
+} from "@ninjacode/core";
 import {
   createProvider,
   type GatewayErrorInfo,
   type ProviderKind,
 } from "@ninjacode/providers";
+import type { SandboxMode } from "@ninjacode/tools";
 import { t } from "./i18n.js";
 import type { Session } from "./sessionStore.js";
 import { notify } from "./rpcTransport.js";
@@ -16,6 +26,15 @@ function assertDebugModeUnsupported(mode: string | undefined): void {
       "Debug mode is not supported in the ACP agent yet. Use the VS Code extension or CLI (`--mode debug`).",
     );
   }
+}
+
+function configuredSandboxMode(): SandboxMode {
+  const configured = process.env.NINJACODE_SANDBOX;
+  return configured === "read-only" ||
+    configured === "workspace-write" ||
+    configured === "danger-full-access"
+    ? configured
+    : "workspace-write";
 }
 
 function gatewayErrorText(info: GatewayErrorInfo): string {
@@ -148,6 +167,7 @@ export async function createAgentFor(
 
   assertDebugModeUnsupported(process.env.NINJACODE_MODE);
   const yolo = process.env.NINJACODE_YOLO === "1";
+  const sandboxMode = configuredSandboxMode();
 
   const runtime = await buildAgentRuntime({
     workspaceRoot: cwd,
@@ -157,13 +177,27 @@ export async function createAgentFor(
     configureTools: async (tools) => {
       const mcpConfigs = await loadMcpConfig(cwd);
       if (mcpConfigs.length) {
-        const { tools: mcpTools } = await loadMcpTools(mcpConfigs);
+        const { tools: mcpTools } = await loadMcpTools(mcpConfigs, {
+          workspaceRoot: cwd,
+          agentDir: path.join(cwd, ".ninjacode"),
+          sandboxMode,
+          auth: createOAuthAuthPort(
+            createDeviceOAuthHost({
+              onUserCode: async ({ userCode, verificationUri }) => {
+                process.stderr.write(`MCP OAuth: visit ${verificationUri} and enter ${userCode}\n`);
+              },
+            }),
+            createMemorySecretStore(),
+          ),
+        });
         for (const t of mcpTools) tools.register(t);
       }
     },
     agent: {
       agentDir: path.join(cwd, ".ninjacode"),
       mode: "agent",
+      sandboxMode,
+      runTimeoutMs: Number(process.env.NINJACODE_RUN_TIMEOUT_MS) || DEFAULT_RUN_TIMEOUT_MS,
       sessionId,
       enableCheckpoints: true,
       onEvent: createAgentEventHandler(sessionId),

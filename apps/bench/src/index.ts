@@ -15,6 +15,7 @@ import {
   cmdSweBenchPredict,
   printSweBenchHelp,
 } from "./swebench/cli.js";
+import { cmdHarbor } from "./harbor/cli.js";
 
 function getFlag(args: string[], name: string): string | undefined {
   const idx = args.indexOf(`--${name}`);
@@ -84,10 +85,14 @@ async function cmdRun(args: string[]): Promise<void> {
       `\nAgents: ${agents.map((a) => a.name).join(", ")}\n`,
   );
 
+  const unpublished = hasFlag(args, "unpublished") || trials < 3;
   const report = await runBench(agents, tasks, {
     trials,
     concurrency,
     keepFailures: hasFlag(args, "keep-failures"),
+    publishable: !unpublished,
+    provider: getFlag(args, "provider"),
+    model: getFlag(args, "model"),
     onProgress: (line) => console.log(line),
   });
 
@@ -185,6 +190,9 @@ async function main(): Promise<void> {
     case "swebench":
       await cmdSweBench(args);
       break;
+    case "harbor":
+      await cmdHarbor(args);
+      break;
     default:
       console.log(
         [
@@ -196,6 +204,7 @@ async function main(): Promise<void> {
           "  ninjabench report <run.json>            Re-render a saved run as markdown",
           "  ninjabench compare <base.json> <after.json>  Diff two NinjaBench runs",
           "  ninjabench swebench predict|eval|compare  SWE-bench Lite pipeline",
+          "  ninjabench harbor oracle|smoke|run        Terminal-Bench 2.1 / Harbor",
           "",
           "Run options:",
           "  --tasks a,b,c        Only run these task ids",
@@ -209,6 +218,7 @@ async function main(): Promise<void> {
           "  --agents FILE        JSON config of competitor CLIs (see agents.example.json)",
           "  --no-ninjacode       Skip the in-process NinjaCode agent",
           "  --keep-failures      Keep temp workspaces of failed runs for debugging",
+          "  --unpublished        Mark the report as non-publishable (also implied by --trials < 3)",
           "  --out DIR            Output directory (default ./runs)",
           "  --strict             Exit non-zero if any task fails",
           "",
@@ -218,6 +228,7 @@ async function main(): Promise<void> {
           "  ninjabench compare runs/quick/baseline.json runs/quick/run-….json",
           "",
           "SWE-bench: ninjabench swebench — run without args for subcommand help",
+          "Harbor:    ninjabench harbor — Terminal-Bench 2.1 (oracle / smoke / full run)",
         ].join("\n"),
       );
   }

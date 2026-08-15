@@ -20,10 +20,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "@ninjacode/providers": "workspace:*",
     "@ninjacode/tools": "workspace:*"
   },
   "devDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
     "typescript": "^5.8.2",
     "vitest": "^3.0.9"
   }

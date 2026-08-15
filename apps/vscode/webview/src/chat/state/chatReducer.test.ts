@@ -60,6 +60,30 @@ describe("streaming", () => {
   });
 });
 
+describe("product trajectory", () => {
+  it("covers stream, approval, edit, abort and resume in one session", () => {
+    const streamed = reduce([
+      { type: "assistant_delta", text: "Editing" },
+      { type: "approval", requestId: "r1", toolName: "edit_file", target: "a.ts", reason: "write" },
+      { type: "approval_resolved", requestId: "r1", approved: true },
+      { type: "tool", id: "t1", name: "edit_file", label: "Edit", status: "done", output: "ok" },
+    ]);
+    expect(streamed.log.some((item) => item.kind === "assistant")).toBe(true);
+    expect(streamed.log.some((item) => item.kind === "approval")).toBe(true);
+
+    const aborted = reduce(
+      [{ type: "approval_resolved", requestId: "r2", approved: false, cancelled: true }],
+      reduce([{ type: "approval", requestId: "r2", toolName: "run_shell", target: "sleep 30", reason: "shell" }]),
+    );
+    expect(aborted.log[0]).toMatchObject({ cancelled: true });
+
+    const resumed = reduce([{ type: "assistant_delta", text: "resumed" }], streamed);
+    expect(resumed.log.some((item) => item.kind === "assistant" && "text" in item && item.text.includes("resumed"))).toBe(
+      true,
+    );
+  });
+});
+
 describe("interactive cards", () => {
   it("resolves an approval in place", () => {
     const state = reduce([

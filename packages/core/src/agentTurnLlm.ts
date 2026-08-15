@@ -6,9 +6,17 @@ import type {
   ToolSpec,
 } from "@ninjacode/providers";
 import { gatewayErrorInfo } from "@ninjacode/providers";
-import { compactHistory, toolOutputLimit, truncateToolOutput } from "./context.js";
+import { toolOutputLimit, truncateToolOutput } from "./context.js";
+import { buildContextView } from "./contextViewBuilder.js";
+import {
+  estimateContextUsage,
+  estimateTokens,
+  recordTokenCalibration,
+  tokenCalibrationMultiplier,
+} from "./contextEstimate.js";
 import { buildVolatileContextMessage, volatileContextChanged } from "./volatileContext.js";
 import type { AgentTurnDeps } from "./agentTurnTypes.js";
+import { startSpan } from "./telemetry.js";
 
 type AgentTurnOutcome =
   | { kind: "continue" }
@@ -61,28 +69,65 @@ export async function syncVolatileContext(deps: AgentTurnDeps): Promise<void> {
 
 export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[]> {
   const { state } = deps;
-  const systemTokens = Math.ceil(state.system.length / 4);
-  const toolTokens = deps.toolSpecs.length ? Math.ceil(JSON.stringify(deps.toolSpecs).length / 4) : 0;
+  const systemTokens = estimateTokens(
+    [{ role: "system", content: state.system }],
+    deps.model,
+  );
+  const toolTokens = deps.toolSpecs.length
+    ? estimateTokens([{ role: "system", content: JSON.stringify(deps.toolSpecs) }], deps.model)
+    : 0;
 
-  const { messages: compacted, changed } = await compactHistory({
+  const { messages: compacted, changed } = await buildContextView({
     history: state.history,
     pinnedTask: deps.pinnedTask,
     provider: deps.provider,
-    model: deps.model,
+    model: deps.utilityModel ?? deps.model,
+    budgetModel: deps.model,
     contextWindow: deps.contextWindow,
     systemTokens,
     toolTokens,
+    reservedOutputTokens: deps.maxTokens,
     signal: deps.signal,
-    onCompaction: (info) => deps.emit("compaction", info),
+    onCompaction: async (info) => {
+      if (info.usage) {
+        deps.trackUsage(info.usage, {
+          category: "compaction",
+          model: info.model,
+          durationMs: info.durationMs,
+        });
+        await deps.emit("usage", {
+          turn: deps.turn + 1,
+          usage: info.usage,
+          model: info.model,
+          category: "compaction",
+        });
+      }
+      await deps.archiveCompaction(state.history, { ...info });
+      await deps.emit("compaction", info);
+      startSpan("compaction", {
+        model: info.model,
+        durationMs: info.durationMs,
+        native: info.native,
+        fallback: info.fallback,
+      }).end();
+    },
   });
   if (changed) state.history = compacted;
 
   const usage = deps.estimateUsage(state.system, compacted, deps.toolSpecs);
   await deps.emit("context_usage", usage);
 
-  if (deps.contextWindow && usage.total > Math.floor(deps.contextWindow * 0.95)) {
+  if (usage.inputBudget > 0 && usage.total > usage.inputBudget) {
+    const message =
+      `Context input budget exceeded (~${usage.total}/${usage.inputBudget} tokens after reserving ` +
+      `${usage.output} output + ${usage.safetyMargin} safety).`;
+    await deps.emit("error", { message });
+    throw new Error(message);
+  }
+
+  if (usage.inputBudget > 0 && usage.total > Math.floor(usage.inputBudget * 0.85)) {
     await deps.emit("status", {
-      text: `Context window nearly full (~${usage.total}/${deps.contextWindow} tokens). Compacting or finishing soon.`,
+      text: `Context input budget nearly full (~${usage.total}/${usage.inputBudget} tokens). Compacting or finishing soon.`,
     });
   }
 
@@ -121,6 +166,19 @@ export async function callLlmForTurn(
   );
 
   try {
+    const system = messages[0]?.role === "system" ? messages[0].content : "";
+    const history = messages[0]?.role === "system" ? messages.slice(1) : messages;
+    const estimated = estimateContextUsage({
+      system,
+      history,
+      tools: toolSpecs,
+      model: deps.model,
+    });
+    const llmSpan = startSpan("llm", {
+      turn: turn + 1,
+      provider: deps.provider.name,
+      model: deps.model,
+    });
     const completion = await deps.provider.completeStreaming(
       {
         messages,
@@ -134,8 +192,17 @@ export async function callLlmForTurn(
       },
       sink,
     );
-    deps.trackUsage(completion.usage);
     const resolvedModel = completion.resolvedModel ?? completion.model ?? deps.model;
+    const actualInput =
+      completion.usage.inputTokens +
+      (completion.usage.cacheReadTokens ?? 0) +
+      (completion.usage.cacheWriteTokens ?? 0);
+    recordTokenCalibration(
+      resolvedModel,
+      estimated.total / tokenCalibrationMultiplier(deps.model),
+      actualInput,
+    );
+    deps.trackUsage(completion.usage, { model: resolvedModel });
     await deps.emit("usage", {
       turn: turn + 1,
       usage: completion.usage,
@@ -158,8 +225,14 @@ export async function callLlmForTurn(
         `turn ${turn + 1}: cacheRead=${completion.usage.cacheReadTokens ?? 0} cacheWrite=${completion.usage.cacheWriteTokens ?? 0}`,
       );
     }
+    llmSpan.end({
+      inputTokens: completion.usage.inputTokens,
+      outputTokens: completion.usage.outputTokens,
+      tools: completion.toolCalls?.length ?? 0,
+    });
     return { completion };
   } catch (e) {
+    startSpan("llm", { turn: turn + 1, failed: true }).end();
     if (deps.isAbortError(e)) {
       deps.logAgentEvent("cancel", `turn ${turn + 1}: LLM call aborted by user`);
       await deps.persist();
@@ -201,5 +274,3 @@ export function dropOrphanUserMessage(history: Message[], content: string): void
 export function truncateToolResult(output: string, toolName: string): string {
   return truncateToolOutput(output, toolOutputLimit(toolName));
 }
-
-export { truncateToolOutput, toolOutputLimit };

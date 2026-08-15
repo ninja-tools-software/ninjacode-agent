@@ -1,0 +1,11 @@
+{
+  "id": "canary-terminal-bench",
+  "description": "Documented Terminal-Bench 2.1 canary: write a one-line result file",
+  "category": "terminal",
+  "difficulty": "easy",
+  "suites": ["canary", "terminal-bench"],
+  "prompt": "Create a file named result.txt containing exactly: ok",
+  "verify": "test \"$(cat result.txt)\" = ok",
+  "timeoutSec": 60,
+  "maxTurns": 8
+}

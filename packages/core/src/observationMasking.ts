@@ -1,21 +1,17 @@
+import { createHash } from "node:crypto";
 import type { Message } from "@ninjacode/providers";
 
 /**
- * Tools whose output can be obtained again by calling them: their old results
- * are the cheapest tokens to give up. Anything carrying information the agent
- * cannot reproduce — a user answer, a recorded hypothesis, a debug log capture —
- * is deliberately absent.
+ * Deterministic local reads may be repeated. Shell and network observations are
+ * deliberately absent: rerunning them may produce side effects or different data.
  */
 const MASKABLE_TOOLS = new Set([
   "read_file",
   "list_dir",
   "grep",
   "glob",
-  "run_shell",
   "search_codebase",
   "read_lints",
-  "fetch_url",
-  "web_search",
 ]);
 
 /** Recent observations the model is still actively reasoning about. */
@@ -25,6 +21,7 @@ const KEEP_VERBATIM = 10;
 const MIN_MASKABLE_CHARS = 400;
 
 const PATH_ANNOTATION = /^\[path:[^\]]+\]\n/;
+const ARTIFACT_REFERENCE = /artifact ([a-f0-9]{64})/;
 
 export function isMaskableObservation(message: Message): boolean {
   return message.role === "tool" && !!message.name && MASKABLE_TOOLS.has(message.name);
@@ -32,10 +29,14 @@ export function isMaskableObservation(message: Message): boolean {
 
 function maskedContent(message: Message): string {
   const annotation = message.content.match(PATH_ANNOTATION)?.[0] ?? "";
+  const artifactId = message.content.match(ARTIFACT_REFERENCE)?.[1];
+  const sha256 = createHash("sha256").update(message.content).digest("hex").slice(0, 16);
+  const recovery = artifactId
+    ? `artifact ${artifactId}; use read_session_artifact`
+    : "legacy observation has no recoverable archive";
   return (
     `${annotation}[output masked to save context — ${message.name} produced ` +
-    `${message.content.length} chars earlier in this session. Do not re-read this; ` +
-    "the content is already in the conversation. Grep for a specific symbol if a detail is missing.]"
+    `${message.content.length} chars earlier in this session. sha256=${sha256}. ${recovery}]`
   );
 }
 

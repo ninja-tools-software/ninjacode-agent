@@ -1,6 +1,6 @@
 import type { Message } from "@ninjacode/providers";
 
-export interface ReadRangeSpec {
+interface ReadRangeSpec {
   path: string;
   full: boolean;
   start: number;

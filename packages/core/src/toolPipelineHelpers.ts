@@ -1,5 +1,5 @@
 import type { ToolCall } from "@ninjacode/providers";
-import type { RiskClass, Tool, ToolRegistry } from "@ninjacode/tools";
+import type { GrantPolicy, RiskClass, Tool, ToolRegistry } from "@ninjacode/tools";
 import type { PermissionEngine } from "./permissions.js";
 import type { ApprovalHandler, ApprovalRequest, RunState, ToolInvocation } from "./types.js";
 
@@ -26,6 +26,18 @@ export function safeGrantScopes(tool: Tool, args: Record<string, unknown>): stri
     return tool.grantScopes?.(args) ?? [];
   } catch {
     return [];
+  }
+}
+
+export function safeGrantPolicy(
+  tool: Tool,
+  args: Record<string, unknown>,
+  scopes: string[],
+): GrantPolicy {
+  try {
+    return tool.grantPolicy?.(args) ?? (scopes.length > 0 ? "scoped" : "exact");
+  } catch {
+    return "never";
   }
 }
 
@@ -86,15 +98,16 @@ interface ToolApprovalCheck {
   tc: ToolCall;
   target: string;
   scopes: string[];
+  grantPolicy: GrantPolicy;
   started: number;
 }
 
 export async function resolveToolApproval(
   req: ToolApprovalCheck,
 ): Promise<{ approved: boolean; approvalWaitMs: number; earlyReturn?: ToolInvocation }> {
-  const { deps, tool, tc, target, scopes, started } = req;
+  const { deps, tool, tc, target, scopes, grantPolicy, started } = req;
   const risk = safeRisk(tool, tc.arguments);
-  const decision = deps.permissions.evaluate(tool, target, scopes, risk);
+  const decision = deps.permissions.evaluate(tool, target, { scopes, risk, grantPolicy });
   if (!decision.allowed) {
     return deniedInvocation(tc, started, `Denied: ${decision.reason}`);
   }
@@ -102,7 +115,7 @@ export async function resolveToolApproval(
     return { approved: true, approvalWaitMs: 0 };
   }
   const danger = risk === "destructive";
-  return waitForApproval({ deps, tool, tc, target, scopes, started, decision, danger });
+  return waitForApproval({ deps, tool, tc, target, scopes, grantPolicy, started, decision, danger });
 }
 
 function deniedInvocation(
@@ -118,19 +131,20 @@ function deniedInvocation(
   };
 }
 
-function rememberApproval(opts: {
+export function rememberGrant(opts: {
   permissions: PermissionEngine;
   toolName: string;
   target: string;
   scopes: string[];
+  grantPolicy: GrantPolicy;
   remember?: boolean;
 }): void {
-  if (!opts.remember) return;
-  if (opts.scopes.length > 0) {
-    for (const s of opts.scopes) opts.permissions.grant(opts.toolName, s);
+  if (!opts.remember || opts.grantPolicy === "never") return;
+  if (opts.grantPolicy === "exact" || opts.scopes.length === 0) {
+    opts.permissions.grant(opts.toolName, opts.target);
     return;
   }
-  opts.permissions.grant(opts.toolName, opts.target);
+  for (const s of opts.scopes) opts.permissions.grant(opts.toolName, s);
 }
 
 interface PendingApproval {
@@ -139,6 +153,7 @@ interface PendingApproval {
   tc: ToolCall;
   target: string;
   scopes: string[];
+  grantPolicy: GrantPolicy;
   started: number;
   decision: { reason: string };
   danger: boolean;
@@ -151,6 +166,7 @@ function approvalPayload(opts: PendingApproval): ApprovalRequest {
     arguments: opts.tc.arguments,
     reason: opts.decision.reason,
     grantScopes: opts.scopes,
+    canRemember: opts.grantPolicy !== "never",
     danger: opts.danger,
   };
 }
@@ -174,7 +190,7 @@ async function waitForApproval(
 async function collectApprovalResult(
   opts: PendingApproval,
 ): Promise<{ approved: boolean; approvalWaitMs: number; earlyReturn?: ToolInvocation }> {
-  const { deps, tool, tc, target, scopes, started } = opts;
+  const { deps, tool, tc, target, scopes, grantPolicy, started } = opts;
   const wasWaiting = deps.getState() !== "stopping" && deps.getState() !== "stopped";
   if (wasWaiting) await deps.setState("waiting");
 
@@ -197,7 +213,14 @@ async function collectApprovalResult(
         },
       };
     }
-    rememberApproval({ permissions: deps.permissions, toolName: tool.name, target, scopes, remember: result.remember });
+    rememberGrant({
+      permissions: deps.permissions,
+      toolName: tool.name,
+      target,
+      scopes,
+      grantPolicy,
+      remember: result.remember,
+    });
     return { approved: true, approvalWaitMs };
   } catch (e) {
     if (deps.getState() === "waiting") await deps.setState("running");

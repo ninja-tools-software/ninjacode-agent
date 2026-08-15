@@ -1,63 +1,92 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { createInterface } from "node:readline";
-import type { Tool, ToolResult } from "@ninjacode/tools";
-import { ToolError } from "@ninjacode/tools";
-import { toToolNameFragment } from "./slug.js";
+import type { AuthProvider, Tool as SdkTool, Transport } from "@modelcontextprotocol/client";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import type { SandboxMode, Tool, ToolResult } from "@ninjacode/tools";
+import { buildExecutionEnv, sandboxCommand, ToolError } from "@ninjacode/tools";
 import type { McpServerConfig } from "./mcpConfig.js";
 import { expandEnvRefs } from "./mcpConfig.js";
+import { mcpToolRisk, type McpToolAnnotations } from "./mcpPolicy.js";
+import { toToolNameFragment } from "./slug.js";
 
-interface JsonRpcRequest {
-  jsonrpc: "2.0";
-  id: number;
-  method: string;
-  params?: unknown;
+export interface McpAuthPort {
+  token(config: McpServerConfig): Promise<string | undefined>;
+  onUnauthorized?(config: McpServerConfig): Promise<void>;
 }
 
-type McpToolDef = {
+export interface McpExecutionOptions {
+  workspaceRoot: string;
+  agentDir: string;
+  sandboxMode: SandboxMode;
+  auth?: McpAuthPort;
+  /** Test/embedding seam; production hosts use the configured stdio/HTTP transport. */
+  transportFactory?: (config: McpServerConfig) => Transport;
+  fetch?: typeof globalThis.fetch;
+  /** Temporary rollback for one release; dynamic discovery remains the default. */
+  dynamicDiscovery?: boolean;
+}
+
+export interface McpToolDefinition {
   name: string;
   description?: string;
   inputSchema?: Record<string, unknown>;
+  annotations?: McpToolAnnotations;
+}
+
+const DEFAULT_EXECUTION: McpExecutionOptions = {
+  workspaceRoot: process.cwd(),
+  agentDir: `${process.cwd()}/.ninjacode`,
+  sandboxMode: "workspace-write",
 };
 
-type JsonRpcResponse = {
-  id?: number;
-  result?: unknown;
-  error?: { message: string };
-  method?: string;
-};
-
-/** MCP client supporting stdio and HTTP streamable transports. */
+/** Thin adapter over the official MCP v2 client SDK. */
 export class McpClient {
-  private proc: ChildProcessWithoutNullStreams | null = null;
-  private nextId = 1;
-  private pending = new Map<
-    number,
-    { resolve: (v: unknown) => void; reject: (e: Error) => void }
-  >();
-  private tools: McpToolDef[] = [];
-  private readonly transport: "stdio" | "http";
   private readonly config: McpServerConfig;
-  private closed = false;
+  private readonly execution: McpExecutionOptions;
+  private readonly client: Client;
+  private transport: Transport | null = null;
+  private tools: McpToolDefinition[] = [];
 
-  constructor(config: McpServerConfig) {
-    this.config = {
-      ...config,
-      env: expandEnvRefs(config.env),
-      headers: expandEnvRefs(config.headers),
-    };
-    this.transport = config.transport ?? (config.url ? "http" : "stdio");
+  constructor(config: McpServerConfig, execution: McpExecutionOptions = DEFAULT_EXECUTION) {
+    this.config = { ...config };
+    this.execution = execution;
+    this.client = new Client(
+      { name: "ninjacode", version: "0.1.0" },
+      {
+        versionNegotiation: { mode: versionNegotiationMode(config) },
+        cachePartition: config.cache?.partition ?? config.name,
+        defaultCacheTtlMs: config.cache?.defaultTtlMs ?? 0,
+        listMaxPages: 64,
+        listChanged: {
+          tools: {
+            autoRefresh: true,
+            debounceMs: 100,
+            onChanged: (error, tools) => {
+              if (!error && tools) this.tools = normalizeTools(tools);
+            },
+          },
+        },
+      },
+    );
   }
 
   async connect(): Promise<void> {
-    if (this.transport === "http") {
-      await this.initializeSession();
-      return;
-    }
-    await this.connectStdio();
+    this.transport =
+      this.execution.transportFactory?.(this.config) ??
+      ((this.config.transport ?? (this.config.url ? "http" : "stdio")) === "http"
+        ? this.httpTransport()
+        : this.stdioTransport());
+    await this.client.connect(this.transport, { timeout: 30_000 });
+    await this.refreshTools();
   }
 
-  listTools() {
-    return this.tools;
+  listTools(): McpToolDefinition[] {
+    return [...this.tools];
+  }
+
+  async refreshTools(): Promise<McpToolDefinition[]> {
+    const listed = await this.client.listTools(undefined, { cacheMode: "refresh", timeout: 30_000 });
+    this.tools = normalizeTools(listed.tools);
+    return this.listTools();
   }
 
   async callTool(
@@ -65,29 +94,21 @@ export class McpClient {
     args: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<string> {
-    const result = (await this.request(
-      "tools/call",
+    const result = await this.client.callTool(
       { name, arguments: args },
-      signal,
-    )) as {
-      content?: Array<{ type: string; text?: string }>;
-      isError?: boolean;
-    };
-    const text =
-      result.content
-        ?.filter((c) => c.type === "text")
-        .map((c) => c.text ?? "")
-        .join("\n") ?? JSON.stringify(result);
-    if (result.isError) throw new ToolError(text, "runtime");
-    return text;
+      { signal, timeout: 30_000, maxTotalTimeout: 120_000 },
+    );
+    const output = formatToolResult(result);
+    if (result.isError) throw new ToolError(output, "runtime");
+    return output;
   }
 
   async listResources(): Promise<Array<{ uri: string; name?: string }>> {
     try {
-      const res = (await this.request("resources/list", {})) as {
-        resources?: Array<{ uri: string; name?: string }>;
-      };
-      return res.resources ?? [];
+      return (await this.client.listResources()).resources.map((resource) => ({
+        uri: resource.uri,
+        name: resource.name,
+      }));
     } catch {
       return [];
     }
@@ -95,246 +116,165 @@ export class McpClient {
 
   async listPrompts(): Promise<Array<{ name: string; description?: string }>> {
     try {
-      const res = (await this.request("prompts/list", {})) as {
-        prompts?: Array<{ name: string; description?: string }>;
-      };
-      return res.prompts ?? [];
+      return (await this.client.listPrompts()).prompts.map((prompt) => ({
+        name: prompt.name,
+        description: prompt.description,
+      }));
     } catch {
       return [];
     }
   }
 
   getConfig(): McpServerConfig {
-    return this.config;
+    // Return unresolved refs so status/reporting never serializes host secrets.
+    return { ...this.config };
   }
 
+  getProtocolInfo(): { version?: string; era?: "modern" | "legacy" } {
+    return {
+      version: this.client.getNegotiatedProtocolVersion(),
+      era: this.client.getProtocolEra(),
+    };
+  }
+
+  findTool(name: string): McpToolDefinition | undefined {
+    return this.tools.find((tool) => tool.name === name);
+  }
+
+  /** Legacy rollback path. Dynamic catalog tools are used by default. */
   asNinjaTools(): Tool[] {
-    return this.tools.map((t) => {
+    return this.tools.map((tool) => {
       const serverName = this.config.name;
-      const toolName = toToolNameFragment(`mcp_${serverName}_${t.name}`);
       return {
-        name: toolName,
-        description: `[MCP:${serverName}] ${t.description ?? t.name}`,
-        risk: "network" as const,
-        inputSchema: t.inputSchema ?? { type: "object", properties: {} },
-        target(args: Record<string, unknown>) {
-          return `${serverName}:${t.name}:${JSON.stringify(args).slice(0, 60)}`;
-        },
-        execute: async (ctx, args): Promise<ToolResult> => {
-          const output = await this.callTool(t.name, args, ctx.signal);
-          return { output };
-        },
+        name: toToolNameFragment(`mcp_${serverName}_${tool.name}`),
+        description: `[MCP:${serverName}] ${tool.description ?? tool.name}`,
+        risk: mcpToolRisk(this.config, tool.annotations),
+        grantPolicy: () => "never" as const,
+        inputSchema: tool.inputSchema ?? { type: "object", properties: {} },
+        target: (args) => `${serverName}:${tool.name}:${JSON.stringify(args).slice(0, 60)}`,
+        execute: async (ctx, args): Promise<ToolResult> => ({
+          output: await this.callTool(tool.name, args, ctx.signal),
+        }),
       } satisfies Tool;
     });
   }
 
   async close(): Promise<void> {
-    this.closed = true;
-    this.proc?.kill();
-    this.proc = null;
+    await this.client.close().catch(() => undefined);
+    this.transport = null;
   }
 
-  private async initializeSession(): Promise<void> {
-    await this.request("initialize", {
-      protocolVersion: "2024-11-05",
-      capabilities: {},
-      clientInfo: { name: "ninjacode", version: "0.1.0" },
-    });
-    await this.notify("notifications/initialized", {});
-    await this.refreshTools();
-  }
-
-  private async connectStdio(): Promise<void> {
+  private stdioTransport(): Transport {
     if (!this.config.command) {
       throw new Error(`MCP server ${this.config.name}: command required for stdio`);
     }
-
-    this.proc = spawn(this.config.command, this.config.args ?? [], {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, ...this.config.env },
+    const env = buildExecutionEnv(process.env, expandEnvRefs(this.config.env));
+    const wrapped = sandboxCommand({
+      command: this.config.command,
+      args: this.config.args ?? [],
+      cwd: this.execution.workspaceRoot,
+      workspaceRoot: this.execution.workspaceRoot,
+      agentDir: this.execution.agentDir,
+      mode: this.execution.sandboxMode,
+      allowNetwork: this.config.trust === "trusted" && Boolean(this.config.networkDomains?.length),
+      env,
     });
-
-    const rl = createInterface({ input: this.proc.stdout });
-    rl.on("line", (line) => this.handleLine(line));
-
-    this.proc.on("exit", () => {
-      this.closed = true;
-      for (const [, p] of this.pending) {
-        p.reject(new Error("MCP process exited"));
-      }
-      this.pending.clear();
-    });
-
-    await this.initializeSession();
-  }
-
-  private handleLine(line: string): void {
-    try {
-      const msg = JSON.parse(line) as JsonRpcResponse;
-      if (msg.method === "notifications/tools/list_changed") {
-        void this.refreshTools();
-        return;
-      }
-      if (msg.id != null && this.pending.has(msg.id)) {
-        const p = this.pending.get(msg.id)!;
-        this.pending.delete(msg.id);
-        if (msg.error) p.reject(new Error(msg.error.message));
-        else p.resolve(msg.result);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  private async refreshTools(): Promise<void> {
-    try {
-      const listed = (await this.request("tools/list", {})) as { tools?: McpToolDef[] };
-      this.tools = listed.tools ?? [];
-    } catch {
-      // ignore
-    }
-  }
-
-  private request(method: string, params: unknown, signal?: AbortSignal): Promise<unknown> {
-    const id = this.nextId++;
-    const req: JsonRpcRequest = { jsonrpc: "2.0", id, method, params };
-
-    if (this.transport === "http") {
-      return this.httpRequest(req, signal);
-    }
-
-    return this.stdioRequest(req, id, method, signal);
-  }
-
-  private stdioRequest(
-    req: JsonRpcRequest,
-    id: number,
-    method: string,
-    signal?: AbortSignal,
-  ): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-      if (signal?.aborted) {
-        reject(new Error("MCP request aborted"));
-        return;
-      }
-      if (!this.proc?.stdin || this.closed) {
-        reject(new Error("MCP process not started"));
-        return;
-      }
-
-      const onAbort = () => {
-        if (this.pending.has(id)) {
-          this.pending.delete(id);
-          reject(new Error("MCP request aborted"));
-        }
-      };
-      signal?.addEventListener("abort", onAbort, { once: true });
-
-      this.pending.set(id, {
-        resolve: (v) => {
-          signal?.removeEventListener("abort", onAbort);
-          resolve(v);
-        },
-        reject: (e) => {
-          signal?.removeEventListener("abort", onAbort);
-          reject(e);
-        },
-      });
-      this.proc.stdin.write(JSON.stringify(req) + "\n");
-      setTimeout(() => {
-        if (!this.pending.has(id)) return;
-        this.pending.delete(id);
-        signal?.removeEventListener("abort", onAbort);
-        reject(new Error(`MCP timeout: ${method}`));
-      }, 30_000);
+    return new StdioClientTransport({
+      command: wrapped.command,
+      args: wrapped.args,
+      cwd: this.execution.workspaceRoot,
+      env: definedEnv(env),
+      stderr: "pipe",
+      maxBufferSize: 10 * 1024 * 1024,
     });
   }
 
-  private async httpRequest(req: JsonRpcRequest, signal?: AbortSignal): Promise<unknown> {
-    if (!this.config.url) throw new Error("MCP HTTP url required");
-    const timeoutSignal = AbortSignal.timeout(30_000);
-    const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
-    const res = await fetch(this.config.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-        ...this.config.headers,
+  private httpTransport(): Transport {
+    if (!this.config.url) throw new Error(`MCP server ${this.config.name}: HTTP url required`);
+    const url = new URL(this.config.url);
+    assertAllowedHttpHost(this.config, url);
+    const headers = {
+      ...expandEnvRefs(this.config.routingHeaders),
+      ...expandEnvRefs(this.config.headers),
+    };
+    const authProvider = this.authProvider();
+    return new StreamableHTTPClientTransport(url, {
+      requestInit: Object.keys(headers).length ? { headers } : undefined,
+      authProvider,
+      fetch: this.execution.fetch,
+      onInsufficientScope: "throw",
+      maxStepUpRetries: 0,
+    });
+  }
+
+  private authProvider(): AuthProvider | undefined {
+    if (!this.config.auth) return undefined;
+    return {
+      token: async () => {
+        const fromHost = await this.execution.auth?.token(this.config);
+        return fromHost ?? tokenFromEnvRef(this.config.auth?.tokenRef);
       },
-      body: JSON.stringify(req),
-      signal: combinedSignal,
-    });
-    if (!res.ok) {
-      throw new Error(`MCP HTTP ${res.status}: ${await res.text()}`);
-    }
-
-    const contentType = res.headers.get("content-type") ?? "";
-    if (contentType.includes("text/event-stream") && res.body) {
-      return readSseJsonRpcResult(res.body, req.id);
-    }
-
-    const msg = (await res.json()) as JsonRpcResponse;
-    if (msg.error) throw new Error(msg.error.message);
-    return msg.result;
-  }
-
-  private async notify(method: string, params: unknown): Promise<void> {
-    if (this.transport === "http") {
-      if (!this.config.url) return;
-      await fetch(this.config.url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...this.config.headers,
-        },
-        body: JSON.stringify({ jsonrpc: "2.0", method, params }),
-      }).catch(() => undefined);
-      return;
-    }
-    if (!this.proc?.stdin) return;
-    this.proc.stdin.write(JSON.stringify({ jsonrpc: "2.0", method, params }) + "\n");
+      onUnauthorized: this.execution.auth?.onUnauthorized
+        ? async () => this.execution.auth!.onUnauthorized!(this.config)
+        : undefined,
+    };
   }
 }
 
-async function readSseJsonRpcResult(body: ReadableStream<Uint8Array>, requestId: number): Promise<unknown> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const match = findSseJsonRpcResult(buffer, requestId);
-    if (match.found) return match.result;
+function assertAllowedHttpHost(config: McpServerConfig, url: URL): void {
+  const domains = config.networkDomains ?? [];
+  if (domains.length === 0) return;
+  const host = url.hostname.toLowerCase();
+  const allowed = domains.some(
+    (domain) => host === domain.toLowerCase() || host.endsWith(`.${domain.toLowerCase()}`),
+  );
+  if (!allowed) {
+    throw new ToolError(`MCP server ${config.name} blocked host ${host}`, "permission");
   }
-
-  throw new Error("MCP HTTP stream ended without result");
 }
 
-function findSseJsonRpcResult(
-  buffer: string,
-  requestId: number,
-): { found: true; result: unknown } | { found: false } {
-  for (const line of buffer.split("\n")) {
-    const parsed = tryParseSseJsonRpcLine(line, requestId);
-    if (parsed.matched) return { found: true, result: parsed.result };
-  }
-  return { found: false };
+function versionNegotiationMode(
+  config: McpServerConfig,
+): "auto" | "legacy" | { pin: "2026-07-28" } {
+  if (config.protocolVersion === "legacy") return "legacy";
+  if (config.protocolVersion === "2026-07-28") return { pin: "2026-07-28" };
+  return "auto";
 }
 
-function tryParseSseJsonRpcLine(
-  line: string,
-  requestId: number,
-): { matched: true; result: unknown } | { matched: false } {
-  if (!line.startsWith("data:")) return { matched: false };
-  try {
-    const msg = JSON.parse(line.slice(5).trim()) as JsonRpcResponse;
-    if (msg.id !== requestId) return { matched: false };
-    if (msg.error) throw new Error(msg.error.message);
-    return { matched: true, result: msg.result };
-  } catch (e) {
-    if (e instanceof Error && e.message && !e.message.includes("JSON")) throw e;
-    return { matched: false };
-  }
+function tokenFromEnvRef(ref?: string): string | undefined {
+  const match = ref?.match(/^\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}$/);
+  return match?.[1] ? process.env[match[1]] : undefined;
+}
+
+function definedEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+}
+
+function normalizeTools(tools: SdkTool[]): McpToolDefinition[] {
+  return tools
+    .map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema as Record<string, unknown>,
+      annotations: tool.annotations as McpToolAnnotations | undefined,
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function formatToolResult(result: {
+  content: Array<Record<string, unknown>>;
+  structuredContent?: unknown;
+}): string {
+  const text = result.content
+    .map((content) =>
+      content.type === "text" && typeof content.text === "string"
+        ? content.text
+        : JSON.stringify(content),
+    )
+    .join("\n");
+  if (result.structuredContent === undefined) return text;
+  const structured = JSON.stringify(result.structuredContent);
+  return text ? `${text}\n\nStructured content:\n${structured}` : structured;
 }

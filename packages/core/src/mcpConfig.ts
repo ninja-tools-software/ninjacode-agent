@@ -9,23 +9,32 @@ export interface McpServerConfig {
   env?: Record<string, string>;
   url?: string;
   headers?: Record<string, string>;
+  routingHeaders?: Record<string, string>;
   transport?: "stdio" | "http";
   enabled?: boolean;
+  trust?: "trusted" | "untrusted";
+  provenance?: "workspace" | "user" | "managed";
+  networkDomains?: string[];
+  protocolVersion?: "auto" | "legacy" | "2026-07-28";
+  cache?: {
+    defaultTtlMs?: number;
+    scope?: "public" | "private";
+    partition?: string;
+  };
+  auth?: {
+    type: "bearer" | "oauth";
+    tokenRef?: string;
+    scopes?: string[];
+    flow?: "authorization_code" | "device_code" | "client_credentials";
+    clientId?: string;
+    authorizationEndpoint?: string;
+    tokenEndpoint?: string;
+    deviceAuthorizationEndpoint?: string;
+  };
 }
 
 export interface McpConfigFile {
-  mcpServers: Record<
-    string,
-    {
-      command?: string;
-      args?: string[];
-      env?: Record<string, string>;
-      url?: string;
-      headers?: Record<string, string>;
-      transport?: "stdio" | "http";
-      enabled?: boolean;
-    }
-  >;
+  mcpServers: Record<string, Omit<McpServerConfig, "name">>;
 }
 
 /** Config file we create when a workspace has none yet. */
@@ -87,6 +96,12 @@ export function validateMcpServer(config: McpServerConfig): string[] {
     else if (!/^https?:\/\//.test(config.url.trim())) errors.push("URL must start with http(s)://");
   } else if (!config.command?.trim()) {
     errors.push("Command is required for the stdio transport");
+  }
+  if (config.auth && transport !== "http") {
+    errors.push("Auth is only supported for the http transport");
+  }
+  if (config.cache?.defaultTtlMs != null && config.cache.defaultTtlMs < 0) {
+    errors.push("Cache defaultTtlMs must be non-negative");
   }
   return errors;
 }

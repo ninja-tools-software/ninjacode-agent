@@ -4,6 +4,7 @@ import type {
   Tool,
   ToolContext,
   ToolRegistry,
+  SandboxMode,
 } from "@ninjacode/tools";
 import { ToolError } from "@ninjacode/tools";
 import type { ToolCall } from "@ninjacode/providers";
@@ -12,6 +13,9 @@ import { ToolCircuitBreaker } from "./reliability.js";
 import { toolOutputLimit, truncateToolOutput } from "./context.js";
 import { classifyToolFailure } from "./toolErrors.js";
 import type { HookRunResult } from "./hooks.js";
+import { SessionArtifactStore } from "./sessionArtifacts.js";
+import { sessionEventLog } from "./sessionEventLog.js";
+import { startSpan } from "./telemetry.js";
 import type { ApprovalHandler, RunState, ToolInvocation } from "./types.js";
 import { isWriteTool, postEditDiagnostics } from "./toolPipelineDiagnostics.js";
 import {
@@ -20,6 +24,7 @@ import {
   preflightToolCall,
   registryToolOrThrow,
   resolveToolApproval,
+  safeGrantPolicy,
   safeGrantScopes,
   safeTarget,
 } from "./toolPipelineHelpers.js";
@@ -32,6 +37,8 @@ interface ToolPipelineDeps {
   agentDir: string;
   sessionId: string;
   planId: string;
+  sandboxMode: SandboxMode;
+  persistSessionContext: boolean;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
   onApproval?: ApprovalHandler;
@@ -97,6 +104,7 @@ export class ToolPipeline {
     const tool = registryToolOrThrow(registry, tc);
     const target = safeTarget(tool, tc.arguments);
     const scopes = safeGrantScopes(tool, tc.arguments);
+    const grantPolicy = safeGrantPolicy(tool, tc.arguments, scopes);
 
     const approval = await resolveToolApproval({
       deps: {
@@ -112,6 +120,7 @@ export class ToolPipeline {
       tc,
       target,
       scopes,
+      grantPolicy,
       started,
     });
     if (approval.earlyReturn) return approval.earlyReturn;
@@ -156,9 +165,13 @@ export class ToolPipeline {
     );
     await this.deps.emit("tool_start", { name: ctx.tool.name, arguments: ctx.tc.arguments, target: ctx.target });
 
+    const span = startSpan("tool", { tool: ctx.tool.name, risk: ctx.tool.risk });
     try {
-      return await this.handleToolSuccess(ctx);
+      const result = await this.handleToolSuccess(ctx);
+      span.end({ ok: !result.error, durationMs: result.durationMs });
+      return result;
     } catch (e) {
+      span.end({ failed: true });
       return this.handleToolFailure(ctx, e);
     }
   }
@@ -169,6 +182,7 @@ export class ToolPipeline {
       agentDir: this.deps.agentDir,
       sessionId: this.deps.sessionId,
       planId: this.deps.planId,
+      sandboxMode: this.deps.sandboxMode,
       signal: this.deps.signal,
       codebaseIndex: this.deps.codebaseIndex,
       diagnosticsProvider: this.deps.diagnosticsProvider,
@@ -177,6 +191,7 @@ export class ToolPipeline {
 
   private async handleToolSuccess(ctx: ToolRunContext): Promise<ToolInvocation> {
     const result = await ctx.tool.execute(this.buildToolContext(), ctx.tc.arguments);
+    const artifactId = await this.archiveToolOutput(ctx, result.output, result.meta);
     this.deps.breaker.recordSuccess(ctx.tool.name);
     this.deps.onModifiedFiles(ctx.tool.name, result.meta);
 
@@ -208,8 +223,34 @@ export class ToolPipeline {
       approved: ctx.approved,
       durationMs: Date.now() - ctx.execStarted,
       approvalWaitMs: ctx.approvalWaitMs || undefined,
+      artifactId,
       meta: result.meta,
     };
+  }
+
+  private async archiveToolOutput(
+    ctx: ToolRunContext,
+    output: string,
+    meta?: Record<string, unknown>,
+  ): Promise<string | undefined> {
+    if (!this.deps.persistSessionContext) return undefined;
+    const artifact = await new SessionArtifactStore(
+      this.deps.agentDir,
+      this.deps.sessionId,
+    ).putText(output, {
+      kind: ctx.tool.name.startsWith("mcp_") ? "mcp_output" : "tool_output",
+      toolName: ctx.tool.name,
+      toolCallId: ctx.tc.id,
+    });
+    await sessionEventLog(this.deps.agentDir, this.deps.sessionId).append("tool_result", {
+      toolCallId: ctx.tc.id,
+      toolName: ctx.tool.name,
+      artifactId: artifact.id,
+      byteLength: artifact.byteLength,
+      approved: ctx.approved,
+      meta: meta ?? {},
+    });
+    return artifact.id;
   }
 
   private async handleToolFailure(ctx: ToolRunContext, e: unknown): Promise<ToolInvocation> {
@@ -227,6 +268,10 @@ export class ToolPipeline {
 
     const message = e instanceof ToolError ? e.message : (e as Error).message;
     const classified = classifyToolFailure(ctx.tool.name, e, ctx.tc.arguments);
+    const artifactId = await this.archiveToolOutput(ctx, message, {
+      error: true,
+      category: classified.category,
+    });
     this.deps.breaker.recordFailure(ctx.tool.name);
     await this.deps.emit("tool_end", {
       name: ctx.tool.name,
@@ -245,6 +290,7 @@ export class ToolPipeline {
       output: `Tool error [${classified.category}]: ${message}`,
       approved: ctx.approved,
       durationMs: Date.now() - ctx.execStarted,
+      artifactId,
       error: message,
     };
   }

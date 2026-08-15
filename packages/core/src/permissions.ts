@@ -1,4 +1,4 @@
-import type { RiskClass, Tool } from "@ninjacode/tools";
+import type { GrantPolicy, RiskClass, Tool } from "@ninjacode/tools";
 
 export type ApprovalMode = "strict" | "balanced" | "autonomous";
 
@@ -16,6 +16,12 @@ export interface PermissionPolicy {
   denylist?: string[];
   /** Session grants after user approval (tool:target). */
   grants?: Set<string>;
+}
+
+export interface PermissionCall {
+  scopes?: string[];
+  risk?: RiskClass;
+  grantPolicy?: GrantPolicy;
 }
 
 const DEFAULT_AUTO: Record<ApprovalMode, RiskClass[]> = {
@@ -51,9 +57,11 @@ export class PermissionEngine {
   evaluate(
     tool: Tool,
     target: string,
-    scopes?: string[],
-    risk: RiskClass = tool.risk,
+    call: PermissionCall = {},
   ): PermissionDecision {
+    const scopes = call.scopes;
+    const risk = call.risk ?? tool.risk;
+    const grantPolicy = call.grantPolicy ?? (scopes?.length ? "scoped" : "exact");
     if (this.policy.denylist?.includes(tool.name)) {
       return { allowed: false, needsApproval: false, reason: `Tool ${tool.name} is denylisted` };
     }
@@ -63,25 +71,39 @@ export class PermissionEngine {
       return { allowed: true, needsApproval: false, reason: "allowlist" };
     }
 
-    const granted = this.grantDecision(tool.name, target, scopes, risk);
+    const granted = this.grantDecision(tool.name, target, {
+      scopes,
+      risk,
+      grantPolicy,
+    });
     if (granted) return granted;
 
     const autoDecision = autoApproveDecision(this.policy.mode, risk);
-    if (autoDecision) return autoDecision;
+    if (autoDecision) {
+      if (autoDecision.needsApproval && grantPolicy === "never") {
+        return { ...autoDecision, reason: `${autoDecision.reason}; dynamic call cannot be remembered` };
+      }
+      return autoDecision;
+    }
 
     return {
       allowed: true,
       needsApproval: true,
-      reason: `${risk} requires approval in ${this.policy.mode} mode`,
+      reason:
+        grantPolicy === "never"
+          ? `${risk} requires per-call approval in ${this.policy.mode} mode`
+          : `${risk} requires approval in ${this.policy.mode} mode`,
     };
   }
 
   private grantDecision(
     toolName: string,
     target: string,
-    scopes: string[] | undefined,
-    risk: RiskClass,
+    call: Required<Pick<PermissionCall, "risk" | "grantPolicy">> &
+      Pick<PermissionCall, "scopes">,
   ): PermissionDecision | null {
+    const { scopes, risk, grantPolicy } = call;
+    if (grantPolicy === "never") return null;
     const grants = this.policy.grants;
     if (!grants) return null;
     if (grants.has(`${toolName}:${target}`)) {

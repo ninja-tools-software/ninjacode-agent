@@ -103,10 +103,29 @@ export interface AgentAdapter {
   }>;
 }
 
+export interface RunManifest {
+  harnessVersion: string;
+  gitSha?: string;
+  promptHash?: string;
+  rulesHash?: string;
+  resolvedModel?: string;
+  provider?: string;
+  temperature?: number;
+  budgets?: { maxTurns?: number; maxCostUsd?: number; runTimeoutMs?: number };
+  platform: string;
+  sandboxMode?: string;
+  contextSchema?: string;
+  mcpProtocol?: string;
+  publishable: boolean;
+}
+
 export interface RunReport {
   startedAt: string;
   finishedAt: string;
   gitCommit?: string;
   agents: string[];
   results: TaskResult[];
+  manifest?: RunManifest;
+  keepRate?: number;
+  unpublished?: boolean;
 }

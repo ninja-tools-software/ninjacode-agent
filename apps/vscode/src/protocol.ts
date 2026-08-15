@@ -126,6 +126,8 @@ export type UiLogItem =
       target: string;
       reason: string;
       grantScope?: string;
+      /** False for dynamic commands whose approval must never be persisted. */
+      canRemember?: boolean;
       /** The call is irreversible — the card warns instead of offering a type grant. */
       danger?: boolean;
       resolved?: boolean;
@@ -639,6 +641,8 @@ export type HostToWebview =
       reason: string;
       /** Human label of what "Always" will remember (e.g. `git status`, `cat, grep`). */
       grantScope?: string;
+      /** False for dynamic commands whose approval must never be persisted. */
+      canRemember?: boolean;
       /** The call is irreversible — the card warns instead of offering a type grant. */
       danger?: boolean;
     }

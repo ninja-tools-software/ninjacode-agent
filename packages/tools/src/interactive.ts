@@ -3,6 +3,7 @@ import path from "node:path";
 import type { Tool, ToolResult } from "./types.js";
 import { ToolError } from "./types.js";
 import { truncateForModel } from "./output.js";
+import { safeHttpGet } from "./safeHttp.js";
 
 export interface TodoItem {
   id: string;
@@ -318,37 +319,34 @@ export const fetchUrlTool: Tool = {
   },
   async execute(ctx, args): Promise<ToolResult> {
     const url = String(args.url ?? "");
-    const max = typeof args.max_chars === "number" ? args.max_chars : 20_000;
-    let parsed: URL;
+    const requested = typeof args.max_chars === "number" ? args.max_chars : 20_000;
+    const max = Math.min(Math.max(Math.floor(requested), 1), 100_000);
+    let response;
     try {
-      parsed = new URL(url);
-    } catch {
-      throw new ToolError(`Invalid URL: ${url}`, "invalid_args");
-    }
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      throw new ToolError(`Unsupported protocol: ${parsed.protocol}`, "invalid_args");
-    }
-
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        signal: ctx.signal ?? AbortSignal.timeout(30_000),
-        redirect: "follow",
-        headers: { "User-Agent": "NinjaCode/0.1 (+https://ninjacode.dev)" },
+      response = await safeHttpGet(url, {
+        signal: ctx.signal,
+        maxBytes: Math.max(64 * 1024, max * 4),
       });
     } catch (e) {
+      if (e instanceof ToolError) throw e;
       throw new ToolError(`Fetch failed: ${(e as Error).message}`, "runtime");
     }
 
-    const contentType = res.headers.get("content-type") ?? "";
-    const raw = await res.text();
+    const contentType = response.contentType;
+    const raw = response.text;
     let text = raw;
     if (contentType.includes("html") || /^\s*</.test(raw)) {
       text = htmlToText(raw);
     }
     return {
-      output: `status: ${res.status}\ncontent-type: ${contentType}\n\n${truncateForModel(text, max)}`,
-      meta: { status: res.status, url, contentType, chars: text.length },
+      output: `status: ${response.status}\ncontent-type: ${contentType}\n\n${truncateForModel(text, max)}`,
+      meta: {
+        status: response.status,
+        url: response.url,
+        contentType,
+        chars: text.length,
+        bytes: response.bytes,
+      },
     };
   },
 };

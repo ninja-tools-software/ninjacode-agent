@@ -232,6 +232,14 @@ export class BudgetTracker {
   cacheReadTokens = 0;
   cacheWriteTokens = 0;
   estimatedCostUsd = 0;
+  compactionInputTokens = 0;
+  compactionOutputTokens = 0;
+  compactionCacheReadTokens = 0;
+  compactionCacheWriteTokens = 0;
+  compactionEstimatedCostUsd = 0;
+  compactionCount = 0;
+  compactionDurationMs = 0;
+  compactionModel?: string;
 
   /**
    * `pricing` must be the price table of the model actually being called: a run
@@ -253,8 +261,13 @@ export class BudgetTracker {
     outputTokens: number;
     cacheReadTokens?: number;
     cacheWriteTokens?: number;
-  }): void {
-    const p = this.pricing;
+  }, opts: {
+    category?: "compaction";
+    pricing?: ModelPricing;
+    durationMs?: number;
+    model?: string;
+  } = {}): void {
+    const p = opts.pricing ?? this.pricing;
     const cacheReadPrice = p.cacheRead ?? p.input * CACHE_READ_MULTIPLIER;
     const cacheWritePrice = p.cacheWrite ?? p.input * CACHE_WRITE_MULTIPLIER;
     const cacheRead = usage.cacheReadTokens ?? 0;
@@ -263,11 +276,22 @@ export class BudgetTracker {
     this.outputTokens += usage.outputTokens;
     this.cacheReadTokens += cacheRead;
     this.cacheWriteTokens += cacheWrite;
-    this.estimatedCostUsd +=
+    const cost =
       (usage.inputTokens / 1e6) * p.input +
       (cacheRead / 1e6) * cacheReadPrice +
       (cacheWrite / 1e6) * cacheWritePrice +
       (usage.outputTokens / 1e6) * p.output;
+    this.estimatedCostUsd += cost;
+    if (opts.category === "compaction") {
+      this.compactionInputTokens += usage.inputTokens;
+      this.compactionOutputTokens += usage.outputTokens;
+      this.compactionCacheReadTokens += cacheRead;
+      this.compactionCacheWriteTokens += cacheWrite;
+      this.compactionEstimatedCostUsd += cost;
+      this.compactionCount += 1;
+      this.compactionDurationMs += opts.durationMs ?? 0;
+      this.compactionModel = opts.model ?? this.compactionModel;
+    }
   }
 
   check(): { ok: boolean; reason?: string } {
@@ -298,6 +322,16 @@ export class BudgetTracker {
       cacheReadTokens: this.cacheReadTokens,
       cacheWriteTokens: this.cacheWriteTokens,
       estimatedCostUsd: this.estimatedCostUsd,
+      compaction: {
+        inputTokens: this.compactionInputTokens,
+        outputTokens: this.compactionOutputTokens,
+        cacheReadTokens: this.compactionCacheReadTokens,
+        cacheWriteTokens: this.compactionCacheWriteTokens,
+        estimatedCostUsd: this.compactionEstimatedCostUsd,
+        count: this.compactionCount,
+        durationMs: this.compactionDurationMs,
+        model: this.compactionModel,
+      },
     };
   }
 }

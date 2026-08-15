@@ -1,7 +1,7 @@
 import type { RunReport, TaskResult } from "./types.js";
 import { summarize } from "./report.js";
 
-export interface MetricTotals {
+interface MetricTotals {
   passRate: number;
   passed: number;
   total: number;
@@ -18,7 +18,7 @@ export interface MetricTotals {
   wallTimeMs: number;
 }
 
-export interface TaskDelta {
+interface TaskDelta {
   taskId: string;
   baselinePassRate: number;
   afterPassRate: number;
@@ -26,7 +26,7 @@ export interface TaskDelta {
   delta: number;
 }
 
-export interface CompareResult {
+interface CompareResult {
   baseline: MetricTotals;
   after: MetricTotals;
   deltas: {

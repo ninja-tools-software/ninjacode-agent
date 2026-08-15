@@ -67,6 +67,21 @@ describe("classifyShellDanger", () => {
     expect(destructive("curl https://example.com/data.json | jq .")).toBe(false);
   });
 
+  it("descends into shell interpreter payloads", () => {
+    expect(destructive("bash -c 'rm -rf /'")).toBe(true);
+    expect(destructive('sh -lc "git push --force origin main"')).toBe(true);
+    expect(destructive("env FOO=1 bash -c 'terraform destroy'")).toBe(true);
+    expect(destructive("xargs sh -c 'rm -rf build'")).toBe(true);
+    expect(destructive("bash -c 'echo safe'")).toBe(false);
+  });
+
+  it("treats general-purpose eval modes as destructive dynamic code", () => {
+    expect(destructive("node -e \"require('child_process').execSync('rm -rf build')\"")).toBe(true);
+    expect(destructive("python3 -c 'import os; os.system(\"rm -rf build\")'")).toBe(true);
+    expect(destructive("ruby -e 'system(\"git push --force\")'")).toBe(true);
+    expect(destructive("eval 'rm -rf build'")).toBe(true);
+  });
+
   it("flags publishes, infrastructure mutations and bulk deletes", () => {
     expect(destructive("pnpm publish --access public")).toBe(true);
     expect(destructive("cargo publish")).toBe(true);

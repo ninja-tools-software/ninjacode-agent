@@ -5,7 +5,7 @@ import { parseOverage } from "./billingGateway.js";
 import { resolveGatewayBase, resolveWebUrl } from "./providerHelper.js";
 import type { AccountOveragePayload } from "./protocol.js";
 
-export type GatewayModelsResult =
+type GatewayModelsResult =
   | {
       ok: true;
       models: ModelInfo[];

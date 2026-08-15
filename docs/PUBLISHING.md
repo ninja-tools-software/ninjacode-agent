@@ -18,10 +18,20 @@ into this repo: it is proprietary and cannot be redistributed under the GPL.
 
 1. Create a publisher at https://marketplace.visualstudio.com/manage
 2. Get a Personal Access Token (Azure DevOps) with Marketplace scope
-3. Package and publish:
+3. Prepare the release version explicitly and commit it:
 
 ```bash
-npx pnpm --filter ninjacode build
+pnpm version:bump
+pnpm version:verify
+git add package.json apps/vscode/package.json
+git commit -m "release: v$(node -p 'require(\"./package.json\").version')"
+git tag "v$(node -p 'require(\"./package.json\").version')"
+```
+
+4. Package and publish without mutating either manifest:
+
+```bash
+pnpm --filter ninjacode build
 cd apps/vscode
 npx @vscode/vsce login YOUR_PUBLISHER
 npx @vscode/vsce package --no-dependencies
@@ -70,8 +80,10 @@ npx pnpm --filter @ninjacode/acp-agent build
 
 ```bash
 pnpm build && pnpm test
+pnpm check:clean-tree
 pnpm typecheck
 pnpm lint && pnpm depcruise && pnpm knip
+pnpm version:verify
 ```
 
 Live evals against a real provider:

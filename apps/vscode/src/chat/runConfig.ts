@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import type { AgentMode, ApprovalMode } from "@ninjacode/core";
+import { DEFAULT_RUN_TIMEOUT_MS, type AgentMode, type ApprovalMode } from "@ninjacode/core";
+import type { SandboxMode } from "@ninjacode/tools";
 import {
   getModelInfo,
   type ProviderKind,
@@ -18,6 +19,8 @@ interface RunConfig {
   baseUrl?: string;
   mode: AgentMode;
   approvalMode: ApprovalMode;
+  sandboxMode: SandboxMode;
+  runTimeoutMs: number;
   contextWindow?: number;
   maxTokens: number;
   reasoningEffort?: ReasoningEffort;
@@ -61,6 +64,10 @@ export function readRunConfig(modeOverride?: AgentMode): RunConfig {
     baseUrl: resolveBaseUrl(cfg, kind),
     mode: modeOverride ?? cfg.get<AgentMode>("mode") ?? "agent",
     approvalMode: clampApprovalForTrust(cfg.get<ApprovalMode>("approvalMode") ?? "balanced"),
+    sandboxMode: vscode.workspace.isTrusted
+      ? (cfg.get<SandboxMode>("sandboxMode") ?? "workspace-write")
+      : "read-only",
+    runTimeoutMs: cfg.get<number>("runTimeoutMs") || DEFAULT_RUN_TIMEOUT_MS,
     contextWindow: resolveContextWindow(configuredWindow, modelInfo),
     maxTokens: modelInfo?.maxOutput ?? 8192,
     ...resolveReasoning(cfg, modelInfo),

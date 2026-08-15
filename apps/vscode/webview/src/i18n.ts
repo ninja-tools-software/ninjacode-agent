@@ -2,9 +2,9 @@ import * as l10n from "@vscode/l10n";
 import en from "./i18n/bundle.l10n.json";
 import fr from "./i18n/bundle.l10n.fr.json";
 
-export type UiLocale = "en" | "fr";
+type UiLocale = "en" | "fr";
 
-export function normalizeLocale(locale: string): UiLocale {
+function normalizeLocale(locale: string): UiLocale {
   return locale.toLowerCase().startsWith("fr") ? "fr" : "en";
 }
 

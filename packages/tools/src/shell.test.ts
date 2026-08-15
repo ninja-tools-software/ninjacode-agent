@@ -9,6 +9,7 @@ import type { ToolContext } from "./types.js";
 const ctx: Omit<ToolContext, "signal"> = {
   workspaceRoot: process.cwd(),
   agentDir: process.cwd(),
+  sandboxMode: "danger-full-access",
 };
 
 describe("shellTool abort", () => {
@@ -54,6 +55,20 @@ describe("shellTool abort", () => {
     } finally {
       killShellSession(sessionId);
     }
+  }, 10_000);
+
+  it("kills the process group when timeout_ms elapses", async () => {
+    const marker = path.join(os.tmpdir(), `nc-shell-timeout-${Date.now()}`);
+    const start = Date.now();
+    await expect(
+      shellTool.execute(
+        { ...ctx, signal: AbortSignal.timeout(5_000) },
+        { command: `sleep 30; echo done > ${marker}`, timeout_ms: 200 },
+      ),
+    ).rejects.toMatchObject({ code: "timeout" });
+    expect(Date.now() - start).toBeLessThan(3_000);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(fs.existsSync(marker)).toBe(false);
   }, 10_000);
 
   it("rejects cwd that is only a string-prefix sibling of the workspace", async () => {

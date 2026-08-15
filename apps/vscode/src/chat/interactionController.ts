@@ -28,6 +28,7 @@ export class InteractionController {
       target: string;
       reason: string;
       grantScopes?: string[];
+      canRemember?: boolean;
       danger?: boolean;
     },
   ): Promise<{ approved: boolean; remember?: boolean }> {
@@ -40,6 +41,7 @@ export class InteractionController {
       target: req.target,
       reason: req.reason,
       grantScope: scopes.length > 0 ? scopes.join(", ") : undefined,
+      canRemember: req.canRemember,
       danger: req.danger,
     });
     this.notifyIfHidden(sessionId, `NinjaCode needs approval: ${req.toolName} — ${req.reason}`, "Review");

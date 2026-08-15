@@ -2,6 +2,8 @@
  * Risk taxonomy for tools — enforced by the harness permission engine.
  */
 export type RiskClass = "read_only" | "write" | "destructive" | "network" | "shell" | "user";
+export type GrantPolicy = "never" | "exact" | "scoped";
+export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 
 /** A single ranked hit returned by a codebase index (lexical or semantic). */
 export interface CodebaseSearchHit {
@@ -47,6 +49,8 @@ export interface ToolContext {
   signal?: AbortSignal;
   /** Active persisted session id (for plan bookkeeping). */
   sessionId?: string;
+  /** OS execution boundary used by shell-like tools. Defaults to workspace-write. */
+  sandboxMode?: SandboxMode;
   /** Stable plan id for the session (defaults to hash of sessionId). */
   planId?: string;
   /** Optional local codebase index used by `search_codebase` when available. */
@@ -98,6 +102,12 @@ export interface Tool {
    * list falls back to remembering the exact `target`.
    */
   grantScopes?(args: Record<string, unknown>): string[];
+  /**
+   * Controls whether an approval may be persisted. Dynamic interpreters and
+   * wrappers use `never`; ordinary calls default to `scoped` when scopes are
+   * present and `exact` otherwise.
+   */
+  grantPolicy?(args: Record<string, unknown>): GrantPolicy;
   execute(ctx: ToolContext, args: Record<string, unknown>): Promise<ToolResult>;
 }
 

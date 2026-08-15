@@ -3,6 +3,7 @@ import type { Message } from "@ninjacode/providers";
 import type { ToolRegistry } from "@ninjacode/tools";
 import { estimateContextForSession } from "./agentContextEstimate.js";
 import { compactAgentHistory } from "./agentCompact.js";
+import type { CompactionInfo } from "./context.js";
 import { redact, truncateForLog } from "./agentLogs.js";
 import type { AgentTaskInput } from "./agentOptions.js";
 import type { ContextUsageBreakdown } from "./contextEstimate.js";
@@ -30,6 +31,7 @@ export async function compactAgentSession(opts: {
   pinnedTask?: string;
   provider: import("@ninjacode/providers").LlmProvider;
   model?: string;
+  utilityModel?: string;
   contextWindow?: number;
   workspaceRoot: string;
   agentDir: string;
@@ -39,7 +41,7 @@ export async function compactAgentSession(opts: {
   maxTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
-  onCompaction: (info: unknown) => Promise<void>;
+  onCompaction: (info: CompactionInfo) => Promise<void>;
   onUsage: (usage: ContextUsageBreakdown) => Promise<void>;
 }): Promise<{ compacted: Message[]; usage: ContextUsageBreakdown } | null> {
   const result = await compactAgentHistory(opts);

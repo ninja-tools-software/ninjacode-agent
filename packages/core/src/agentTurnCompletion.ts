@@ -235,6 +235,7 @@ export function appendToolResults(
   invocations: Array<{
     output: string;
     toolCall: { id: string; name: string; arguments: Record<string, unknown> };
+    artifactId?: string;
     meta?: Record<string, unknown>;
   }>,
   truncate: (output: string, toolName: string) => string,
@@ -248,6 +249,9 @@ export function appendToolResults(
       } else if (inv.toolCall.name === "list_dir") {
         content = annotateListDir(pathArg, content, Boolean(inv.toolCall.arguments.recursive));
       }
+    }
+    if (inv.artifactId) {
+      content += `\n\n[Full output archived as artifact ${inv.artifactId}. Use read_session_artifact to inspect it.]`;
     }
     history.push({
       role: "tool",

@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": ["apps/bench/tasks/**/fixture/**"],
   "workspaces": {
     ".": {
       "project": ["*.{ts,mjs,cjs}"]
@@ -9,8 +10,8 @@
       "project": ["src/**/*.ts"]
     },
     "apps/cli": {
-      "entry": ["src/eval.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["src/eval.ts", "esbuild.mjs"],
+      "project": ["src/**/*.ts", "esbuild.mjs"]
     },
     "apps/acp-agent": {
       "project": ["src/**/*.ts"]

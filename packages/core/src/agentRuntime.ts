@@ -1,4 +1,4 @@
-import type { TokenUsage, ToolSpec } from "@ninjacode/providers";
+import { resolveModelPricing, type TokenUsage, type ToolSpec } from "@ninjacode/providers";
 import type { Message } from "@ninjacode/providers";
 import { estimateContextUsage, type ContextUsageBreakdown } from "./contextEstimate.js";
 import type { BudgetTracker } from "./reliability.js";
@@ -52,8 +52,14 @@ export function trackTokenUsage(
   budget: BudgetTracker,
   cacheStats: { cacheReadTokens: number; cacheWriteTokens: number },
   usage: TokenUsage,
+  opts: { category?: "compaction"; model?: string; durationMs?: number } = {},
 ): void {
-  budget.add(usage);
+  budget.add(usage, {
+    category: opts.category,
+    pricing: opts.model ? resolveModelPricing(opts.model) : undefined,
+    model: opts.model,
+    durationMs: opts.durationMs,
+  });
   cacheStats.cacheReadTokens += usage.cacheReadTokens ?? 0;
   cacheStats.cacheWriteTokens += usage.cacheWriteTokens ?? 0;
 }
@@ -66,6 +72,7 @@ export function estimateAgentUsage(opts: {
   maxTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
+  model?: string;
 }): ContextUsageBreakdown {
   return estimateContextUsage({
     system: opts.system,
@@ -75,5 +82,6 @@ export function estimateAgentUsage(opts: {
     reservedOutput: opts.maxTokens,
     cacheReadTokens: opts.cacheReadTokens,
     cacheWriteTokens: opts.cacheWriteTokens,
+    model: opts.model,
   });
 }

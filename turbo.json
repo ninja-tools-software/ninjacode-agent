@@ -1,6 +1,5 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalPassThroughEnv": ["NINJACODE_BUMP"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

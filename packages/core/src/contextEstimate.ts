@@ -1,17 +1,46 @@
 import type { Message, ToolSpec } from "@ninjacode/providers";
 
-/** Rough token estimate (chars / 4) for compaction thresholds. */
-export function estimateTokens(messages: Message[]): number {
+const DEFAULT_CALIBRATION = 1.1;
+const MAX_CALIBRATION = 4;
+const CALIBRATION_SAMPLES = 64;
+const calibrationByModel = new Map<string, number[]>();
+
+function modelKey(model?: string): string {
+  return model?.trim().toLowerCase() || "default";
+}
+
+/** Record observed provider input usage so future estimates remain conservative. */
+export function recordTokenCalibration(model: string | undefined, estimated: number, actual: number): void {
+  if (estimated <= 0 || actual <= 0) return;
+  const ratio = Math.min(MAX_CALIBRATION, Math.max(1, actual / estimated));
+  const key = modelKey(model);
+  const samples = calibrationByModel.get(key) ?? [];
+  samples.push(ratio);
+  if (samples.length > CALIBRATION_SAMPLES) samples.shift();
+  calibrationByModel.set(key, samples);
+}
+
+/** A guarded p95 multiplier; it is never below the raw chars/4 estimate. */
+export function tokenCalibrationMultiplier(model?: string): number {
+  const samples = calibrationByModel.get(modelKey(model));
+  if (!samples?.length) return DEFAULT_CALIBRATION;
+  const sorted = [...samples].sort((a, b) => a - b);
+  const p95 = sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)]!;
+  return Math.min(MAX_CALIBRATION, Math.max(1, p95 * 1.05));
+}
+
+/** Conservative token estimate calibrated from actual usage for the resolved model. */
+export function estimateTokens(messages: Message[], model?: string): number {
   let chars = 0;
   for (const m of messages) {
     chars += m.content.length;
     if (m.toolCalls) chars += JSON.stringify(m.toolCalls).length;
   }
-  return Math.ceil(chars / 4);
+  return Math.ceil((chars / 4) * tokenCalibrationMultiplier(model));
 }
 
-export function estimateTextTokens(text: string): number {
-  return Math.ceil(text.length / 4);
+function estimateTextTokens(text: string, model?: string): number {
+  return Math.ceil((text.length / 4) * tokenCalibrationMultiplier(model));
 }
 
 /** Breakdown of estimated tokens consumed by the next LLM call. */
@@ -27,6 +56,10 @@ export interface ContextUsageBreakdown {
   total: number;
   /** Context window budget being tracked against (0 if unknown). */
   window: number;
+  /** Guard band reserved for tokenizer/provider variance. */
+  safetyMargin: number;
+  /** window - output - safetyMargin; 0 when the window is unknown. */
+  inputBudget: number;
   cacheRead?: number;
   cacheWrite?: number;
 }
@@ -44,24 +77,31 @@ export function estimateContextUsage(opts: {
   reservedOutput?: number;
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
+  model?: string;
 }): ContextUsageBreakdown {
-  const system = estimateTextTokens(opts.system);
-  const history = estimateTokens(opts.history);
+  const system = estimateTextTokens(opts.system, opts.model);
+  const history = estimateTokens(opts.history, opts.model);
   const files = estimateTokens(
     opts.history.filter(
       (m) => m.role === "tool" && (m.name === "read_file" || m.name === "list_dir"),
     ),
+    opts.model,
   );
-  const tools = opts.tools?.length ? estimateTextTokens(JSON.stringify(opts.tools)) : 0;
+  const tools = opts.tools?.length ? estimateTextTokens(JSON.stringify(opts.tools), opts.model) : 0;
+  const window = opts.window ?? 0;
+  const output = opts.reservedOutput ?? 0;
+  const safetyMargin = window > 0 ? Math.max(512, Math.floor(window * 0.05)) : 0;
 
   return {
     system,
     history,
     tools,
     files,
-    output: opts.reservedOutput ?? 0,
+    output,
     total: system + history + tools,
-    window: opts.window ?? 0,
+    window,
+    safetyMargin,
+    inputBudget: window > 0 ? Math.max(1, window - output - safetyMargin) : 0,
     cacheRead: opts.cacheReadTokens,
     cacheWrite: opts.cacheWriteTokens,
   };

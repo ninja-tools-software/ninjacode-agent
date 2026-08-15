@@ -7,7 +7,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 /** Default task directory: apps/bench/tasks (works from dist/ and src/). */
 const defaultTasksDir = path.resolve(here, "..", "tasks");
 
-export interface TaskFilter {
+interface TaskFilter {
   /** Restrict to these task ids (from `--tasks a,b`). */
   ids?: string[];
   /** Restrict to tasks that list this suite tag (from `--suite NAME`). */

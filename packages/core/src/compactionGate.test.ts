@@ -15,19 +15,25 @@ function msgs(n: number): Message[] {
 }
 
 describe("computeCompactionLimits", () => {
-  it("falls back to 40/80 messages when no window is set", () => {
+  it("falls back to the hard message cap when no window is set", () => {
     const limits = computeCompactionLimits();
-    expect(limits.softLimit).toBe(40);
     expect(limits.hardLimit).toBe(80);
-    expect(limits.tokenSoftThreshold).toBe(0);
+    expect(limits.tokenHighThreshold).toBe(0);
     expect(limits.tokenHardThreshold).toBe(0);
   });
 
-  it("scales message and token thresholds from a 500k window", () => {
+  it("subtracts output and safety before deriving target and high thresholds", () => {
+    const limits = computeCompactionLimits(500_000, { reservedOutputTokens: 20_000 });
+    expect(limits.inputBudget).toBe(455_000);
+    expect(limits.targetTokens).toBe(273_000);
+    expect(limits.tokenHighThreshold).toBe(386_750);
+    expect(limits.tokenHardThreshold).toBe(455_000);
+  });
+
+  it("keeps message count out of the gate when a token budget is known", () => {
     const limits = computeCompactionLimits(500_000);
-    expect(limits.softLimit).toBe(400);
-    expect(limits.hardLimit).toBe(410);
-    expect(limits.tokenSoftThreshold).toBe(425_000);
+    expect(limits.hardLimit).toBe(80);
+    expect(limits.tokenHighThreshold).toBe(403_750);
     expect(limits.tokenHardThreshold).toBe(475_000);
   });
 });
@@ -61,11 +67,24 @@ describe("resolveCompactionTrigger", () => {
     expect(resolveCompactionTrigger(msgs(5), limits, { force: true })).toBe("manual");
   });
 
-  it("reports token_soft when estimated tokens cross the soft threshold", () => {
+  it("skips retrigger after compaction lands near the 60% target", () => {
+    const limits = computeCompactionLimits(8_000);
+    const nearTarget: Message[] = [{ role: "user", content: "x".repeat(limits.targetTokens) }];
+    expect(shouldSkipCompaction(nearTarget, limits, { contextWindow: 8_000 })).toBe(true);
+    const overHigh: Message[] = [{ role: "user", content: "x".repeat(limits.tokenHighThreshold * 5) }];
+    expect(shouldSkipCompaction(overHigh, limits, { contextWindow: 8_000 })).toBe(false);
+  });
+
+  it("keeps a tiny window from overflowing the input budget after compaction", () => {
+    const limits = computeCompactionLimits(400, { reservedOutputTokens: 80 });
+    expect(limits.inputBudget).toBeLessThan(400);
+    expect(limits.targetTokens).toBe(Math.floor(limits.inputBudget * 0.6));
+  });
+
+  it("reports token_high when estimated tokens cross the high threshold", () => {
     const limits = computeCompactionLimits(4_000);
-    // Soft = floor(4000 * 0.85) = 3400 tokens ≈ 13.6k chars; stay under hard (3800).
-    const heavy: Message[] = [{ role: "user", content: "x".repeat(14_500) }];
-    expect(resolveCompactionTrigger(heavy, limits, { contextWindow: 4_000 })).toBe("token_soft");
+    const heavy: Message[] = [{ role: "user", content: "x".repeat(12_000) }];
+    expect(resolveCompactionTrigger(heavy, limits, { contextWindow: 4_000 })).toBe("token_high");
   });
 });
 

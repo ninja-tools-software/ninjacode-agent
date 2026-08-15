@@ -46,6 +46,7 @@ interface AgentRunnerDeps {
       target: string;
       reason: string;
       grantScopes?: string[];
+      canRemember?: boolean;
       danger?: boolean;
     },
   ): Promise<{ approved: boolean; remember?: boolean }>;
@@ -152,6 +153,8 @@ export class AgentRunner {
         reasoningEffort: config.reasoningEffort,
         thinkingBudgetTokens: config.thinkingBudgetTokens,
         contextWindow: config.contextWindow,
+        sandboxMode: config.sandboxMode,
+        runTimeoutMs: config.runTimeoutMs,
         codebaseIndex: codebaseIndex as never,
         diagnosticsProvider: createDiagnosticsProvider(root),
         enableWorkspaceHooks: trusted,
@@ -179,6 +182,7 @@ export class AgentRunner {
         target: string;
         reason: string;
         grantScopes?: string[];
+        canRemember?: boolean;
         danger?: boolean;
       }) => this.deps.requestApproval(id, req),
     });

@@ -16,31 +16,54 @@ import { editProgressWarning, hasMutatedWorkspace, hasWrittenPlan, type Progress
 import { repeatedReadWarning } from "./readChurn.js";
 import type { AgentTurnDeps, AgentTurnOutcome } from "./agentTurnTypes.js";
 import type { ToolInvocation } from "./types.js";
+import { startSpan } from "./telemetry.js";
 
 export type { AgentTurnDeps, AgentTurnMutableState } from "./agentTurnTypes.js";
 export { buildUserMessageContent, dropOrphanUserMessage } from "./agentTurnLlm.js";
 
 export async function runAgentTurn(deps: AgentTurnDeps): Promise<AgentTurnOutcome> {
+  const turnSpan = startSpan("turn", { turn: deps.turn + 1 });
   const blocked = await checkTurnPreconditions(deps);
-  if (blocked) return blocked;
-
-  await syncVolatileContext(deps);
-  await deps.emit("thinking", { turn: deps.turn + 1 });
-
-  const messages = await prepareTurnMessages(deps);
-  const llmResult = await callLlmForTurn(deps, messages, deps.toolSpecs);
-  if ("kind" in llmResult) return llmResult;
-
-  const { completion } = llmResult;
-  if (!wantsTools(completion)) {
-    return handleCompletionWithoutTools(deps, completion);
+  if (blocked) {
+    turnSpan.end({ outcome: blocked.kind });
+    return blocked;
   }
 
-  return handleToolTurn(deps, completion);
+  try {
+    await syncVolatileContext(deps);
+    await deps.emit("thinking", { turn: deps.turn + 1 });
+
+    const messages = await prepareTurnMessages(deps);
+    const llmResult = await callLlmForTurn(deps, messages, deps.toolSpecs);
+    if ("kind" in llmResult) {
+      turnSpan.end({ outcome: llmResult.kind });
+      return llmResult;
+    }
+
+    const { completion } = llmResult;
+    await deps.recordSessionEvent("assistant_message", {
+      text: completion.text,
+      toolCalls: completion.toolCalls,
+      stopReason: completion.stopReason,
+      usage: completion.usage,
+    });
+    if (!wantsTools(completion)) {
+      const outcome = await handleCompletionWithoutTools(deps, completion);
+      turnSpan.end({ outcome: outcome.kind });
+      return outcome;
+    }
+
+    const outcome = await handleToolTurn(deps, completion);
+    turnSpan.end({ outcome: outcome.kind });
+    return outcome;
+  } catch (error) {
+    turnSpan.end({ failed: true });
+    throw error;
+  }
 }
 
 /** True when this turn successfully wrote the plan (plan mode hard-stop signal). */
-export function successfulWritePlan(invocations: ToolInvocation[]): boolean {
+function successfulWritePlan(invocations: ToolInvocation[]): boolean {
   return invocations.some(
     (inv) => inv.toolCall.name === "write_plan" && inv.approved && !inv.error,
   );

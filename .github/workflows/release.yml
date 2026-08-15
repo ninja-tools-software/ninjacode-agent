@@ -16,21 +16,30 @@ jobs:
           version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - run: pnpm version:verify
+      - run: pnpm check:build-purity
+      - run: pnpm lint
+      - run: pnpm depcruise
+      - run: pnpm knip
+      - run: pnpm -r typecheck
       - run: pnpm build
+      - run: pnpm check:clean-tree
       - run: pnpm test
+      - run: pnpm check:clean-tree
+      - run: pnpm bench:harness
+      - run: pnpm check:clean-tree
       - name: Package VS Code extension
         run: pnpm --filter ninjacode package
-        continue-on-error: true
+      - run: pnpm check:clean-tree
       - name: Upload vsix
         uses: actions/upload-artifact@v4
         with:
           name: ninjacode-vsix
           path: apps/vscode/*.vsix
-        continue-on-error: true
 
   # Publishing requires secrets — configure VSCE_PAT, OVSX_PAT, NPM_TOKEN
   publish-npm:
@@ -44,9 +53,12 @@ jobs:
           version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile && pnpm build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm version:verify
+      - run: pnpm build
+      - run: pnpm check:clean-tree
       - name: Publish CLI + ACP (optional)
         run: |
           echo "Configure NPM_TOKEN to publish @ninjacode/cli and @ninjacode/acp-agent"

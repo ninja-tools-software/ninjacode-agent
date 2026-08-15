@@ -1,14 +1,18 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import type { Tool, ToolResult } from "./types.js";
+import type { Tool, ToolContext, ToolResult } from "./types.js";
 import { ToolError } from "./types.js";
 import { truncateForModel } from "./output.js";
 import { shellGrantScopes } from "./shellScope.js";
 import { classifyShellDanger } from "./shellDanger.js";
+import { canonicalizeShellCommand, isNonGrantableShellCommand } from "./shellParse.js";
 import { resolveInWorkspace } from "./paths.js";
+import { buildExecutionEnv, sandboxCommand } from "./sandbox.js";
 
 interface PersistentShell {
+  sessionId: string;
   proc: ChildProcessWithoutNullStreams;
   cwd: string;
+  policyKey: string;
   buffer: string;
   waiters: Array<{
     marker: string;
@@ -21,22 +25,60 @@ interface PersistentShell {
 const shells = new Map<string, PersistentShell>();
 let markerSeq = 0;
 
-function getOrCreateShell(sessionId: string, cwd: string, signal?: AbortSignal): PersistentShell {
-  const existing = shells.get(sessionId);
-  if (existing && !existing.proc.killed) return existing;
+function killProcessTree(proc: ChildProcessWithoutNullStreams, signal: NodeJS.Signals = "SIGTERM"): void {
+  if (process.platform !== "win32" && proc.pid) {
+    try {
+      process.kill(-proc.pid, signal);
+      return;
+    } catch {
+      // fall back to the direct child
+    }
+  }
+  proc.kill(signal);
+}
 
-  const shellBin = process.env.SHELL || (process.platform === "win32" ? "cmd.exe" : "/bin/bash");
+function shellBinary(): string {
+  return process.env.SHELL || (process.platform === "win32" ? "cmd.exe" : "/bin/bash");
+}
+
+function getOrCreateShell(
+  sessionId: string,
+  cwd: string,
+  ctx: ToolContext,
+  allowNetwork: boolean,
+): PersistentShell {
+  const mode = ctx.sandboxMode ?? "workspace-write";
+  const policyKey = `${mode}:${allowNetwork}`;
+  const existing = shells.get(sessionId);
+  if (existing && !existing.proc.killed && existing.policyKey === policyKey) return existing;
+  if (existing && !existing.proc.killed) killProcessTree(existing.proc);
+
+  const shellBin = shellBinary();
   const isWin = process.platform === "win32";
-  const proc = spawn(shellBin, isWin ? [] : ["-l"], {
+  const env = buildExecutionEnv(process.env, { PS1: "", PROMPT: "" });
+  const wrapped = sandboxCommand({
+    command: shellBin,
+    args: isWin ? [] : ["-l"],
     cwd,
-    env: { ...process.env, FORCE_COLOR: "0", PS1: "", PROMPT: "" },
+    workspaceRoot: ctx.workspaceRoot,
+    agentDir: ctx.agentDir,
+    mode,
+    allowNetwork,
+    env,
+  });
+  const proc = spawn(wrapped.command, wrapped.args, {
+    cwd,
+    env,
     stdio: ["pipe", "pipe", "pipe"],
-    signal,
+    signal: ctx.signal,
+    detached: !isWin,
   }) as ChildProcessWithoutNullStreams;
 
   const session: PersistentShell = {
+    sessionId,
     proc,
     cwd,
+    policyKey,
     buffer: "",
     waiters: [],
   };
@@ -95,6 +137,10 @@ export const shellTool: Tool = {
       command: { type: "string" },
       cwd: { type: "string", description: "Relative working directory" },
       timeout_ms: { type: "number", description: "Timeout in ms (default 60000)" },
+      network_access: {
+        type: "boolean",
+        description: "Request unrestricted network access for this command (default false)",
+      },
       session_id: {
         type: "string",
         description: "Optional session id for a persistent interactive shell",
@@ -103,17 +149,26 @@ export const shellTool: Tool = {
     required: ["command"],
   },
   target(args) {
-    return String(args.command ?? "");
+    const command = canonicalizeShellCommand(String(args.command ?? ""));
+    return args.network_access === true ? `${command} [network access]` : command;
   },
   riskFor(args) {
-    return classifyShellDanger(String(args.command ?? "")) ? "destructive" : "shell";
+    return classifyShellDanger(canonicalizeShellCommand(String(args.command ?? "")))
+      ? "destructive"
+      : "shell";
   },
   grantScopes(args) {
-    const command = String(args.command ?? "");
+    const command = canonicalizeShellCommand(String(args.command ?? ""));
     // A destructive command must never collapse into a command-type grant:
     // approving `git status` once would otherwise cover `git push --force`.
     if (classifyShellDanger(command)) return [];
     return shellGrantScopes(command);
+  },
+  grantPolicy(args) {
+    return shellGrantPolicy(
+      canonicalizeShellCommand(String(args.command ?? "")),
+      args.network_access === true,
+    );
   },
   async execute(ctx, args): Promise<ToolResult> {
     const command = String(args.command ?? "");
@@ -130,12 +185,13 @@ export const shellTool: Tool = {
 
     const timeout = typeof args.timeout_ms === "number" ? args.timeout_ms : 60_000;
     const sessionId = args.session_id ? String(args.session_id) : undefined;
+    const allowNetwork = args.network_access === true;
 
     if (!sessionId) {
-      return oneshot(command, cwd, timeout, ctx.signal);
+      return oneshot(command, cwd, timeout, ctx, allowNetwork);
     }
 
-    const shell = getOrCreateShell(sessionId, cwd, ctx.signal);
+    const shell = getOrCreateShell(sessionId, cwd, ctx, allowNetwork);
     if (args.cwd) {
       // Update cwd in the persistent shell
       await runInShell(shell, `cd ${shellQuote(cwd)}`, timeout, ctx.signal);
@@ -149,6 +205,14 @@ export const shellTool: Tool = {
     };
   },
 };
+
+export function shellGrantPolicy(
+  command: string,
+  networkAccess = false,
+): "never" | "exact" | "scoped" {
+  if (networkAccess || isNonGrantableShellCommand(command)) return "never";
+  return shellGrantScopes(command).length > 0 ? "scoped" : "exact";
+}
 
 function runInShell(
   shell: PersistentShell,
@@ -176,6 +240,8 @@ function runInShell(
       const idx = shell.waiters.indexOf(waiter);
       if (idx >= 0) shell.waiters.splice(idx, 1);
       cleanup();
+      killProcessTree(shell.proc);
+      shells.delete(shell.sessionId);
       reject(new ToolError(`Command timed out after ${timeout}ms`, "timeout"));
     }, timeout);
 
@@ -198,7 +264,8 @@ function runInShell(
       clearTimeout(timer);
       // The whole agent run is being cancelled — kill the persistent shell too
       // so we don't leave an orphaned process behind.
-      shell.proc.kill();
+      killProcessTree(shell.proc);
+      shells.delete(shell.sessionId);
       reject(new ToolError("Command aborted", "aborted"));
     };
     signal?.addEventListener("abort", onAbort, { once: true });
@@ -245,34 +312,50 @@ function oneshot(
   command: string,
   cwd: string,
   timeout: number,
-  signal?: AbortSignal,
+  ctx: ToolContext,
+  allowNetwork: boolean,
 ): Promise<ToolResult> {
+  const signal = ctx.signal;
   if (signal?.aborted) {
     return Promise.reject(new ToolError("Command aborted", "aborted"));
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawn(command, {
+    const isWin = process.platform === "win32";
+    const shellBin = shellBinary();
+    const shellArgs = isWin ? ["/d", "/s", "/c", command] : ["-lc", command];
+    const env = buildExecutionEnv();
+    const wrapped = sandboxCommand({
+      command: shellBin,
+      args: shellArgs,
       cwd,
-      shell: true,
-      env: { ...process.env, FORCE_COLOR: "0" },
-      signal,
+      workspaceRoot: ctx.workspaceRoot,
+      agentDir: ctx.agentDir,
+      mode: ctx.sandboxMode ?? "workspace-write",
+      allowNetwork,
+      env,
     });
+    const child = spawn(wrapped.command, wrapped.args, {
+      cwd,
+      env,
+      signal,
+      detached: !isWin,
+    }) as ChildProcessWithoutNullStreams;
 
     const capture: OneshotCapture = { stdout: "", stderr: "", aborted: false };
     attachOneshotOutput(child, capture);
 
     const timer = setTimeout(() => {
-      child.kill("SIGTERM");
+      killProcessTree(child);
       reject(new ToolError(`Command timed out after ${timeout}ms`, "timeout"));
     }, timeout);
 
     const onAbort = () => {
       capture.aborted = true;
       clearTimeout(timer);
-      child.kill("SIGTERM");
+      killProcessTree(child);
       setTimeout(() => {
-        if (!child.killed) child.kill("SIGKILL");
+        if (child.exitCode === null) killProcessTree(child, "SIGKILL");
       }, 2000);
       reject(new ToolError("Command aborted", "aborted"));
     };
@@ -308,7 +391,7 @@ function shellQuote(s: string): string {
 /** Kill and clear persistent shells (tests / session end). */
 export function clearShellSessions(): void {
   for (const [, s] of shells) {
-    s.proc.kill();
+    killProcessTree(s.proc);
   }
   shells.clear();
 }
@@ -316,7 +399,7 @@ export function clearShellSessions(): void {
 export function killShellSession(sessionId: string): void {
   const s = shells.get(sessionId);
   if (s) {
-    s.proc.kill();
+    killProcessTree(s.proc);
     shells.delete(sessionId);
   }
 }

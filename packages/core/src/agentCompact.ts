@@ -11,6 +11,7 @@ export async function compactAgentHistory(opts: {
   pinnedTask?: string;
   provider: LlmProvider;
   model?: string;
+  utilityModel?: string;
   contextWindow?: number;
   workspaceRoot: string;
   agentDir: string;
@@ -29,8 +30,10 @@ export async function compactAgentHistory(opts: {
     history: opts.history,
     pinnedTask: opts.pinnedTask,
     provider: opts.provider,
-    model: opts.model,
+    model: opts.utilityModel ?? opts.model,
+    budgetModel: opts.model,
     contextWindow: opts.contextWindow,
+    reservedOutputTokens: opts.maxTokens,
     force: true,
     onCompaction: opts.onCompaction,
   });
@@ -52,6 +55,7 @@ export async function compactAgentHistory(opts: {
     reservedOutput: opts.maxTokens,
     cacheReadTokens: opts.cacheReadTokens,
     cacheWriteTokens: opts.cacheWriteTokens,
+    model: opts.model,
   });
   await opts.onUsage(usage);
   return { compacted, usage };

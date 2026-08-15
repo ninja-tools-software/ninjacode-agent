@@ -1,7 +1,7 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { resolveModelPricing, type LlmProvider, type ReasoningEffort } from "@ninjacode/providers";
-import type { CodebaseIndexLike, DiagnosticsProvider } from "@ninjacode/tools";
+import type { CodebaseIndexLike, DiagnosticsProvider, SandboxMode } from "@ninjacode/tools";
 import { planIdForSession } from "@ninjacode/tools";
 import { BudgetTracker, withRetry, type SessionBudget } from "./reliability.js";
 import { CheckpointManager } from "./checkpoints.js";
@@ -45,6 +45,8 @@ export interface AgentOptions {
   contextWindow?: number;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
+  /** OS boundary for shell, hooks, verification, and local MCP servers. */
+  sandboxMode?: SandboxMode;
   runTimeoutMs?: number;
   enableCompletionVerification?: boolean;
   enableVerificationSubAgent?: boolean;
@@ -68,6 +70,7 @@ export interface ResolvedAgentConfig {
   contextWindow?: number;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
+  sandboxMode: SandboxMode;
   runTimeoutMs: number;
   enableCompletionVerification: boolean;
   enableVerificationSubAgent: boolean;
@@ -88,6 +91,8 @@ export interface ResolvedAgentConfig {
  * out. The figure is a list-price estimate, not an invoice.
  */
 const DEFAULT_MAX_COST_USD = 5;
+/** Product runs must not last forever; hosts may override. */
+export const DEFAULT_RUN_TIMEOUT_MS = 15 * 60 * 1000;
 
 function resolveBudget(budget: SessionBudget | undefined): SessionBudget {
   return { maxCostUsd: DEFAULT_MAX_COST_USD, ...budget };
@@ -125,7 +130,8 @@ export function resolveAgentConfig(opts: AgentOptions): ResolvedAgentConfig {
     contextWindow: opts.contextWindow,
     codebaseIndex: opts.codebaseIndex,
     diagnosticsProvider: opts.diagnosticsProvider,
-    runTimeoutMs: opts.runTimeoutMs ?? 0,
+    sandboxMode: opts.sandboxMode ?? "workspace-write",
+    runTimeoutMs: opts.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS,
     enableCompletionVerification: resolveCompletionVerification(opts, mode),
     enableVerificationSubAgent: opts.enableVerificationSubAgent ?? false,
     enableLoopDetection: opts.enableLoopDetection ?? true,

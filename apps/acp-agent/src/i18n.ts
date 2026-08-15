@@ -1,7 +1,7 @@
 import en from "./locales/en.json" with { type: "json" };
 import fr from "./locales/fr.json" with { type: "json" };
 
-export type AcpLocale = "en" | "fr";
+type AcpLocale = "en" | "fr";
 
 type Catalog = Record<string, string>;
 
@@ -15,7 +15,7 @@ export function normalizeLocale(value: string | undefined | null): AcpLocale {
   return base === "fr" ? "fr" : "en";
 }
 
-export function resolveLocale(): AcpLocale {
+function resolveLocale(): AcpLocale {
   return normalizeLocale(process.env.NINJACODE_LANG ?? process.env.LC_ALL ?? process.env.LANG);
 }
 

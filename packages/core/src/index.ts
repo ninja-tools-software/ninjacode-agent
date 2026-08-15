@@ -9,7 +9,19 @@ export {
   PermissionEngine,
   defaultPermissionPolicy,
 } from "./permissions.js";
-export type { ApprovalMode, PermissionDecision, PermissionPolicy } from "./permissions.js";
+export type { ApprovalMode, PermissionCall, PermissionDecision, PermissionPolicy } from "./permissions.js";
+export type { ContextViewOptions } from "./contextViewBuilder.js";
+export type { PutArtifactOptions } from "./sessionArtifacts.js";
+export { DEFAULT_RUN_TIMEOUT_MS } from "./agentOptions.js";
+export { startSpan, configureTelemetry } from "./telemetry.js";
+export type { TelemetryExporter, TelemetrySpan } from "./telemetry.js";
+export {
+  createOAuthAuthPort,
+  createDeviceOAuthHost,
+  createMemorySecretStore,
+  deviceCodeGrant,
+} from "./mcpOAuth.js";
+export type { McpOAuthGrant, McpOAuthHost, SecretStore } from "./mcpOAuth.js";
 
 export { CheckpointManager } from "./checkpoints.js";
 export type { Checkpoint, ChangedFileStat } from "./checkpoints.js";
@@ -69,6 +81,12 @@ export type { ScaffoldVerifyResult } from "./verifyInfer.js";
 export {
   McpClient,
 } from "./mcpClient.js";
+export type {
+  McpAuthPort,
+  McpExecutionOptions,
+  McpToolDefinition,
+} from "./mcpClient.js";
+export { McpCatalog } from "./mcpCatalog.js";
 export {
   expandEnvRefs,
   loadMcpConfig,
@@ -83,6 +101,9 @@ export {
 export type { McpConfigFile, McpServerConfig } from "./mcpConfig.js";
 export { loadMcpTools, loadMcpToolsWithStatus } from "./mcp.js";
 export type { McpServerStatus } from "./mcp.js";
+export { SessionArtifactStore } from "./sessionArtifacts.js";
+export { SessionEventLog, sessionEventLog } from "./sessionEventLog.js";
+export type { SessionEvent, SessionEventType } from "./sessionEventLog.js";
 
 export { loadPrompts, expandPromptArguments } from "./prompts.js";
 export type { PromptDefinition, PromptScope } from "./prompts.js";

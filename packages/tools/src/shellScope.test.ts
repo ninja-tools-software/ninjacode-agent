@@ -39,6 +39,18 @@ describe("shellGrantScopes", () => {
     expect(shellGrantScopes("echo $(date)")).toEqual([]);
     expect(shellGrantScopes("echo `whoami`")).toEqual([]);
     expect(shellGrantScopes("echo ${HOME}")).toEqual([]);
+    expect(shellGrantScopes("bash -c 'echo safe'")).toEqual([]);
+    expect(shellGrantScopes("sh -lc 'git status'")).toEqual([]);
+    expect(shellGrantScopes("node -e 'console.log(1)'")).toEqual([]);
+    expect(shellGrantScopes("python3 -c 'print(1)'")).toEqual([]);
+    expect(shellGrantScopes("env FOO=1 pnpm test")).toEqual([]);
+    expect(shellGrantScopes("cat files | xargs rm")).toEqual([]);
     expect(shellGrantScopes("   ")).toEqual([]);
+    expect(shellGrantScopes("./deploy.sh")).toEqual([]);
+    expect(shellGrantScopes("cat <<EOF\nhello\nEOF")).toEqual([]);
+  });
+
+  it("canonicalizes equivalent static commands to the same scopes", () => {
+    expect(shellGrantScopes("  git   status  -s ")).toEqual(["git status"]);
   });
 });

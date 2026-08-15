@@ -1,7 +1,7 @@
 import en from "./locales/en.json" with { type: "json" };
 import fr from "./locales/fr.json" with { type: "json" };
 
-export type CliLocale = "en" | "fr";
+type CliLocale = "en" | "fr";
 
 type Catalog = Record<string, string>;
 
@@ -24,10 +24,6 @@ export function resolveLocale(flags?: Record<string, string | boolean>): CliLoca
 
 export function setLocale(locale: CliLocale): void {
   active = locale;
-}
-
-export function getLocale(): CliLocale {
-  return active;
 }
 
 export function t(key: string, params?: Record<string, string | number>): string {

@@ -28,6 +28,7 @@ export function reduceInteractionMessage(state: ChatState, msg: HostToWebview): 
             target: msg.target,
             reason: msg.reason,
             grantScope: msg.grantScope,
+            canRemember: msg.canRemember,
             danger: msg.danger,
           },
         ],

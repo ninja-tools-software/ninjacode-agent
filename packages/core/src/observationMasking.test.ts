@@ -15,15 +15,30 @@ function observations(name: string, count: number): Message[] {
   return Array.from({ length: count }, (_, i) => observation(name, i));
 }
 
+function archivedObservations(name: string, count: number): Message[] {
+  return observations(name, count).map((message, index) => ({
+    ...message,
+    content: `${message.content}\n[Full output archived as artifact ${String(index).padStart(64, "a")}.]`,
+  }));
+}
+
 describe("isMaskableObservation", () => {
   it("accepts re-runnable read-only tools", () => {
-    for (const name of ["read_file", "run_shell", "grep", "glob", "list_dir"]) {
+    for (const name of ["read_file", "grep", "glob", "list_dir"]) {
       expect(isMaskableObservation(observation(name, 0))).toBe(true);
     }
   });
 
   it("refuses results the agent cannot reproduce", () => {
-    for (const name of ["ask_user", "record_hypotheses", "read_debug_logs", "edit_file"]) {
+    for (const name of [
+      "ask_user",
+      "record_hypotheses",
+      "read_debug_logs",
+      "edit_file",
+      "run_shell",
+      "fetch_url",
+      "web_search",
+    ]) {
       expect(isMaskableObservation(observation(name, 0))).toBe(false);
     }
   });
@@ -31,16 +46,16 @@ describe("isMaskableObservation", () => {
 
 describe("maskOldObservations", () => {
   it("leaves a short session untouched", () => {
-    const history = observations("run_shell", 10);
+    const history = observations("read_file", 10);
     expect(maskOldObservations(history)).toBe(history);
   });
 
   it("masks the oldest observations and keeps the recent ones verbatim", () => {
-    const history = observations("run_shell", 14);
+    const history = archivedObservations("read_file", 14);
     const masked = maskOldObservations(history);
 
     expect(masked[0]?.content).toContain("output masked");
-    expect(masked[0]?.content).toContain("Do not re-read this");
+    expect(masked[0]?.content).toContain("read_session_artifact");
     expect(masked[3]?.content).toContain("output masked");
     expect(masked[4]?.content).toBe(history[4]?.content);
     expect(masked.at(-1)?.content).toBe(history.at(-1)?.content);
@@ -56,7 +71,7 @@ describe("maskOldObservations", () => {
   });
 
   it("spares small outputs, where masking would only lose information", () => {
-    const history = [...observations("run_shell", 12), ...observations("grep", 4)];
+    const history = [...observations("read_file", 12), ...observations("grep", 4)];
     history[0] = { ...history[0]!, content: "exit 0" };
     const masked = maskOldObservations(history);
 
@@ -83,5 +98,6 @@ describe("maskOldObservations", () => {
     const masked = maskOldObservations(history);
 
     expect(masked[0]?.content).toBe(history[0]?.content);
+    expect(masked[1]?.content).toBe(history[1]?.content);
   });
 });

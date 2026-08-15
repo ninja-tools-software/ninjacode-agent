@@ -17,10 +17,16 @@
     "depcruise": "depcruise packages apps --config .dependency-cruiser.cjs",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
+    "check:clean-tree": "node scripts/check-clean-tree.mjs",
+    "check:build-purity": "node scripts/verify-build-purity.mjs",
+    "version:bump": "pnpm --filter ninjacode version:bump",
+    "version:verify": "node scripts/verify-release-version.mjs",
+    "release:vsix": "pnpm check:clean-tree && pnpm --filter ninjacode package && pnpm check:clean-tree",
     "eval": "pnpm --filter @ninjacode/cli exec node dist/eval.js",
     "eval:live": "NINJACODE_EVAL_KEY=$ANTHROPIC_API_KEY pnpm eval",
     "bench": "pnpm --filter @ninjacode/bench exec node dist/index.js run",
-    "bench:quick": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite quick --trials 1 --provider deepseek --model deepseek-v4-flash --concurrency 4 --max-turns 20 --out runs/quick",
+    "bench:quick": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite quick --trials 1 --provider deepseek --model deepseek-v4-flash --concurrency 4 --max-turns 20 --out runs/quick --unpublished",
+    "bench:confirm": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite quick --trials 3 --concurrency 2 --out runs/confirm",
     "bench:harness": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite harness --provider mock --trials 1 --concurrency 4 --strict --out runs/harness"
   },
   "devDependencies": {

@@ -1,5 +1,6 @@
 import { buildAgentRuntime, type Agent, type AgentOutcome } from "@ninjacode/core";
 import { createProvider, MockProvider, type ProviderKind } from "@ninjacode/providers";
+import { clearShellSessions } from "@ninjacode/tools";
 import type { AgentAdapter, BenchTask, TaskMetrics } from "../types.js";
 
 interface NinjaCodeAdapterOptions {
@@ -37,8 +38,6 @@ function buildProvider(opts: NinjaCodeAdapterOptions, task: BenchTask): MockProv
   }
   const scripts = task.scripts?.length ? task.scripts : [{ text: "mock run (no-op)" }];
   const provider = new MockProvider(scripts);
-  // preferredEditFormat keys off provider.name; mock defaults to string_replace
-  // which strips apply_patch. Patch-format harness tasks need a patch-preferring name.
   if (task.editFormat === "patch") {
     Object.defineProperty(provider, "name", { value: "deepseek" });
   }
@@ -49,6 +48,8 @@ async function createAgent(
   opts: NinjaCodeAdapterOptions,
   task: BenchTask,
   workspaceDir: string,
+  signal: AbortSignal,
+  runTimeoutMs: number,
 ): Promise<Agent> {
   const provider = buildProvider(opts, task);
   const runtime = await buildAgentRuntime({
@@ -62,8 +63,10 @@ async function createAgent(
       persistSessions: false,
       enableSubagents: false,
       maxTurns: task.maxTurns ?? opts.maxTurns ?? 40,
-      // Drives the cost estimate: without it every run is billed at Anthropic rates.
       model: opts.model,
+      runTimeoutMs,
+      sandboxMode: "danger-full-access",
+      signal,
     },
   });
   return runtime.createAgent();
@@ -89,26 +92,46 @@ function toRunResult(agent: Agent, outcome: AgentOutcome): RunResult {
   };
 }
 
+async function settleAgent(agent: Agent, ms = 2_000): Promise<void> {
+  const started = Date.now();
+  while (Date.now() - started < ms) {
+    const state = agent.getState();
+    if (state === "idle" || state === "stopped" || state === "failed" || state === "completed") return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
 async function runAgentTask(
   opts: NinjaCodeAdapterOptions,
   task: BenchTask,
   workspaceDir: string,
   timeoutMs: number,
 ): Promise<RunResult> {
-  const agent = await createAgent(opts, task, workspaceDir);
-  let timer: NodeJS.Timeout | undefined;
-  const timeout = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), timeoutMs);
-  });
+  const controller = new AbortController();
+  const agent = await createAgent(opts, task, workspaceDir, controller.signal, timeoutMs);
+  const timer = setTimeout(() => {
+    agent.abort(new DOMException("Bench timeout", "AbortError"));
+    controller.abort();
+  }, timeoutMs);
 
   try {
-    const raced = await Promise.race([agent.run(task.prompt), timeout]);
-    if (raced === "timeout") return { metrics: {}, outputTail: "", timedOut: true };
-    return toRunResult(agent, raced);
+    const outcome = await agent.run(task.prompt);
+    if (controller.signal.aborted) {
+      await settleAgent(agent);
+      return { metrics: {}, outputTail: "", timedOut: true };
+    }
+    return toRunResult(agent, outcome);
   } catch (err) {
+    if (controller.signal.aborted || (err instanceof Error && err.name === "AbortError")) {
+      await settleAgent(agent);
+      return { metrics: {}, outputTail: "", timedOut: true };
+    }
     return { metrics: {}, outputTail: "", agentError: (err as Error).message };
   } finally {
     clearTimeout(timer);
+    if (!controller.signal.aborted) controller.abort();
+    await settleAgent(agent, 500);
+    clearShellSessions();
   }
 }
 

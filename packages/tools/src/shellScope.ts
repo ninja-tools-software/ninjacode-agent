@@ -9,6 +9,13 @@
  * exact command string instead of a whole command type.
  */
 
+import {
+  canonicalizeShellCommand,
+  isNonGrantableShellCommand,
+  parseShellInvocation,
+  splitShellSegments,
+} from "./shellParse.js";
+
 /** Programs whose first non-flag argument selects a distinct capability. */
 const SUBCOMMAND_PROGRAMS = new Set([
   "git",
@@ -38,67 +45,29 @@ const SUBCOMMAND_PROGRAMS = new Set([
   "deno",
 ]);
 
-const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 /** Metacharacters that make a token untrustworthy as a program name. */
 const UNSAFE_TOKEN = /[$`()<>*?{}[\]!~]/;
 
-function stripQuotes(token: string): string {
-  if (token.length >= 2) {
-    const first = token[0];
-    const last = token[token.length - 1];
-    if ((first === '"' || first === "'") && first === last) return token.slice(1, -1);
-  }
-  return token;
-}
-
-function basename(program: string): string {
-  const slash = program.lastIndexOf("/");
-  return slash === -1 ? program : program.slice(slash + 1);
-}
-
-/**
- * Split a command line into the individual command segments separated by
- * pipes, sequencing and boolean operators. Each segment is a candidate
- * invocation of its own program.
- */
-export function splitShellSegments(command: string): string[] {
-  return command
-    .split(/(?:\|\||&&|;|\||&|\n)/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+export { splitShellSegments };
 
 /**
  * Program name plus remaining arguments for one segment, with leading
  * `VAR=value` assignments skipped. Null when no program can be read.
  */
 export function segmentProgram(segment: string): { program: string; args: string[] } | null {
-  const tokens = segment.trim().split(/\s+/).filter(Boolean);
-  let i = 0;
-  while (i < tokens.length && ASSIGNMENT.test(tokens[i]!)) i++;
-  const rawProgram = tokens[i];
-  if (!rawProgram) return null;
-  const program = basename(stripQuotes(rawProgram));
-  if (!program) return null;
-  return { program, args: tokens.slice(i + 1).map(stripQuotes) };
+  return parseShellInvocation(segment);
 }
 
 /** Scope for a single command segment (no pipes/operators), or null if unparseable. */
 function segmentScope(segment: string): string | null {
-  const tokens = segment.trim().split(/\s+/).filter(Boolean);
-  let i = 0;
-  while (i < tokens.length && ASSIGNMENT.test(tokens[i]!)) i++;
-  const rawProgram = tokens[i];
-  if (!rawProgram) return null;
-  if (UNSAFE_TOKEN.test(rawProgram)) return null;
-
-  const program = basename(stripQuotes(rawProgram));
-  if (!program) return null;
+  const parsed = parseShellInvocation(segment);
+  if (!parsed || UNSAFE_TOKEN.test(parsed.program)) return null;
+  const { program, args } = parsed;
 
   if (SUBCOMMAND_PROGRAMS.has(program)) {
-    const next = tokens[i + 1];
-    if (next && !next.startsWith("-") && !ASSIGNMENT.test(next) && !UNSAFE_TOKEN.test(next)) {
-      return `${program} ${stripQuotes(next)}`;
+    const next = args[0];
+    if (next && !next.startsWith("-") && !UNSAFE_TOKEN.test(next)) {
+      return `${program} ${next}`;
     }
   }
   return program;
@@ -110,11 +79,9 @@ function segmentScope(segment: string): string | null {
  * then remembers the exact command instead).
  */
 export function shellGrantScopes(command: string): string[] {
-  const trimmed = command.trim();
+  const trimmed = canonicalizeShellCommand(command);
   if (!trimmed) return [];
-  // Command substitution / parameter expansion make the effective program(s)
-  // impossible to know statically — never coarsen these into a type grant.
-  if (trimmed.includes("$(") || trimmed.includes("${") || trimmed.includes("`")) return [];
+  if (isNonGrantableShellCommand(trimmed) || trimmed.includes("${")) return [];
 
   const scopes = new Set<string>();
   for (const segment of splitShellSegments(trimmed)) {

@@ -7,7 +7,7 @@ type Effort = SettingsState["reasoningEffort"];
  * Display labels for token-budget thinking controls. When a subset is shown,
  * pick a centered window (e.g. 4 options → Low…Very High).
  */
-export const BUDGET_EFFORT_SCALE = [
+const BUDGET_EFFORT_SCALE = [
   "Very Low",
   "Low",
   "Medium",

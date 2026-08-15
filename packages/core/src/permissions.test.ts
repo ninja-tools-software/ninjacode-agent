@@ -47,7 +47,7 @@ describe("PermissionEngine", () => {
     const tools = createDefaultToolRegistry();
     const shell = tools.get("run_shell")!;
     engine.grant("run_shell", "grep");
-    const d = engine.evaluate(shell, "grep bar baz.ts", ["grep"]);
+    const d = engine.evaluate(shell, "grep bar baz.ts", { scopes: ["grep"] });
     expect(d.needsApproval).toBe(false);
     expect(d.allowed).toBe(true);
   });
@@ -57,8 +57,8 @@ describe("PermissionEngine", () => {
     const tools = createDefaultToolRegistry();
     const shell = tools.get("run_shell")!;
     engine.grant("run_shell", "git status");
-    expect(engine.evaluate(shell, "git status -s", ["git status"]).needsApproval).toBe(false);
-    expect(engine.evaluate(shell, "git push origin main", ["git push"]).needsApproval).toBe(true);
+    expect(engine.evaluate(shell, "git status -s", { scopes: ["git status"] }).needsApproval).toBe(false);
+    expect(engine.evaluate(shell, "git push origin main", { scopes: ["git push"] }).needsApproval).toBe(true);
   });
 
   it("does not let a command-type grant cover a destructive command of that type", () => {
@@ -67,9 +67,12 @@ describe("PermissionEngine", () => {
     const shell = tools.get("run_shell")!;
     engine.grant("run_shell", "git push");
     // Granted for `git push`, but a force push rewrites remote history.
-    const forced = engine.evaluate(shell, "git push --force", ["git push"], "destructive");
+    const forced = engine.evaluate(shell, "git push --force", {
+      scopes: ["git push"],
+      risk: "destructive",
+    });
     expect(forced.needsApproval).toBe(true);
-    expect(engine.evaluate(shell, "git push origin main", ["git push"]).needsApproval).toBe(false);
+    expect(engine.evaluate(shell, "git push origin main", { scopes: ["git push"] }).needsApproval).toBe(false);
   });
 
   it("does not let a wildcard grant cover a destructive command", () => {
@@ -78,7 +81,7 @@ describe("PermissionEngine", () => {
     const shell = tools.get("run_shell")!;
     engine.grant("run_shell", "*");
     expect(engine.evaluate(shell, "ls -la").needsApproval).toBe(false);
-    expect(engine.evaluate(shell, "rm -rf build", [], "destructive").needsApproval).toBe(true);
+    expect(engine.evaluate(shell, "rm -rf build", { risk: "destructive" }).needsApproval).toBe(true);
   });
 
   it("honours an exact grant for a destructive command", () => {
@@ -86,15 +89,15 @@ describe("PermissionEngine", () => {
     const tools = createDefaultToolRegistry();
     const shell = tools.get("run_shell")!;
     engine.grant("run_shell", "rm -rf dist");
-    expect(engine.evaluate(shell, "rm -rf dist", [], "destructive").needsApproval).toBe(false);
-    expect(engine.evaluate(shell, "rm -rf src", [], "destructive").needsApproval).toBe(true);
+    expect(engine.evaluate(shell, "rm -rf dist", { risk: "destructive" }).needsApproval).toBe(false);
+    expect(engine.evaluate(shell, "rm -rf src", { risk: "destructive" }).needsApproval).toBe(true);
   });
 
   it("requires approval for a destructive shell command in autonomous mode", () => {
     const engine = new PermissionEngine(defaultPermissionPolicy("autonomous"));
     const tools = createDefaultToolRegistry();
     const shell = tools.get("run_shell")!;
-    expect(engine.evaluate(shell, "rm -rf build", [], "destructive").needsApproval).toBe(true);
+    expect(engine.evaluate(shell, "rm -rf build", { risk: "destructive" }).needsApproval).toBe(true);
   });
 
   it("does not let the allowlist pre-approve a destructive call", () => {
@@ -102,7 +105,7 @@ describe("PermissionEngine", () => {
     const shell = tools.get("run_shell")!;
     const engine = new PermissionEngine({ mode: "autonomous", allowlist: tools.names() });
     expect(engine.evaluate(shell, "ls -la").needsApproval).toBe(false);
-    expect(engine.evaluate(shell, "rm -rf build", [], "destructive").needsApproval).toBe(true);
+    expect(engine.evaluate(shell, "rm -rf build", { risk: "destructive" }).needsApproval).toBe(true);
   });
 
   it("auto-approves a chained command only when every scope is granted", () => {
@@ -110,8 +113,32 @@ describe("PermissionEngine", () => {
     const tools = createDefaultToolRegistry();
     const shell = tools.get("run_shell")!;
     engine.grant("run_shell", "cat");
-    expect(engine.evaluate(shell, "cat a | grep b", ["cat", "grep"]).needsApproval).toBe(true);
+    expect(engine.evaluate(shell, "cat a | grep b", { scopes: ["cat", "grep"] }).needsApproval).toBe(true);
     engine.grant("run_shell", "grep");
-    expect(engine.evaluate(shell, "cat a | grep b", ["cat", "grep"]).needsApproval).toBe(false);
+    expect(engine.evaluate(shell, "cat a | grep b", { scopes: ["cat", "grep"] }).needsApproval).toBe(false);
+  });
+
+  it("ignores exact, scoped and wildcard grants for a non-rememberable call", () => {
+    const engine = new PermissionEngine(defaultPermissionPolicy("balanced"));
+    const shell = createDefaultToolRegistry().get("run_shell")!;
+    engine.grant("run_shell", "*");
+    engine.grant("run_shell", "bash");
+    engine.grant("run_shell", "bash -c 'echo safe'");
+
+    const decision = engine.evaluate(
+      shell,
+      "bash -c 'echo safe'",
+      { scopes: ["bash"], risk: "shell", grantPolicy: "never" },
+    );
+    expect(decision.needsApproval).toBe(true);
+    expect(decision.reason).toContain("cannot be remembered");
+  });
+
+  it("classifies interpreter calls through the shell tool contract", () => {
+    const shell = createDefaultToolRegistry().get("run_shell")!;
+    const args = { command: "bash -c 'rm -rf build'" };
+    expect(shell.grantScopes?.(args)).toEqual([]);
+    expect(shell.grantPolicy?.(args)).toBe("never");
+    expect(shell.riskFor?.(args)).toBe("destructive");
   });
 });

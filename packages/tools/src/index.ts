@@ -20,6 +20,7 @@ import {
   readDebugLogsTool,
   recordHypothesesTool,
 } from "./debug.js";
+import { readSessionArtifactTool } from "./sessionArtifacts.js";
 
 export function createDefaultToolRegistry(options?: {
   includeNetwork?: boolean;
@@ -36,6 +37,7 @@ export function createDefaultToolRegistry(options?: {
     .register(grepTool)
     .register(searchCodebaseTool)
     .register(readLintsTool)
+    .register(readSessionArtifactTool)
     .register(shellTool)
     .register(todoWriteTool)
     .register(writeScratchpadTool)
@@ -63,6 +65,12 @@ export * from "./fs.js";
 export * from "./search.js";
 export * from "./shell.js";
 export * from "./shellScope.js";
+export * from "./shellDanger.js";
+export * from "./shellParse.js";
+export * from "./sandbox.js";
+export * from "./sandboxExecutor.js";
+export * from "./safeHttp.js";
+export * from "./sessionArtifacts.js";
 export * from "./plan.js";
 export * from "./plans.js";
 export * from "./interactive.js";

@@ -1,19 +1,43 @@
 import path from "node:path";
-import { buildAgentRuntime, type ApprovalMode, type AgentMode } from "@ninjacode/core";
+import {
+  buildAgentRuntime,
+  createDeviceOAuthHost,
+  createMemorySecretStore,
+  createOAuthAuthPort,
+  DEFAULT_RUN_TIMEOUT_MS,
+  loadMcpConfig,
+  loadMcpTools,
+  type ApprovalMode,
+  type AgentMode,
+} from "@ninjacode/core";
 import { createProvider, type ProviderKind } from "@ninjacode/providers";
-import { setAskUserHandler, setUserActionHandler } from "@ninjacode/tools";
+import {
+  setAskUserHandler,
+  setUserActionHandler,
+  type SandboxMode,
+} from "@ninjacode/tools";
 import { consumeLastGatewayError, handleAgentEvent, promptApproval } from "./cliEventHandlers.js";
 import { gatewayExitCode } from "./gatewayErrorLines.js";
 import { setupAskUserHandlers } from "./cliUserHandlers.js";
 import { t } from "./i18n.js";
 
+function providerApiKeyEnv(provider: string | undefined): string | undefined {
+  if (!provider) return undefined;
+  return process.env[`${provider.toUpperCase().replaceAll("-", "_")}_API_KEY`];
+}
+
 function resolveApiKey(flags: Record<string, string | boolean>): string {
   return (
     (flags["api-key"] as string | undefined) ??
+    providerApiKeyEnv(flags.provider as string | undefined) ??
     process.env.ANTHROPIC_API_KEY ??
     process.env.OPENAI_API_KEY ??
     process.env.DEEPSEEK_API_KEY ??
     process.env.OPENROUTER_API_KEY ??
+    process.env.MOONSHOT_API_KEY ??
+    process.env.GLM_API_KEY ??
+    process.env.MISTRAL_API_KEY ??
+    process.env.MAMMOUTH_API_KEY ??
     ""
   );
 }
@@ -22,6 +46,15 @@ function parseMode(flags: Record<string, string | boolean>): AgentMode {
   const mode = (flags.mode as AgentMode) ?? "agent";
   if (mode !== "agent" && mode !== "plan" && mode !== "ask" && mode !== "debug") {
     console.error(t("cli.invalidMode", { mode }));
+    process.exit(1);
+  }
+  return mode;
+}
+
+function parseSandboxMode(flags: Record<string, string | boolean>): SandboxMode {
+  const mode = (flags.sandbox as SandboxMode) ?? "workspace-write";
+  if (!["read-only", "workspace-write", "danger-full-access"].includes(mode)) {
+    console.error(t("cli.invalidSandbox", { mode }));
     process.exit(1);
   }
   return mode;
@@ -46,14 +79,35 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
 
   const mode = parseMode(flags);
   const approvalMode = (flags.approval as ApprovalMode) ?? (flags.yes ? "autonomous" : "balanced");
+  const sandboxMode = parseSandboxMode(flags);
   const runtime = await buildAgentRuntime({
     workspaceRoot: workspace,
     provider,
     approvalMode,
     allowAllTools: !!flags.yes,
+    configureTools: async (tools) => {
+      const mcpConfigs = await loadMcpConfig(workspace);
+      if (!mcpConfigs.length) return;
+      const { tools: mcpTools } = await loadMcpTools(mcpConfigs, {
+        workspaceRoot: workspace,
+        agentDir: path.join(workspace, ".ninjacode"),
+        sandboxMode,
+        auth: createOAuthAuthPort(
+          createDeviceOAuthHost({
+            onUserCode: async ({ userCode, verificationUri }) => {
+              console.error(`MCP OAuth: visit ${verificationUri} and enter ${userCode}`);
+            },
+          }),
+          createMemorySecretStore(),
+        ),
+      });
+      for (const tool of mcpTools) tools.register(tool);
+    },
     agent: {
       mode,
       model: flags.model as string | undefined,
+      sandboxMode,
+      runTimeoutMs: Number(flags["run-timeout-ms"]) || DEFAULT_RUN_TIMEOUT_MS,
       enableCheckpoints: !flags["no-checkpoints"],
       onEvent: handleAgentEvent,
       onApproval: flags.yes

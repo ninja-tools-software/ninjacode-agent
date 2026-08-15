@@ -1,5 +1,10 @@
 import type { LlmProvider, Message, TokenUsage, ToolSpec } from "@ninjacode/providers";
-import type { CodebaseIndexLike, DiagnosticsProvider, ToolRegistry } from "@ninjacode/tools";
+import type {
+  CodebaseIndexLike,
+  DiagnosticsProvider,
+  SandboxMode,
+  ToolRegistry,
+} from "@ninjacode/tools";
 import type { BudgetTracker } from "./reliability.js";
 import type { AgentTurnDeps } from "./agentTurn.js";
 import type { ToolPipeline } from "./toolPipeline.js";
@@ -7,6 +12,8 @@ import type { VerifyConfig } from "./verify.js";
 import type { AgentEventHandler, RunState } from "./types.js";
 import type { AgentFactory } from "./agentFactory.js";
 import { runCompletionVerification, runVerificationSubAgent } from "./agentSupport.js";
+import { sessionEventLog } from "./sessionEventLog.js";
+import { SessionArtifactStore } from "./sessionArtifacts.js";
 
 export interface TurnHostInput {
   provider: LlmProvider;
@@ -29,6 +36,8 @@ export interface TurnHostInput {
   agentDir: string;
   sessionId: string;
   planId: string;
+  sandboxMode: SandboxMode;
+  persistSessionContext: boolean;
   onEvent?: AgentEventHandler;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
@@ -37,7 +46,10 @@ export interface TurnHostInput {
   readScratchpad: () => Promise<string>;
   readActivePlan: () => Promise<string>;
   estimateUsage: (system: string, history: Message[], toolSpecs: ToolSpec[]) => import("./contextEstimate.js").ContextUsageBreakdown;
-  trackUsage: (usage: TokenUsage) => void;
+  trackUsage: (
+    usage: TokenUsage,
+    opts?: { category?: "compaction"; model?: string },
+  ) => void;
   checkRunTimeout: () => string | undefined;
   runHooks: AgentTurnDeps["runHooks"];
   persist: () => Promise<void>;
@@ -103,6 +115,7 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
         agentDir: host.agentDir,
         sessionId: host.sessionId,
         planId: host.planId,
+        sandboxMode: host.sandboxMode,
         signal: host.signal,
         codebaseIndex: host.codebaseIndex,
         diagnosticsProvider: host.diagnosticsProvider,
@@ -120,6 +133,21 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
         answer,
         createAgent: host.createAgent,
       }),
+    recordSessionEvent: async (type, payload) => {
+      if (!host.persistSessionContext) return;
+      await sessionEventLog(host.agentDir, host.sessionId).append(type, payload);
+    },
+    archiveCompaction: async (messages, info) => {
+      if (!host.persistSessionContext) return;
+      const artifact = await new SessionArtifactStore(host.agentDir, host.sessionId).putText(
+        JSON.stringify(messages),
+        { kind: "compaction_segment", mimeType: "application/json" },
+      );
+      await sessionEventLog(host.agentDir, host.sessionId).append("compaction", {
+        ...info,
+        artifactId: artifact.id,
+      });
+    },
     persist: host.persist,
     setState: host.setState,
     emit: host.emit,

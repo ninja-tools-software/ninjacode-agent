@@ -1,6 +1,6 @@
 import type { AgentEventHandler, ApprovalHandler } from "./types.js";
 import type { PermissionEngine } from "./permissions.js";
-import type { ToolRegistry } from "@ninjacode/tools";
+import type { SandboxMode, ToolRegistry } from "@ninjacode/tools";
 import type { LlmProvider } from "@ninjacode/providers";
 import { loadHooksConfig, HookRunner } from "./hooks.js";
 import {
@@ -14,6 +14,8 @@ import type { AgentFactory } from "./agentFactory.js";
 
 export async function setupAgentHooks(opts: {
   workspaceRoot: string;
+  agentDir: string;
+  sandboxMode: SandboxMode;
   permissions: PermissionEngine;
   onApproval?: ApprovalHandler;
   enableWorkspaceHooks?: boolean;
@@ -29,6 +31,7 @@ export async function setupAgentHooks(opts: {
       opts.workspaceRoot,
       opts.permissions,
       opts.onApproval ? (req) => opts.onApproval!({ ...req, arguments: {} }) : undefined,
+      { agentDir: opts.agentDir, sandboxMode: opts.sandboxMode },
     ),
   );
 }

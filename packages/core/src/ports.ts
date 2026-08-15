@@ -1,3 +1,5 @@
+import type { SandboxMode } from "@ninjacode/tools";
+
 export interface Clock {
   now(): number;
 }
@@ -13,6 +15,12 @@ export interface ProcessRunOptions {
   cwd?: string;
   signal?: AbortSignal;
   shell?: boolean;
+  sandbox?: {
+    workspaceRoot: string;
+    agentDir: string;
+    mode: SandboxMode;
+    allowNetwork?: boolean;
+  };
 }
 
 export interface ProcessRunResult {

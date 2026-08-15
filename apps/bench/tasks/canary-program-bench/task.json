@@ -1,0 +1,11 @@
+{
+  "id": "canary-program-bench",
+  "description": "Documented ProgramBench canary: implement add(a, b)",
+  "category": "feature",
+  "difficulty": "easy",
+  "suites": ["canary", "program-bench"],
+  "prompt": "Write add.js exporting add(a, b) that returns a + b.",
+  "verify": "node -e \"const {add}=require('./add.js'); if (add(2,3)!==5) process.exit(1)\"",
+  "timeoutSec": 60,
+  "maxTurns": 8
+}

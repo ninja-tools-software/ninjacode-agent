@@ -1,3 +1,78 @@
+# Public benchmark integrations
+
+Reproducible adapters live in `apps/bench/src/integrations/`:
+
+- Terminal-Bench 2.1 / Harbor — `apps/bench/harbor/ninjacode_agent.py` plus the `canary-terminal-bench` task
+- ProgramBench — `programBench.ts` plus the `canary-program-bench` task
+- SWE-bench Lite — `apps/bench/src/swebench/`
+
+Large live runs stay manual/scheduled. PRs run the mock harness and documented canaries only.
+
+# Terminal-Bench 2.1 / Harbor
+
+Harbor is the official harness. NinjaCode runs as an **installed agent**: Harbor
+uploads a bundled CLI into each Docker trial and launches
+
+`ninjacode run <instruction> --yes --sandbox danger-full-access --no-checkpoints`.
+
+There is **no official lite subset** whose score compares to the
+[TB 2.1 leaderboard](https://www.tbench.ai/leaderboard/terminal-bench/2.1)
+(89 tasks). Use this pyramid:
+
+| Command | What it measures | Comparable? |
+|---|---|---|
+| `ninjabench harbor oracle` | Harbor + Docker (1 oracle task) | No |
+| `ninjabench harbor smoke -m …` | 1 TB 2.1 task with NinjaCode | No |
+| `ninjabench harbor run -d openthoughts-tblite -m …` | [OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite) (faster, correlates with TB2) | No — scores run higher than TB 2.1 |
+| `ninjabench harbor run -m …` | **Terminal-Bench 2.1** (89 tasks) | Yes |
+
+## Prerequisites
+
+- **Docker** running locally
+- Harbor: `uv tool install harbor`
+- A provider API key (`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, …)
+- CLI bundle: `pnpm --filter @ninjacode/cli bundle` (the wrapper builds it if missing)
+
+Sanity-check Harbor without a model:
+
+```bash
+ninjabench harbor oracle
+# equivalent: harbor run -d terminal-bench/terminal-bench-2-1 -a oracle -l 1
+```
+
+## Quick start
+
+```bash
+pnpm --filter @ninjacode/cli bundle
+pnpm --filter @ninjacode/bench build
+
+# Smoke: one TB 2.1 task (cheap, not a leaderboard score)
+export DEEPSEEK_API_KEY=…
+node apps/bench/dist/index.js harbor smoke -m deepseek/deepseek-chat
+
+# Full TB 2.1 (long, costly, comparable)
+node apps/bench/dist/index.js harbor run -m deepseek/deepseek-chat -n 4
+```
+
+Raw Harbor equivalent:
+
+```bash
+harbor run -d terminal-bench/terminal-bench-2-1 \
+  --agent ninjacode_agent:NinjaCodeAgent \
+  --agent-import-path apps/bench/harbor/ninjacode_agent.py \
+  -m deepseek/deepseek-chat -n 4
+```
+
+`-m` is Harbor's `provider/model` form. The adapter maps it to
+`--provider` / `--model` on the NinjaCode CLI.
+
+## Fairness notes
+
+- Scores measure the **product** (NinjaCode harness + model), not the model alone.
+- Pin `-m` explicitly. Changing the CLI flags or prompt invalidates comparisons.
+- `oracle` / `smoke` default to `-l 1`. Drop that only when you intend a full run.
+- Daytona (`--env daytona`) is optional later; local Docker is the default.
+
 # SWE-bench Lite integration
 
 NinjaBench orchestrates SWE-bench Lite (300 instances) in three phases: **predict** → **eval** (Docker) → **compare**.

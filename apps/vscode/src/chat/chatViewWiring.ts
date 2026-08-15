@@ -64,7 +64,7 @@ export function wireChatView(input: WireChatViewInput): ChatViewWiring {
     core.post(entry.sessionId, { type: "agent_log_entry", entry });
   });
   const indexes = new CodebaseIndexService(context.subscriptions);
-  const mcp = new McpService();
+  const mcp = new McpService(context.secrets);
 
   const runnerHolder: { runner?: AgentRunner } = {};
   const workspaceExtrasHolder: { service?: WorkspaceExtrasController } = {};

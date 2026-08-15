@@ -16,6 +16,11 @@
  */
 
 import { segmentProgram, splitShellSegments } from "./shellScope.js";
+import {
+  interpreterPayload,
+  interpreterUsesEval,
+  isCodeInterpreter,
+} from "./shellParse.js";
 
 /** Programs that hand the command root privileges — scope is unbounded. */
 const PRIVILEGE_ESCALATION = new Set(["sudo", "doas", "su"]);
@@ -151,11 +156,23 @@ function basename(program: string): string {
   return slash === -1 ? program : program.slice(slash + 1);
 }
 
+function interpreterDanger(program: string, args: string[], depth: number): string | null {
+  if (!interpreterUsesEval(program, args)) return null;
+  if (isCodeInterpreter(program)) return "executes dynamic code";
+  const payload = interpreterPayload(program, args);
+  if (!payload || depth >= 4) return "executes dynamic shell code";
+  return classifyShellDangerInternal(payload, depth + 1);
+}
+
 function argvDanger(program: string, args: string[], depth: number): string | null {
   if (PRIVILEGE_ESCALATION.has(program)) return "runs with elevated privileges";
+  if (program === "eval") return "evaluates a dynamic shell command";
   const always = ALWAYS_DESTRUCTIVE.get(program);
   if (always) return always;
   if (program.startsWith("mkfs")) return "formats a filesystem";
+
+  const interpreted = interpreterDanger(program, args, depth);
+  if (interpreted) return interpreted;
 
   const rule = PROGRAM_RULES[program];
   if (rule) return rule(args);
@@ -168,10 +185,10 @@ function argvDanger(program: string, args: string[], depth: number): string | nu
   return null;
 }
 
-function segmentDanger(segment: string): string | null {
+function segmentDanger(segment: string, depth: number): string | null {
   const parsed = segmentProgram(segment);
   if (!parsed) return null;
-  return argvDanger(parsed.program, parsed.args, 0);
+  return argvDanger(parsed.program, parsed.args, depth);
 }
 
 /** Fork bomb, in its usual spellings. */
@@ -202,7 +219,7 @@ function remoteExecutionDanger(programs: string[]): string | null {
  * irreversible enough to warrant the `destructive` risk class, or null when it
  * is an ordinary shell command.
  */
-export function classifyShellDanger(command: string): string | null {
+function classifyShellDangerInternal(command: string, depth: number): string | null {
   const trimmed = command.trim();
   if (!trimmed) return null;
 
@@ -212,11 +229,15 @@ export function classifyShellDanger(command: string): string | null {
   const segments = splitShellSegments(trimmed);
   const programs: string[] = [];
   for (const segment of segments) {
-    const reason = segmentDanger(segment);
+    const reason = segmentDanger(segment, depth);
     if (reason) return reason;
     const parsed = segmentProgram(segment);
     if (parsed) programs.push(parsed.program);
   }
 
   return remoteExecutionDanger(programs);
+}
+
+export function classifyShellDanger(command: string): string | null {
+  return classifyShellDangerInternal(command, 0);
 }

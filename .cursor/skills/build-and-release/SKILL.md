@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 One release version for the whole repo: the extension version in `apps/vscode/package.json`, mirrored in the root `package.json`. The `.vsix` is the release artifact and the git tag `vX.Y.Z` marks it.
 
-Dev builds keep their own counter: `pnpm --filter ninjacode build` auto-increments the patch through the `prebuild` hook. A release therefore never inherits the last dev patch — it is computed from the last **released** version (latest `v*` tag).
+Builds are pure. Bump the version only with `pnpm version:bump` (or by editing both `apps/vscode/package.json` and the root `package.json`). A release is computed from the last **released** version (latest `v*` tag).
 
 ## Workflow
 
@@ -78,18 +78,17 @@ Write the target version to **both** `apps/vscode/package.json` and the root `pa
 ### 6. Build the release
 
 ```bash
-export NINJACODE_BUMP=skip
 pnpm install
+pnpm check:build-purity
 pnpm build
 pnpm typecheck
 pnpm test
 pnpm lint && pnpm depcruise && pnpm knip
+pnpm check:clean-tree
 pnpm --filter ninjacode package
 ```
 
-`NINJACODE_BUMP=skip` disables the `prebuild` auto-bump so the build and the VSIX land on the exact target version. Export it for the whole sequence, not just the packaging step: `pnpm build` runs the extension `build` through turbo, which triggers `prebuild` too. Turbo only forwards the variable because `turbo.json` lists it under `globalPassThroughEnv` — without that entry, strict env mode hides it and the build silently bumps past the target.
-
-`pnpm depcruise` needs Node >= 22 even though the repo supports Node 20; on Node 20 it refuses to run and CI covers it instead.
+The build no longer mutates versions. `pnpm depcruise` needs Node >= 22 even though the repo supports Node 20; on Node 20 it refuses to run and CI covers it instead.
 
 Check the versions after every build: `node -p "require('./package.json').version"`.
 

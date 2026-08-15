@@ -1,5 +1,17 @@
-import { loadMcpConfig, loadMcpToolsWithStatus, type McpClient, type McpServerStatus } from "@ninjacode/core";
-import type { Tool } from "@ninjacode/tools";
+import {
+  createOAuthAuthPort,
+  deviceCodeGrant,
+  loadMcpConfig,
+  loadMcpToolsWithStatus,
+  type McpAuthPort,
+  type McpClient,
+  type McpOAuthHost,
+  type McpServerConfig,
+  type McpServerStatus,
+  type SecretStore,
+} from "@ninjacode/core";
+import type { SandboxMode, Tool } from "@ninjacode/tools";
+import * as vscode from "vscode";
 import { isWorkspaceTrusted, warnIfUntrustedWorkspace } from "../workspaceTrust.js";
 
 /**
@@ -9,6 +21,9 @@ import { isWorkspaceTrusted, warnIfUntrustedWorkspace } from "../workspaceTrust.
 export class McpService {
   private readonly clients = new Map<string, McpClient[]>();
   private readonly statuses = new Map<string, McpServerStatus[]>();
+  private readonly registeredTools = new Map<string, Tool[]>();
+
+  constructor(private readonly secrets?: vscode.SecretStorage) {}
 
   /** Connect (once) and cache clients + per-server status. Never throws: connection
    * failures are captured per-server in `statuses`. */
@@ -22,12 +37,22 @@ export class McpService {
     if (!clients || !statuses) {
       const configs = await loadMcpConfig(workspaceRoot);
       if (configs.length) {
-        const result = await loadMcpToolsWithStatus(configs);
+        const result = await loadMcpToolsWithStatus(configs, {
+          workspaceRoot,
+          agentDir: `${workspaceRoot}/.ninjacode`,
+          sandboxMode: vscode.workspace.getConfiguration("ninjacode").get<SandboxMode>(
+            "sandboxMode",
+            "workspace-write",
+          ),
+          auth: this.authPort(),
+        });
         clients = result.clients;
         statuses = result.statuses;
+        this.registeredTools.set(workspaceRoot, result.tools);
       } else {
         clients = [];
         statuses = [];
+        this.registeredTools.set(workspaceRoot, []);
       }
       this.clients.set(workspaceRoot, clients);
       this.statuses.set(workspaceRoot, statuses);
@@ -36,8 +61,8 @@ export class McpService {
   }
 
   async tools(workspaceRoot: string): Promise<Tool[]> {
-    const { clients } = await this.ensure(workspaceRoot);
-    return clients.flatMap((c) => c.asNinjaTools());
+    await this.ensure(workspaceRoot);
+    return this.registeredTools.get(workspaceRoot) ?? [];
   }
 
   /** Close and forget connections, so the next `ensure` reconnects with current config. */
@@ -50,6 +75,57 @@ export class McpService {
       await Promise.all(clients.map((c) => c.close().catch(() => undefined)));
       this.clients.delete(root);
       this.statuses.delete(root);
+      this.registeredTools.delete(root);
     }
   }
+
+  private authPort(): McpAuthPort | undefined {
+    if (!this.secrets) return undefined;
+    const store: SecretStore = {
+      get: (key) => Promise.resolve(this.secrets!.get(key)),
+      set: (key, value) => Promise.resolve(this.secrets!.store(key, value)),
+      delete: (key) => Promise.resolve(this.secrets!.delete(key)),
+    };
+    const host: McpOAuthHost = {
+      async authorize(config) {
+        const auth = config.auth;
+        if (
+          auth?.flow === "device_code" &&
+          auth.deviceAuthorizationEndpoint &&
+          auth.tokenEndpoint &&
+          auth.clientId
+        ) {
+          return deviceCodeGrant({
+            deviceAuthorizationEndpoint: auth.deviceAuthorizationEndpoint,
+            tokenEndpoint: auth.tokenEndpoint,
+            clientId: auth.clientId,
+            scopes: auth.scopes,
+            onUserCode: async ({ userCode, verificationUri }) => {
+              await vscode.env.openExternal(vscode.Uri.parse(verificationUri));
+              await vscode.window.showInformationMessage(
+                `NinjaCode MCP (${config.name}): enter code ${userCode}`,
+              );
+            },
+          });
+        }
+        const existing = await store.get(secretKey(config));
+        if (existing) {
+          try {
+            return JSON.parse(existing) as { accessToken: string };
+          } catch {
+            return { accessToken: existing };
+          }
+        }
+        throw new Error(
+          `MCP server ${config.name} requires OAuth. Store a token in SecretStorage or configure device_code endpoints.`,
+        );
+      },
+    };
+    return createOAuthAuthPort(host, store);
+  }
+}
+
+function secretKey(config: McpServerConfig): string {
+  const ref = config.auth?.tokenRef;
+  return ref?.startsWith("secret:") ? ref.slice("secret:".length) : `ninjacode.mcp.${config.name}.token`;
 }

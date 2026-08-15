@@ -1,5 +1,10 @@
 import type { LlmProvider, Message } from "@ninjacode/providers";
-import type { CodebaseIndexLike, DiagnosticsProvider, ToolContext } from "@ninjacode/tools";
+import type {
+  CodebaseIndexLike,
+  DiagnosticsProvider,
+  SandboxMode,
+  ToolContext,
+} from "@ninjacode/tools";
 import type { AgentEventHandler, ApprovalHandler, RunState } from "./types.js";
 import type { PermissionEngine } from "./permissions.js";
 import type { ToolCircuitBreaker } from "./reliability.js";
@@ -33,6 +38,7 @@ export async function runCompletionVerification(opts: {
   agentDir: string;
   sessionId: string;
   planId: string;
+  sandboxMode: SandboxMode;
   signal: AbortSignal;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
@@ -44,6 +50,7 @@ export async function runCompletionVerification(opts: {
     agentDir: opts.agentDir,
     sessionId: opts.sessionId,
     planId: opts.planId,
+    sandboxMode: opts.sandboxMode,
     signal: opts.signal,
     codebaseIndex: opts.codebaseIndex,
     diagnosticsProvider: opts.diagnosticsProvider,
@@ -93,6 +100,8 @@ export function createAgentToolPipeline(opts: {
   agentDir: string;
   sessionId: string;
   planId: string;
+  sandboxMode: SandboxMode;
+  persistSessionContext: boolean;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
   onApproval?: ApprovalHandler;

@@ -1,24 +1,23 @@
 import { estimateTokens } from "./contextEstimate.js";
 import type { Message } from "@ninjacode/providers";
 
-const HISTORY_SOFT_LIMIT = 40;
 const HISTORY_HARD_LIMIT = 80;
 const KEEP_RECENT = 30;
 
-export interface CompactionLimits {
-  softLimit: number;
+interface CompactionLimits {
   hardLimit: number;
   keepRecent: number;
-  tokenSoftThreshold: number;
+  inputBudget: number;
+  targetTokens: number;
+  tokenHighThreshold: number;
   tokenHardThreshold: number;
 }
 
 /** Why the pipeline summarized (or would summarize) history. */
 export type CompactionTrigger =
   | "manual"
-  | "token_soft"
+  | "token_high"
   | "token_hard"
-  | "message_soft"
   | "message_hard";
 
 export interface CompactHistoryResult {
@@ -27,23 +26,25 @@ export interface CompactHistoryResult {
   changed: boolean;
 }
 
-export function computeCompactionLimits(contextWindow?: number): CompactionLimits {
-  const softLimit =
+export function computeCompactionLimits(
+  contextWindow?: number,
+  opts: { reservedOutputTokens?: number; safetyMarginTokens?: number } = {},
+): CompactionLimits {
+  const safetyMargin =
+    opts.safetyMarginTokens ??
+    (contextWindow && contextWindow > 0 ? Math.max(512, Math.floor(contextWindow * 0.05)) : 0);
+  const inputBudget =
     contextWindow && contextWindow > 0
-      ? Math.max(8, Math.floor((contextWindow * 0.6) / 750))
-      : HISTORY_SOFT_LIMIT;
-  const hardLimit = Math.max(softLimit + 10, HISTORY_HARD_LIMIT);
-  const keepRecent = Math.min(KEEP_RECENT, Math.max(8, Math.floor(softLimit * 0.75)));
-  const tokenSoftThreshold =
-    contextWindow && contextWindow > 0 ? Math.floor(contextWindow * 0.85) : 0;
-  const tokenHardThreshold =
-    contextWindow && contextWindow > 0 ? Math.floor(contextWindow * 0.95) : 0;
+      ? Math.max(1, contextWindow - (opts.reservedOutputTokens ?? 0) - safetyMargin)
+      : 0;
+  const keepRecent = KEEP_RECENT;
   return {
-    softLimit,
-    hardLimit,
+    hardLimit: HISTORY_HARD_LIMIT,
     keepRecent,
-    tokenSoftThreshold,
-    tokenHardThreshold,
+    inputBudget,
+    targetTokens: inputBudget > 0 ? Math.floor(inputBudget * 0.6) : 0,
+    tokenHighThreshold: inputBudget > 0 ? Math.floor(inputBudget * 0.85) : 0,
+    tokenHardThreshold: inputBudget,
   };
 }
 
@@ -56,11 +57,12 @@ export function shouldSkipCompaction(
     contextWindow?: number;
     systemTokens?: number;
     toolTokens?: number;
+    model?: string;
   },
 ): boolean {
   if (opts.force) return false;
   const pressure = compactionPressure(msgs, limits, opts);
-  if (pressure.overTokenSoft || pressure.overTokenHard) return false;
+  if (limits.tokenHighThreshold > 0) return !pressure.overTokenHigh;
   return msgs.length <= limits.hardLimit;
 }
 
@@ -72,14 +74,14 @@ export function resolveCompactionTrigger(
     contextWindow?: number;
     systemTokens?: number;
     toolTokens?: number;
+    model?: string;
   },
 ): CompactionTrigger {
   if (opts.force) return "manual";
   const pressure = compactionPressure(msgs, limits, opts);
   if (pressure.overTokenHard) return "token_hard";
-  if (pressure.overTokenSoft) return "token_soft";
+  if (pressure.overTokenHigh) return "token_high";
   if (msgs.length > limits.hardLimit) return "message_hard";
-  if (msgs.length > limits.softLimit) return "message_soft";
   return "manual";
 }
 
@@ -94,11 +96,12 @@ export function compactResult(
 function compactionPressure(
   msgs: Message[],
   limits: CompactionLimits,
-  opts: { systemTokens?: number; toolTokens?: number },
-): { overTokenSoft: boolean; overTokenHard: boolean } {
-  const totalTokens = estimateTokens(msgs) + (opts.systemTokens ?? 0) + (opts.toolTokens ?? 0);
+  opts: { systemTokens?: number; toolTokens?: number; model?: string },
+): { overTokenHigh: boolean; overTokenHard: boolean } {
+  const totalTokens =
+    estimateTokens(msgs, opts.model) + (opts.systemTokens ?? 0) + (opts.toolTokens ?? 0);
   return {
-    overTokenSoft: limits.tokenSoftThreshold > 0 && totalTokens > limits.tokenSoftThreshold,
+    overTokenHigh: limits.tokenHighThreshold > 0 && totalTokens > limits.tokenHighThreshold,
     overTokenHard: limits.tokenHardThreshold > 0 && totalTokens > limits.tokenHardThreshold,
   };
 }

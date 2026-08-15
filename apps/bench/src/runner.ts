@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { AgentAdapter, BenchTask, RunReport, TaskResult } from "./types.js";
+import { computeKeepRate } from "./keepRate.js";
+import { buildRunManifest, hashText } from "./manifest.js";
 import { decideTaskVerdict } from "./verdict.js";
 import { cleanupWorkspace, diffStats, prepareWorkspace, runShell } from "./workspace.js";
 
@@ -12,6 +14,9 @@ interface RunOptions {
   concurrency?: number;
   /** Keep temp workspaces on failure for debugging. */
   keepFailures?: boolean;
+  publishable?: boolean;
+  provider?: string;
+  model?: string;
   onProgress?: (line: string) => void;
 }
 
@@ -60,12 +65,28 @@ export async function runBench(
     gitCommit = undefined;
   }
 
+  const promptHash = hashText(tasks.map((task) => `${task.id}\n${task.prompt}`).join("\n---\n"));
+  const rulesHash = hashText(tasks.map((task) => `${task.id}\n${task.verify}`).join("\n---\n"));
   return {
     startedAt,
     finishedAt: new Date().toISOString(),
     gitCommit,
     agents: agents.map((a) => a.name),
     results,
+    keepRate: computeKeepRate(results),
+    unpublished: opts.publishable === false,
+    manifest: buildRunManifest({
+      gitSha: gitCommit,
+      promptHash,
+      rulesHash,
+      resolvedModel: opts.model,
+      provider: opts.provider,
+      publishable: opts.publishable !== false && opts.trials >= 3,
+      maxTurns: Math.max(...tasks.map((task) => task.maxTurns ?? 40)),
+      runTimeoutMs: Math.max(...tasks.map((task) => (task.timeoutSec ?? 300) * 1000)),
+      sandboxMode: "danger-full-access",
+      mcpProtocol: opts.provider === "mock" ? "none" : "2026-07-28",
+    }),
   };
 }
 

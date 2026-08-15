@@ -59,6 +59,7 @@
   "ninjacode.configuration.localBaseUrl.description": "Base URL of the local LLM server (OpenAI-compatible), e.g. Ollama, LM Studio, vLLM",
   "ninjacode.configuration.gatewayUrl.description": "NinjaCode gateway / Pass API base URL",
   "ninjacode.configuration.webUrl.description": "NinjaCode website URL for browser sign-in (blank = derive from gateway URL)",
+  "ninjacode.configuration.sandboxMode.description": "OS sandbox for shell, hooks, verification, and local MCP servers. Danger full access disables OS isolation.",
   "ninjacode.configuration.reviewEdits.description": "Hold file edits for review before writing to disk",
   "ninjacode.configuration.reasoningEffort.description": "Reasoning effort when the selected model supports it",
   "ninjacode.configuration.thinkingBudgetTokens.description": "Anthropic extended thinking budget (tokens)",

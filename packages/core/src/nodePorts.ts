@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { buildExecutionEnv, sandboxCommand } from "@ninjacode/tools";
 import type { Clock, FileSystem, ProcessRunner } from "./ports.js";
 
 export const nodeClock: Clock = {
@@ -34,14 +35,43 @@ export const nodeFileSystem: FileSystem = {
 export const nodeProcessRunner: ProcessRunner = {
   run(cmd, args, opts = {}) {
     return new Promise((resolve) => {
-      const child = spawn(cmd, args, {
+      const env = buildExecutionEnv();
+      const shell = process.env.SHELL || (process.platform === "win32" ? "cmd.exe" : "/bin/bash");
+      const shellArgs =
+        process.platform === "win32"
+          ? ["/d", "/s", "/c", [cmd, ...args].join(" ")]
+          : ["-lc", [cmd, ...args].join(" ")];
+      const raw = opts.shell ? { command: shell, args: shellArgs } : { command: cmd, args };
+      const wrapped = opts.sandbox
+        ? sandboxCommand({
+            ...raw,
+            cwd: opts.cwd ?? opts.sandbox.workspaceRoot,
+            workspaceRoot: opts.sandbox.workspaceRoot,
+            agentDir: opts.sandbox.agentDir,
+            mode: opts.sandbox.mode,
+            allowNetwork: opts.sandbox.allowNetwork,
+            env,
+          })
+        : { ...raw, sandboxed: false, backend: "none" as const };
+      const child = spawn(wrapped.command, wrapped.args, {
         cwd: opts.cwd,
-        shell: opts.shell ?? false,
-        env: { ...process.env, FORCE_COLOR: "0" },
+        env,
+        detached: process.platform !== "win32",
       });
       let stdout = "";
       let stderr = "";
-      const onAbort = () => child.kill("SIGTERM");
+      const killTree = (signal: NodeJS.Signals = "SIGTERM") => {
+        if (process.platform !== "win32" && child.pid) {
+          try {
+            process.kill(-child.pid, signal);
+            return;
+          } catch {
+            // fall back to the direct child
+          }
+        }
+        child.kill(signal);
+      };
+      const onAbort = () => killTree();
       opts.signal?.addEventListener("abort", onAbort, { once: true });
       child.stdout.on("data", (d) => {
         stdout += d.toString();

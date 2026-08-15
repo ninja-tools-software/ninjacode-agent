@@ -57,7 +57,10 @@ export interface AgentTurnDeps {
     history: Message[],
     toolSpecs: ToolSpec[],
   ) => import("./contextEstimate.js").ContextUsageBreakdown;
-  trackUsage: (usage: TokenUsage) => void;
+  trackUsage: (
+    usage: TokenUsage,
+    opts?: { category?: "compaction"; model?: string; durationMs?: number },
+  ) => void;
   getCacheStats: () => Record<string, unknown>;
   checkRunTimeout: () => string | undefined;
   runHooks: (
@@ -66,6 +69,14 @@ export interface AgentTurnDeps {
   ) => Promise<HookRunResult[]>;
   runCompletionVerification: (config: VerifyConfig) => Promise<{ ok: boolean; messages: string[] }>;
   runVerificationSubAgent: (answer: string) => Promise<string | undefined>;
+  recordSessionEvent: (
+    type: "assistant_message" | "compaction",
+    payload: Record<string, unknown>,
+  ) => Promise<void>;
+  archiveCompaction: (
+    messages: Message[],
+    info: Record<string, unknown>,
+  ) => Promise<void>;
   persist: () => Promise<void>;
   setState: (next: RunState) => Promise<void>;
   emit: (

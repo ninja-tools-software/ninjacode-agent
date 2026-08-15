@@ -39,8 +39,8 @@ export function ApprovalCard({ item, vscode }: { item: ApprovalLogItem; vscode: 
           >
             {t("Approve")}
           </button>
-          {/* No "Always" for an irreversible call: every one of them is decided on its own. */}
-          {item.danger ? null : (
+          {/* Irreversible and dynamic calls are decided one invocation at a time. */}
+          {item.danger || item.canRemember === false ? null : (
             <button
               className="btn"
               data-tooltip={

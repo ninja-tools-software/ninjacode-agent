@@ -3,9 +3,18 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Message } from "@ninjacode/providers";
 import type { AgentMode, RequestCheckpoint, SessionConfig, SessionState, TurnTrace } from "./types.js";
+import { maskOldObservations } from "./observationMasking.js";
 import { normalizeToolHistory } from "./toolHistory.js";
+import { sessionArtifactsDir, sessionDataDir } from "@ninjacode/tools";
+import { sessionEventLog } from "./sessionEventLog.js";
 
 export interface PersistedSession extends SessionState {
+  /** v1 stored only a lossy history; v2 adds append-only events and immutable artifacts. */
+  contextVersion?: 1 | 2;
+  /** Canonical bounded view sent to the model. `history` remains the UI compatibility alias. */
+  modelView?: Message[];
+  eventLog?: string;
+  artifactsDir?: string;
   updatedAt: string;
   grants: string[];
   pinnedTask?: string;
@@ -150,6 +159,18 @@ export async function listSessions(agentDir: string): Promise<SessionSummary[]> 
 
 export async function deleteSession(agentDir: string, sessionId: string): Promise<void> {
   await fs.unlink(sessionPath(agentDir, sessionId)).catch(() => undefined);
+  await fs.rm(sessionDataDir(agentDir, sessionId), { recursive: true, force: true });
+}
+
+function artifactBackedTurns(turns: TurnTrace[]): TurnTrace[] {
+  return turns.map((turn) => ({
+    ...turn,
+    toolInvocations: turn.toolInvocations.map((invocation) =>
+      invocation.artifactId
+        ? { ...invocation, output: `[archived artifact ${invocation.artifactId}]` }
+        : invocation,
+    ),
+  }));
 }
 
 export function buildPersistedSession(opts: {
@@ -158,6 +179,7 @@ export function buildPersistedSession(opts: {
   turns: TurnTrace[];
   grants: string[];
   pinnedTask?: string;
+  modelView?: Message[];
   title?: string;
   pinned?: boolean;
   archived?: boolean;
@@ -177,9 +199,13 @@ export function buildPersistedSession(opts: {
   }
   const title = deriveSessionTitle(opts.history, opts.pinnedTask, opts.title ?? opts.config.title);
   return {
+    contextVersion: 2,
     config: { ...opts.config, title },
     history: opts.history,
-    turns: opts.turns,
+    modelView: opts.modelView ?? maskOldObservations(opts.history),
+    eventLog: "events.jsonl",
+    artifactsDir: "artifacts",
+    turns: artifactBackedTurns(opts.turns),
     grants: opts.grants,
     pinnedTask: opts.pinnedTask,
     title,
@@ -284,10 +310,12 @@ export async function truncateSessionAtUserMessageOrdinal(
   const updated: PersistedSession = {
     ...saved,
     history,
+    modelView: history,
     turns,
     updatedAt: new Date().toISOString(),
   };
   await saveSession(agentDir, updated);
+  await sessionEventLog(agentDir, sessionId).append("session_truncated", { ordinal });
   return updated;
 }
 
@@ -308,9 +336,11 @@ export async function appendSessionNote(
   const updated: PersistedSession = {
     ...saved,
     history: [...saved.history, { role: "user", content: note }],
+    modelView: [...saved.history, { role: "user", content: note }],
     updatedAt: new Date().toISOString(),
   };
   await saveSession(agentDir, updated);
+  await sessionEventLog(agentDir, sessionId).append("session_note", { content: note });
   return updated;
 }
 
@@ -337,6 +367,7 @@ export async function forkSession(
     ...source,
     config: { ...source.config, id: randomUUID(), createdAt: now, title: opts.title ?? `${baseTitle} (fork)` },
     history,
+    modelView: history,
     turns,
     title: opts.title ?? `${baseTitle} (fork)`,
     pinned: false,
@@ -344,6 +375,15 @@ export async function forkSession(
     updatedAt: now,
   };
   await saveSession(agentDir, forked);
+  await fs.cp(
+    sessionArtifactsDir(agentDir, sourceSessionId),
+    sessionArtifactsDir(agentDir, forked.config.id),
+    { recursive: true, force: false },
+  ).catch(() => undefined);
+  await sessionEventLog(agentDir, forked.config.id).append("session_forked", {
+    sourceSessionId,
+    uptoUserMessageOrdinal: opts.uptoUserMessageOrdinal,
+  });
   return forked;
 }
 

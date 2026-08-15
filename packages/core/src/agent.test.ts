@@ -431,6 +431,8 @@ describe("Agent abort", () => {
       enableCheckpoints: false,
       persistSessions: false,
       enableSubagents: false,
+      sandboxMode: "danger-full-access",
+      runTimeoutMs: 0,
     });
 
     const runPromise = agent.run("Run a long shell command");
@@ -443,6 +445,43 @@ describe("Agent abort", () => {
     expect(agent.getState()).toBe("stopped");
     const invocation = outcome.turns[0]?.toolInvocations[0];
     expect(invocation?.error).toBe("aborted");
+  }, 10_000);
+
+  it("aborts in-flight tools and emits no further tool_start after run timeout", async () => {
+    const events: string[] = [];
+    const provider = new MockProvider([
+      {
+        text: "long",
+        toolCalls: [{ id: "call_1", name: "run_shell", arguments: { command: "sleep 30" } }],
+      },
+      { text: "must not run" },
+    ]);
+    const tools = createDefaultToolRegistry();
+    const permissions = new PermissionEngine(defaultPermissionPolicy("autonomous"));
+    permissions.update({ allowlist: tools.names() });
+    const agent = new Agent({
+      provider,
+      tools,
+      permissions,
+      workspaceRoot: process.cwd(),
+      enableCheckpoints: false,
+      persistSessions: false,
+      enableSubagents: false,
+      sandboxMode: "danger-full-access",
+      runTimeoutMs: 80,
+      onEvent: async (event) => {
+        events.push(event.type);
+      },
+    });
+    const outcome = await agent.run("timeout this");
+    expect(outcome.completed).toBe(false);
+    expect(["stopped", "failed"]).toContain(agent.getState());
+    const lastToolStart = events.lastIndexOf("tool_start");
+    const lastErrorOrDone = Math.max(events.lastIndexOf("error"), events.lastIndexOf("done"));
+    if (lastToolStart >= 0 && lastErrorOrDone >= 0) {
+      expect(lastToolStart).toBeLessThan(lastErrorOrDone);
+    }
+    expect(events.filter((type) => type === "tool_start").length).toBeLessThanOrEqual(1);
   }, 10_000);
 });
 

@@ -121,6 +121,12 @@ export interface LlmProvider {
   readonly name: string;
   complete(req: CompletionRequest): Promise<Completion>;
   completeStreaming(req: CompletionRequest, sink?: StreamSink): Promise<Completion>;
+  /**
+   * Optional provider-native context compaction. Implementations must preserve
+   * the same structured-summary contract as `complete`; core always retains
+   * its portable local compactor as the fallback.
+   */
+  compactContext?(req: CompletionRequest): Promise<Completion>;
 }
 
 export class LlmError extends Error {

@@ -70,6 +70,11 @@ export async function runVerification(
       cwd: ctx.workspaceRoot,
       signal: ctx.signal,
       shell: true,
+      sandbox: {
+        workspaceRoot: ctx.workspaceRoot,
+        agentDir: ctx.agentDir,
+        mode: ctx.sandboxMode ?? "workspace-write",
+      },
     });
     if (result.code !== 0) {
       const output = condenseVerifyOutput(result.stdout, result.stderr);

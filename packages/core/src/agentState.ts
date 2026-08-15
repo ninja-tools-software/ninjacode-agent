@@ -1,6 +1,11 @@
 import type { AgentHostBindings } from "./agentHostWiring.js";
 import type { Message } from "@ninjacode/providers";
-import type { CodebaseIndexLike, DiagnosticsProvider, ToolRegistry } from "@ninjacode/tools";
+import type {
+  CodebaseIndexLike,
+  DiagnosticsProvider,
+  SandboxMode,
+  ToolRegistry,
+} from "@ninjacode/tools";
 import { resolveAgentConfig, type AgentOptions } from "./agentOptions.js";
 import { ToolCircuitBreaker } from "./reliability.js";
 import { DebugLogServer, DebugSession } from "./debug.js";
@@ -31,6 +36,7 @@ export interface AgentConfig {
   contextWindow?: number;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
+  sandboxMode: SandboxMode;
   runTimeoutMs: number;
   enableCompletionVerification: boolean;
   enableVerificationSubAgent: boolean;
@@ -90,6 +96,7 @@ export function createAgentConfig(
     contextWindow: cfg.contextWindow,
     codebaseIndex: cfg.codebaseIndex,
     diagnosticsProvider: cfg.diagnosticsProvider,
+    sandboxMode: cfg.sandboxMode,
     runTimeoutMs: cfg.runTimeoutMs,
     enableCompletionVerification: cfg.enableCompletionVerification,
     enableVerificationSubAgent: cfg.enableVerificationSubAgent,
@@ -141,6 +148,7 @@ export function buildHostBindingSource(
     emit: import("./agentTurnBridge.js").TurnHostInput["emit"];
     logAgentEvent: import("./agentTurnBridge.js").TurnHostInput["logAgentEvent"];
     outcome: (answer: string, completed: boolean) => import("./types.js").AgentOutcome;
+    abortRun?: (reason: unknown) => void;
   },
 ): AgentHostBindings {
   return {
@@ -164,6 +172,8 @@ export function buildHostBindingSource(
     agentDir: config.agentDir,
     sessionId: config.sessionId,
     planId: runtime.planId,
+    sandboxMode: config.sandboxMode,
+    persistSessionContext: config.persistSessions,
     mode: config.mode,
     skills: runtime.skills,
     onEvent: config.onEvent,

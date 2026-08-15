@@ -17,11 +17,19 @@ import { type AgentOptions, type AgentTaskInput } from "./agentOptions.js";
 import { applySavedSession } from "./agentResume.js";
 import { runAgentMainLoop } from "./agentRunWiring.js";
 import { setupAgentHooks, setupAgentSkills, startAgentDebugServer } from "./agentSetup.js";
-import { isAbortError, linkExternalAbortSignal, waitOrAbort } from "./agentRuntime.js";
+import {
+  isAbortError,
+  linkExternalAbortSignal,
+  trackTokenUsage,
+  waitOrAbort,
+} from "./agentRuntime.js";
 import { writeAgentSession } from "./agentSupport.js";
 import { buildHostBindingSource, type AgentConfig, type AgentRuntime } from "./agentState.js";
 import type { HookRunResult } from "./hooks.js";
 import { loadSession, loadSessionSafe, type PersistedSession } from "./sessions.js";
+import { sessionEventLog } from "./sessionEventLog.js";
+import { prepareLegacySessionContext } from "./sessionMigration.js";
+import { SessionArtifactStore } from "./sessionArtifacts.js";
 import type { AgentFactory } from "./agentFactory.js";
 import type {
   AgentEventHandler,
@@ -30,6 +38,7 @@ import type {
   SessionState,
 } from "./types.js";
 import type { ContextUsageBreakdown } from "./contextEstimate.js";
+import { startSpan } from "./telemetry.js";
 
 export type { AgentOptions, AgentTaskInput } from "./agentOptions.js";
 
@@ -99,6 +108,7 @@ export class Agent {
       pinnedTask: this.runtime.pinnedTask,
       provider: this.config.provider,
       model: this.config.model,
+      utilityModel: this.config.utilityModel,
       contextWindow: this.config.contextWindow,
       workspaceRoot: this.config.workspaceRoot,
       agentDir: this.config.agentDir,
@@ -108,7 +118,33 @@ export class Agent {
       maxTokens: this.config.maxTokens,
       cacheReadTokens: this.runtime.cacheStats.cacheReadTokens,
       cacheWriteTokens: this.runtime.cacheStats.cacheWriteTokens,
-      onCompaction: (info) => this.emit("compaction", info),
+      onCompaction: async (info) => {
+        if (info.usage) {
+          trackTokenUsage(this.config.budget, this.runtime.cacheStats, info.usage, {
+            category: "compaction",
+            model: info.model,
+          });
+          await this.emit("usage", {
+            usage: info.usage,
+            model: info.model,
+            category: "compaction",
+          });
+        }
+        if (this.config.persistSessions) {
+          const artifact = await new SessionArtifactStore(
+            this.config.agentDir,
+            this.config.sessionId,
+          ).putText(JSON.stringify(this.runtime.history), {
+            kind: "compaction_segment",
+            mimeType: "application/json",
+          });
+          await sessionEventLog(this.config.agentDir, this.config.sessionId).append(
+            "compaction",
+            { info, artifactId: artifact.id },
+          );
+        }
+        await this.emit("compaction", info);
+      },
       onUsage: (usage) => this.emit("context_usage", usage),
     });
     if (!result) return null;
@@ -135,8 +171,9 @@ export class Agent {
 
   static async resume(opts: AgentOptions & { sessionId: string }) {
     const agentDir = opts.agentDir ?? path.join(path.resolve(opts.workspaceRoot), ".ninjacode");
-    const saved = await loadSessionSafe(agentDir, opts.sessionId);
-    if (!saved) throw new Error(`Session not found: ${opts.sessionId}`);
+    const loaded = await loadSessionSafe(agentDir, opts.sessionId);
+    if (!loaded) throw new Error(`Session not found: ${opts.sessionId}`);
+    const saved = await prepareLegacySessionContext(agentDir, loaded);
     const agent = new Agent({ ...opts, sessionId: opts.sessionId });
     applySavedSession(agent.runtime, agent.config, saved);
     return { agent, prior: agent.runtime.history };
@@ -151,6 +188,12 @@ export class Agent {
     this.runtime.runStartedAt = Date.now();
     linkExternalAbortSignal(this.config.externalSignal, this.runtime.controller, (reason) => this.abort(reason));
     await this.setState("running");
+    if (this.config.persistSessions) {
+      await sessionEventLog(this.config.agentDir, this.config.sessionId).append("user_message", {
+        text: normalizedTask.text,
+        images: normalizedTask.images ?? [],
+      });
+    }
 
     const prepared = await prepareAgentRun({
       agentDir: this.config.agentDir,
@@ -165,9 +208,31 @@ export class Agent {
     this.runtime.pendingCheckpointId = prepared.pendingCheckpointId;
 
     const debugLogUrl = this.config.mode === "debug" ? await this.startDebugServer() : undefined;
+    const span = startSpan("run", {
+      sessionId: this.config.sessionId,
+      mode: this.config.mode,
+      sandbox: this.config.sandboxMode,
+    });
+    const timeoutTimer =
+      this.config.runTimeoutMs > 0
+        ? setTimeout(() => {
+            this.abort(
+              new DOMException(
+                `Run timeout exceeded (${Math.round(this.config.runTimeoutMs / 1000)}s).`,
+                "TimeoutError",
+              ),
+            );
+          }, this.config.runTimeoutMs)
+        : undefined;
     try {
-      return await this.runLoop(normalizedTask, prior, debugLogUrl);
+      const outcome = await this.runLoop(normalizedTask, prior, debugLogUrl);
+      span.end({ completed: outcome.completed, turns: outcome.turns.length });
+      return outcome;
+    } catch (error) {
+      span.end({ failed: true });
+      throw error;
     } finally {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
       if (this.runtime.debugServer) {
         await this.runtime.debugServer.stop().catch(() => undefined);
         this.runtime.debugServer = null;
@@ -192,6 +257,7 @@ export class Agent {
         detail?: string,
       ) => this.logAgentEvent(type, summary, detail),
       outcome: (answer: string, completed: boolean) => this.outcome(answer, completed),
+      abortRun: (reason: unknown) => this.abort(reason),
     };
   }
 
@@ -205,6 +271,8 @@ export class Agent {
   private async setupHooks(): Promise<void> {
     await setupAgentHooks({
       workspaceRoot: this.config.workspaceRoot,
+      agentDir: this.config.agentDir,
+      sandboxMode: this.config.sandboxMode,
       permissions: this.config.permissions,
       onApproval: this.config.onApproval,
       enableWorkspaceHooks: this.config.enableWorkspaceHooks,
@@ -280,6 +348,8 @@ export class Agent {
       agentDir: this.config.agentDir,
       sessionId: this.config.sessionId,
       planId: this.runtime.planId,
+      sandboxMode: this.config.sandboxMode,
+      persistSessionContext: this.config.persistSessions,
       codebaseIndex: this.config.codebaseIndex,
       diagnosticsProvider: this.config.diagnosticsProvider,
       onApproval: this.config.onApproval,

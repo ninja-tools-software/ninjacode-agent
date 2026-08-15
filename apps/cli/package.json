@@ -15,7 +15,8 @@
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist",
-    "eval": "node dist/eval.js"
+    "eval": "node dist/eval.js",
+    "bundle": "node esbuild.mjs"
   },
   "dependencies": {
     "@ninjacode/core": "workspace:*",
@@ -23,6 +24,7 @@
     "@ninjacode/tools": "workspace:*"
   },
   "devDependencies": {
+    "esbuild": "^0.25.1",
     "typescript": "^5.8.2",
     "vitest": "^3.0.9"
   }

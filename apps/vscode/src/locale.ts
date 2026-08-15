@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import frBundle from "../l10n/bundle.l10n.fr.json";
 
-export type UiLocale = "en" | "fr";
-export type LocaleSetting = "auto" | "en" | "fr";
+type UiLocale = "en" | "fr";
+type LocaleSetting = "auto" | "en" | "fr";
 
 const frMessages = frBundle as Record<string, string>;
 

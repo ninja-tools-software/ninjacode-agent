@@ -1,5 +1,5 @@
 import type { LlmProvider, Message, TokenUsage, ToolSpec } from "@ninjacode/providers";
-import type { CodebaseIndexLike, DiagnosticsProvider } from "@ninjacode/tools";
+import type { CodebaseIndexLike, DiagnosticsProvider, SandboxMode } from "@ninjacode/tools";
 import type { TurnHostInput } from "./agentTurnBridge.js";
 import { createAgentToolPipeline } from "./agentSupport.js";
 import type { PermissionEngine } from "./permissions.js";
@@ -49,6 +49,8 @@ export interface AgentHostBindings {
   agentDir: string;
   sessionId: string;
   planId: string;
+  sandboxMode: SandboxMode;
+  persistSessionContext: boolean;
   mode: AgentMode;
   skills: SkillDefinition[];
   onEvent?: AgentEventHandler;
@@ -64,6 +66,7 @@ export interface AgentHostBindings {
   emit: TurnHostInput["emit"];
   logAgentEvent: TurnHostInput["logAgentEvent"];
   outcome: (answer: string, completed: boolean) => AgentOutcome;
+  abortRun?: (reason: unknown) => void;
 }
 
 export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
@@ -88,6 +91,8 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
     agentDir: host.agentDir,
     sessionId: host.sessionId,
     planId: host.planId,
+    sandboxMode: host.sandboxMode,
+    persistSessionContext: host.persistSessionContext,
     onEvent: host.onEvent,
     codebaseIndex: host.codebaseIndex,
     diagnosticsProvider: host.diagnosticsProvider,
@@ -104,9 +109,17 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
         maxTokens: host.maxTokens,
         cacheReadTokens: host.cacheStats.cacheReadTokens,
         cacheWriteTokens: host.cacheStats.cacheWriteTokens,
+        model: host.model,
       }),
-    trackUsage: (usage: TokenUsage) => trackTokenUsage(host.budget, host.cacheStats, usage),
-    checkRunTimeout: () => checkRunTimeout(host.runTimeoutMs, host.runStartedAt),
+    trackUsage: (
+      usage: TokenUsage,
+      opts?: { category?: "compaction"; model?: string; durationMs?: number },
+    ) => trackTokenUsage(host.budget, host.cacheStats, usage, opts),
+    checkRunTimeout: () => {
+      const reason = checkRunTimeout(host.runTimeoutMs, host.runStartedAt);
+      if (reason) host.abortRun?.(new DOMException(reason, "TimeoutError"));
+      return reason;
+    },
     runHooks: host.runHooks,
     persist: host.persist,
     setState: host.setState,
@@ -125,6 +138,8 @@ export function createRunToolPipeline(opts: {
   agentDir: string;
   sessionId: string;
   planId: string;
+  sandboxMode: SandboxMode;
+  persistSessionContext: boolean;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
   onApproval?: ApprovalHandler;

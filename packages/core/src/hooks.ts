@@ -1,7 +1,15 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { Tool } from "@ninjacode/tools";
+import {
+  buildExecutionEnv,
+  classifyShellDanger,
+  sandboxCommand,
+  shellGrantPolicy,
+  shellGrantScopes,
+  type SandboxMode,
+  type Tool,
+} from "@ninjacode/tools";
 import type { PermissionEngine } from "./permissions.js";
 
 export type HookEvent = "PreToolUse" | "PostToolUse" | "Stop";
@@ -47,6 +55,11 @@ export type HookApprovalHandler = (req: {
   reason: string;
 }) => Promise<{ approved: boolean; remember?: boolean }>;
 
+interface HookExecutionOptions {
+  agentDir: string;
+  sandboxMode: SandboxMode;
+}
+
 const HOOKS_CONFIG_CANDIDATES = [
   path.join(".ninjacode", "hooks.json"),
   path.join(".ninjacode", "hooks.jsonc"),
@@ -77,6 +90,9 @@ function hookAsShellTool(name: string, command: string): Tool {
     risk: "shell",
     inputSchema: {},
     target: () => command,
+    riskFor: () => (classifyShellDanger(command) ? "destructive" : "shell"),
+    grantScopes: () => shellGrantScopes(command),
+    grantPolicy: () => shellGrantPolicy(command),
     execute: async () => ({ output: "" }),
   };
 }
@@ -88,6 +104,18 @@ function matchesTool(matcher: string | undefined, toolName: string): boolean {
   } catch {
     return matcher === toolName;
   }
+}
+
+function stopHookProcess(child: ReturnType<typeof spawn>): void {
+  if (process.platform !== "win32" && child.pid) {
+    try {
+      process.kill(-child.pid, "SIGTERM");
+      return;
+    } catch {
+      // fall back to direct child
+    }
+  }
+  child.kill("SIGTERM");
 }
 
 /**
@@ -103,6 +131,10 @@ export class HookRunner {
     private readonly workspaceRoot: string,
     private readonly permissions: PermissionEngine,
     private readonly onApproval?: HookApprovalHandler,
+    private readonly execution: HookExecutionOptions = {
+      agentDir: path.join(workspaceRoot, ".ninjacode"),
+      sandboxMode: "danger-full-access",
+    },
   ) {}
 
   get enabled(): boolean {
@@ -134,7 +166,15 @@ export class HookRunner {
   ): Promise<HookRunResult> {
     const toolName = `hook:${input.event}:${index}`;
     const target = def.command;
-    const decision = this.permissions.evaluate(hookAsShellTool(toolName, target), target);
+    const tool = hookAsShellTool(toolName, target);
+    const scopes = tool.grantScopes?.({}) ?? [];
+    const policy = tool.grantPolicy?.({}) ?? "exact";
+    const risk = tool.riskFor?.({}) ?? tool.risk;
+    const decision = this.permissions.evaluate(tool, target, {
+      scopes,
+      risk,
+      grantPolicy: policy,
+    });
 
     if (!decision.allowed) {
       return { event: input.event, command: def.command, ran: false, blocked: false, reason: decision.reason };
@@ -158,7 +198,13 @@ export class HookRunner {
       if (!approval.approved) {
         return { event: input.event, command: def.command, ran: false, blocked: false, reason: "denied by user" };
       }
-      if (approval.remember) this.permissions.grant(toolName, target);
+      if (approval.remember && policy !== "never") {
+        if (policy === "exact" || scopes.length === 0) {
+          this.permissions.grant(toolName, target);
+        } else {
+          for (const scope of scopes) this.permissions.grant(toolName, scope);
+        }
+      }
     }
 
     return this.exec(def, input, signal);
@@ -168,16 +214,28 @@ export class HookRunner {
     return new Promise((resolve) => {
       let child: ReturnType<typeof spawn>;
       try {
-        child = spawn(def.command, {
+        const env = buildExecutionEnv(process.env, {
+          NINJACODE_HOOK_EVENT: input.event,
+          NINJACODE_TOOL_NAME: input.toolName ?? "",
+          NINJACODE_SESSION_ID: input.sessionId,
+        });
+        const shell = process.env.SHELL || (process.platform === "win32" ? "cmd.exe" : "/bin/bash");
+        const args =
+          process.platform === "win32" ? ["/d", "/s", "/c", def.command] : ["-lc", def.command];
+        const wrapped = sandboxCommand({
+          command: shell,
+          args,
           cwd: this.workspaceRoot,
-          shell: true,
-          env: {
-            ...process.env,
-            NINJACODE_HOOK_EVENT: input.event,
-            NINJACODE_TOOL_NAME: input.toolName ?? "",
-            NINJACODE_SESSION_ID: input.sessionId,
-          },
+          workspaceRoot: this.workspaceRoot,
+          agentDir: this.execution.agentDir,
+          mode: this.execution.sandboxMode,
+          env,
+        });
+        child = spawn(wrapped.command, wrapped.args, {
+          cwd: this.workspaceRoot,
+          env,
           signal,
+          detached: process.platform !== "win32",
         });
       } catch (e) {
         resolve({
@@ -207,7 +265,7 @@ export class HookRunner {
       child.stdout?.on("data", (c: Buffer) => (stdout += c.toString("utf8")));
       child.stderr?.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
 
-      const timer = setTimeout(() => child.kill("SIGTERM"), def.timeoutMs ?? 30_000);
+      const timer = setTimeout(() => stopHookProcess(child), def.timeoutMs ?? 30_000);
       child.on("close", (code) => {
         clearTimeout(timer);
         resolve({

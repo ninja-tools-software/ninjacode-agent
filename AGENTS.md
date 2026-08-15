@@ -29,10 +29,11 @@ pnpm knip                    # unused files, exports, dependencies
 pnpm depcruise               # dependency direction, cycles, orphans
 pnpm bench                   # NinjaBench (mock); live runs need ANTHROPIC_API_KEY
 pnpm eval                    # CLI eval harness
-pnpm --filter ninjacode package   # VSIX; bumps patch semver via prebuild
+pnpm --filter ninjacode package   # VSIX; build is pure and does not bump versions
+pnpm version:bump                # explicit release-only patch bump
 ```
 
-`pnpm --filter ninjacode build` and `package` both run the `prebuild` hook, which increments the patch version in [`apps/vscode/package.json`](apps/vscode/package.json) and mirrors it to the root [`package.json`](package.json) (0.1.0 → 0.1.1 → …) — the two versions are always the same. The resulting `.vsix` is named after that version. Set `NINJACODE_BUMP=skip` to build on the current version instead, which is what a release does. Commit the bumped `package.json` files when you want to publish; there is no auto-commit.
+`pnpm build` and `package` are pure: they must not rewrite `package.json`. Bump versions only with `pnpm version:bump`, then commit and tag `vX.Y.Z`. CI runs `check:build-purity` and `check:clean-tree` after build and tests.
 
 Known pitfall: `CAPACITES_AGENT.md` is sometimes out of date vs the code — trust the code.
 

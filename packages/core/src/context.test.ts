@@ -7,7 +7,12 @@ import {
   toolOutputLimit,
   truncateToolOutput,
 } from "./context.js";
-import { estimateContextUsage, estimateTokens } from "./contextEstimate.js";
+import {
+  estimateContextUsage,
+  estimateTokens,
+  recordTokenCalibration,
+  tokenCalibrationMultiplier,
+} from "./contextEstimate.js";
 import { isValidToolChain } from "./toolHistory.js";
 
 describe("toolOutputLimit", () => {
@@ -118,6 +123,15 @@ describe("estimateContextUsage", () => {
     expect(usage.output).toBe(0);
     expect(usage.total).toBe(0);
   });
+
+  it("calibrates per resolved model and never becomes optimistic", () => {
+    const model = "calibration-test-model";
+    expect(tokenCalibrationMultiplier(model)).toBeGreaterThanOrEqual(1);
+    recordTokenCalibration(model, 100, 150);
+    expect(tokenCalibrationMultiplier(model)).toBeGreaterThanOrEqual(1.5);
+    recordTokenCalibration(model, 100, 50);
+    expect(tokenCalibrationMultiplier(model)).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe("compactHistory telemetry", () => {
@@ -179,7 +193,7 @@ describe("compactHistory telemetry", () => {
   });
 });
 
-describe("compaction never recompresses its own output", () => {
+describe("canonical compaction summary", () => {
   function historyWithSummary(n: number): Message[] {
     return [
       { role: "user", content: "[Compacted earlier conversation]\nEstablished: fix the parser bug." },
@@ -190,23 +204,150 @@ describe("compaction never recompresses its own output", () => {
     ];
   }
 
-  it("keeps an earlier summary verbatim through a second compaction", async () => {
+  it("replaces an earlier summary instead of stacking another one", async () => {
     const result = await compactHistory({ history: historyWithSummary(90) });
     const summaries = result.messages.filter((m) => isCompactionMessage(m));
 
     expect(summaries.some((m) => m.content.includes("fix the parser bug"))).toBe(true);
-    expect(summaries).toHaveLength(2);
+    expect(summaries).toHaveLength(1);
   });
 
-  it("orders the new summary after the one it does not cover", async () => {
-    const result = await compactHistory({ history: historyWithSummary(90) });
-    const first = result.messages.findIndex((m) => m.content.includes("fix the parser bug"));
-    const second = result.messages.findIndex(
-      (m) => isCompactionMessage(m) && !m.content.includes("fix the parser bug"),
-    );
+  it("still has exactly one summary after ten cycles", async () => {
+    let history = historyWithSummary(90);
+    for (let cycle = 0; cycle < 10; cycle += 1) {
+      history.push(
+        ...Array.from({ length: 90 }, (_, index): Message => ({
+          role: index % 2 === 0 ? "user" : "assistant",
+          content: `cycle ${cycle} message ${index} `.repeat(20),
+        })),
+      );
+      history = (await compactHistory({ history })).messages;
+      expect(history.filter(isCompactionMessage)).toHaveLength(1);
+    }
+  });
 
-    expect(first).toBeGreaterThanOrEqual(0);
-    expect(second).toBeGreaterThan(first);
+  it("sends the actual beginning, middle and end of the compacted segment to the model", async () => {
+    const complete = vi.fn(async (_request: Parameters<LlmProvider["complete"]>[0]) => ({
+      text: [
+        "## Task\nBEGIN_SENTINEL",
+        "## Constraints\nMIDDLE_SENTINEL",
+        "## Files touched\nNone",
+        "## Decisions\nEND_SENTINEL",
+        "## Validation\nNone",
+        "## Open work\nNone",
+        "## Archives\nNone",
+      ].join("\n"),
+      toolCalls: [],
+      usage: { inputTokens: 100, outputTokens: 20 },
+      model: "utility-model",
+      stopReason: "end" as const,
+    }));
+    const provider = {
+      name: "test",
+      complete,
+      completeStreaming: vi.fn(),
+    } satisfies LlmProvider;
+    const history = Array.from({ length: 90 }, (_, index): Message => ({
+      role: index % 2 === 0 ? "user" : "assistant",
+      content:
+        index === 0
+          ? "BEGIN_SENTINEL"
+          : index === 30
+            ? "MIDDLE_SENTINEL"
+            : index === 59
+              ? "END_SENTINEL"
+              : `message ${index}`,
+    }));
+
+    await compactHistory({ history, provider, model: "utility-model" });
+
+    const segment = complete.mock.calls[0]?.[0].messages.at(-1)?.content ?? "";
+    expect(segment).toContain("BEGIN_SENTINEL");
+    expect(segment).toContain("MIDDLE_SENTINEL");
+    expect(segment).toContain("END_SENTINEL");
+  });
+
+  it("returns near the 60% target and stays below the complete input budget", async () => {
+    const provider = {
+      name: "test",
+      complete: vi.fn(async () => ({
+        text: "## Task\nContinue\n## Constraints\nNone\n## Files touched\nNone\n## Decisions\nNone\n## Validation\nNone\n## Open work\nContinue\n## Archives\nNone",
+        toolCalls: [],
+        usage: { inputTokens: 1_000, outputTokens: 50 },
+        model: "utility",
+        stopReason: "end" as const,
+      })),
+      completeStreaming: vi.fn(),
+    } satisfies LlmProvider;
+    const history = Array.from({ length: 100 }, (_, index): Message => ({
+      role: index % 2 === 0 ? "user" : "assistant",
+      content: `message-${index}-${"x".repeat(500)}`,
+    }));
+
+    const result = await compactHistory({
+      history,
+      provider,
+      contextWindow: 12_000,
+      reservedOutputTokens: 2_000,
+      model: "utility",
+      budgetModel: "primary",
+    });
+    const inputBudget = 12_000 - 2_000 - 600;
+    expect(estimateTokens(result.messages, "primary")).toBeLessThanOrEqual(
+      Math.floor(inputBudget * 0.6),
+    );
+  });
+
+  it("falls back locally on provider failure but propagates abort", async () => {
+    const provider = {
+      name: "failing",
+      complete: vi.fn(async () => {
+        throw new Error("provider down");
+      }),
+      completeStreaming: vi.fn(),
+    } satisfies LlmProvider;
+    let fallback = false;
+    const result = await compactHistory({
+      history: historyWithSummary(90),
+      provider,
+      onCompaction: (info) => {
+        fallback = info.fallback;
+      },
+    });
+    expect(fallback).toBe(true);
+    expect(result.messages.filter(isCompactionMessage)).toHaveLength(1);
+
+    const controller = new AbortController();
+    controller.abort("stop");
+    await expect(
+      compactHistory({
+        history: historyWithSummary(90),
+        provider,
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("uses provider-native compaction when available", async () => {
+    const compactContext = vi.fn(async () => ({
+      text: "## Task\nNative\n## Constraints\nNone\n## Files touched\nNone\n## Decisions\nNone\n## Validation\nNone\n## Open work\nNone\n## Archives\nNone",
+      toolCalls: [],
+      usage: { inputTokens: 10, outputTokens: 10 },
+      model: "native-model",
+      stopReason: "end" as const,
+    }));
+    const provider: LlmProvider = {
+      name: "native",
+      compactContext,
+      complete: vi.fn(async () => {
+        throw new Error("portable path should not run");
+      }),
+      completeStreaming: vi.fn(),
+    };
+
+    await compactHistory({ history: historyWithSummary(90), provider });
+    expect(compactContext).toHaveBeenCalledOnce();
+    expect(provider.complete).not.toHaveBeenCalled();
   });
 });
 
@@ -228,6 +369,22 @@ describe("lossless compaction pipeline", () => {
     ]).flat();
   }
 
+  function readTurns(count: number): Message[] {
+    return Array.from({ length: count }, (_, i): Message[] => [
+      {
+        role: "assistant",
+        content: "",
+        toolCalls: [{ id: `read_${i}`, name: "read_file", arguments: { path: `file-${i}` } }],
+      },
+      {
+        role: "tool",
+        name: "read_file",
+        toolCallId: `read_${i}`,
+        content: `output ${i} `.repeat(100),
+      },
+    ]).flat();
+  }
+
   it("leaves a merely long history untouched: masking would churn the cached prefix", () => {
     const history = shellTurns(14);
 
@@ -238,12 +395,12 @@ describe("lossless compaction pipeline", () => {
   });
 
   it("masks old observations once the context is under pressure, sparing the recent ones", async () => {
-    const history = shellTurns(14);
+    const history = readTurns(30);
 
     // A window this small puts the token estimate over the soft threshold.
-    const result = await compactHistory({ history, contextWindow: 4_000 });
+    const result = await compactHistory({ history, contextWindow: 6_000 });
 
-    expect(result.messages[1]?.content).toContain("output masked");
+    expect(result.messages.some((message) => message.content.includes("output masked"))).toBe(true);
     expect(result.messages.at(-1)?.content).toBe(history.at(-1)?.content);
     expect(isValidToolChain(result.messages)).toBe(true);
   });
@@ -252,12 +409,41 @@ describe("lossless compaction pipeline", () => {
     const provider = { complete: vi.fn(), completeStreaming: vi.fn(), name: "unused" };
 
     await compactHistory({
-      history: shellTurns(14),
-      contextWindow: 4_000,
+      history: readTurns(30),
+      contextWindow: 6_000,
       provider: provider as unknown as LlmProvider,
     });
 
     expect(provider.completeStreaming).not.toHaveBeenCalled();
     expect(provider.complete).not.toHaveBeenCalled();
+  });
+
+  it("keeps contradictory constraints visible to the compressor", async () => {
+    const complete = vi.fn(async (request: Parameters<LlmProvider["complete"]>[0]) => {
+      const prompt = JSON.stringify(request.messages);
+      expect(prompt).toContain("must use tabs");
+      expect(prompt).toContain("must use spaces");
+      return {
+        text: "## Task\nformat\n## Constraints\nmust use tabs; must use spaces\n## Files touched\nNone\n## Decisions\nNone\n## Validation\nNone\n## Open work\nNone\n## Archives\nNone",
+        toolCalls: [],
+        usage: { inputTokens: 20, outputTokens: 10 },
+        model: "utility",
+        stopReason: "end" as const,
+      };
+    });
+    await compactHistory({
+      history: [
+        { role: "user", content: "must use tabs" },
+        { role: "assistant", content: "ok" },
+        { role: "user", content: "must use spaces" },
+        ...Array.from({ length: 80 }, (_, i) => ({
+          role: (i % 2 === 0 ? "user" : "assistant") as Message["role"],
+          content: `pad ${i} `.repeat(30),
+        })),
+      ],
+      provider: { name: "test", complete, completeStreaming: vi.fn() },
+      contextWindow: 4_000,
+    });
+    expect(complete).toHaveBeenCalled();
   });
 });

@@ -7,7 +7,6 @@ import type { ModelInfo, ModelSortId, SettingsState, VsCodeApi } from "../types.
 import { ModelBenchmarkPanel } from "./ModelBenchmarkPanel.js";
 import {
   defaultContextWindow,
-  effectiveContextWindow,
   orderModels,
 } from "./modelMenuHelpers.js";
 import { ModelMenuListSection } from "./modelMenuRows.js";
@@ -243,8 +242,4 @@ export function contextWindowOptions(settings: SettingsState, modelInfo?: ModelI
   if (def > 0 && !ctxOptions.includes(def)) ctxOptions.push(def);
   ctxOptions.sort((a, b) => a - b);
   return ctxOptions;
-}
-
-export function currentContextWindow(settings: SettingsState, modelInfo?: ModelInfo): number {
-  return effectiveContextWindow(settings, modelInfo);
 }

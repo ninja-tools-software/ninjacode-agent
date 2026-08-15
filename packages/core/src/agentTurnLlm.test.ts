@@ -12,14 +12,16 @@ function bigHistory(n: number): Message[] {
   }));
 }
 
-function countingProvider(): LlmProvider & { completeCalls: number } {
+function countingProvider(): LlmProvider & { completeCalls: number; requestedModels: Array<string | undefined> } {
   const provider = {
     name: "mock",
     completeCalls: 0,
-    async complete() {
+    requestedModels: [] as Array<string | undefined>,
+    async complete(request: Parameters<LlmProvider["complete"]>[0]) {
       provider.completeCalls += 1;
+      provider.requestedModels.push(request.model);
       return {
-        text: "## Intent\nResume.\n## Files touched\nNone\n## Decisions\nNone\n## Errors\nNone\n## Next steps\nContinue.",
+        text: "## Task\nResume.\n## Constraints\nNone\n## Files touched\nNone\n## Decisions\nNone\n## Validation\nNone\n## Open work\nContinue.\n## Archives\nNone",
         toolCalls: [],
         usage: { inputTokens: 10, outputTokens: 20 },
         model: "mock",
@@ -51,6 +53,8 @@ function depsFor(history: Message[], provider: LlmProvider): AgentTurnDeps {
     state,
     toolSpecs: [],
     provider,
+    model: "primary-model",
+    utilityModel: "utility-model",
     maxTokens: 1024,
     maxTurns: 20,
     enablePromptCache: false,
@@ -64,6 +68,7 @@ function depsFor(history: Message[], provider: LlmProvider): AgentTurnDeps {
     persist: vi.fn(async () => {}),
     setState: vi.fn(async () => {}),
     trackUsage: vi.fn(),
+    archiveCompaction: vi.fn(async () => undefined),
     getCacheStats: () => ({}),
     checkRunTimeout: () => undefined,
     logAgentEvent: vi.fn(),
@@ -85,6 +90,7 @@ describe("prepareTurnMessages persists compaction", () => {
     await prepareTurnMessages(deps);
 
     expect(provider.completeCalls).toBe(1);
+    expect(provider.requestedModels).toEqual(["utility-model"]);
     expect(deps.state.history.some(isCompactionMessage)).toBe(true);
     expect(deps.state.history.length).toBeLessThan(90);
 

@@ -59,6 +59,7 @@
   "ninjacode.configuration.localBaseUrl.description": "URL de base du serveur LLM local (compatible OpenAI), p.ex. Ollama, LM Studio, vLLM",
   "ninjacode.configuration.gatewayUrl.description": "URL de base de la passerelle NinjaCode / Pass API",
   "ninjacode.configuration.webUrl.description": "URL du site NinjaCode pour la connexion navigateur (vide = dérivée de l’URL de la passerelle)",
+  "ninjacode.configuration.sandboxMode.description": "Bac à sable système pour le shell, les hooks, la vérification et les serveurs MCP locaux. L’accès complet dangereux désactive cette isolation.",
   "ninjacode.configuration.reviewEdits.description": "Mettre les modifications de fichiers en attente de revue avant écriture sur le disque",
   "ninjacode.configuration.reasoningEffort.description": "Effort de raisonnement lorsque le modèle sélectionné le prend en charge",
   "ninjacode.configuration.thinkingBudgetTokens.description": "Budget de thinking étendu Anthropic (tokens)",

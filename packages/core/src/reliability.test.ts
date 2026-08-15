@@ -299,4 +299,29 @@ describe("BudgetTracker", () => {
     // Uncached input must still cost $3 — never cancelled out by cache reads.
     expect(tracker.estimatedCostUsd).toBeCloseTo(3 + 3);
   });
+
+  it("accounts for compaction in totals and in a separate bucket", () => {
+    const tracker = new BudgetTracker({}, { input: 1, output: 2 });
+    tracker.add(
+      { inputTokens: 1_000, outputTokens: 100, cacheReadTokens: 50 },
+      { category: "compaction", pricing: { input: 2, output: 4 } },
+    );
+    const snapshot = tracker.snapshot();
+    expect(snapshot.inputTokens).toBe(1_000);
+    expect(snapshot.compaction.inputTokens).toBe(1_000);
+    expect(snapshot.compaction.outputTokens).toBe(100);
+    expect(snapshot.compaction.cacheReadTokens).toBe(50);
+    expect(snapshot.compaction.estimatedCostUsd).toBeGreaterThan(0);
+    expect(snapshot.compaction.count).toBe(1);
+  });
+
+  it("records compaction model and duration separately", () => {
+    const tracker = new BudgetTracker({}, { input: 1, output: 2 });
+    tracker.add(
+      { inputTokens: 10, outputTokens: 4 },
+      { category: "compaction", model: "utility", durationMs: 25 },
+    );
+    expect(tracker.snapshot().compaction.model).toBe("utility");
+    expect(tracker.snapshot().compaction.durationMs).toBe(25);
+  });
 });
