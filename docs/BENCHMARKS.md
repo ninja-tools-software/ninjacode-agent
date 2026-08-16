@@ -87,7 +87,7 @@ pnpm bench:harbor:plan:full
 pnpm bench:harbor:plan:publish
 
 # Exécutions live explicites (jamais sur une pull request)
-pnpm bench:harbor:smoke    # 1 tâche × 1, instrumentation
+pnpm bench:harbor:smoke    # 1 tâche × 1, instrumentation, job-name unique
 pnpm bench:harbor:subset   # subset stratifié stable 20 × 3
 pnpm bench:harbor:full     # TB2.1 complet 89 × 1
 pnpm bench:harbor:publish  # TB2.1 complet 89 × 3, publication uniquement
@@ -120,6 +120,22 @@ reste disponible dans `n_cache_tokens`. La CLI écrit d'abord une enveloppe atom
 qu'après validation du schéma et de toutes les métriques ; un JSON invalide ou
 incomplet ne devient jamais une suite de zéros inventés.
 
+Un smoke (`pnpm bench:harbor:smoke`) génère un `--job-name` unique
+(`smoke-<timestamp>`). Relancer le **même** nom dans le même `-o` reprend le job
+Harbor précédent : les essais déjà notés sont conservés, les essais incomplets
+peuvent être relancés, et un `config.json` incompatible fait échouer la reprise.
+Pour un smoke neuf, laisser le wrapper choisir le nom, ou passer explicitement
+`--job-name smoke-$(date +%Y%m%d-%H%M%S)`.
+
+Quand l'agent a tourné et écrit une télémétrie finale, l'essai reste scorable même
+s'il n'a pas produit le fichier attendu : `agent_timeout` si le plafond CLI a été
+atteint, `verify_failure` si le grader échoue, `agent_exit` seulement pour un arrêt
+non timeout. `NonZeroAgentExitCodeError` n'est plus une erreur d'infrastructure dès
+que `telemetry_complete=true`. La trajectoire redacted est copiée dans
+`/logs/artifacts/trajectory.json` quand ce répertoire existe ; `metadata.trajectory`
+ne contient que le résumé (tours, time-to-first-edit, tours lecture seule,
+histogramme d'outils, `stopReason`).
+
 Un smoke (`-l 1`) et OpenThoughts-TBLite ne sont pas des scores Terminal-Bench 2.1.
 Ne pas les présenter comme comparables au leaderboard.
 
@@ -128,8 +144,9 @@ Ne pas les présenter comme comparables au leaderboard.
 Chaque essai non réussi reçoit exactement une catégorie :
 
 - `verify_failure` : l'agent termine, mais le grader rejette la correction ;
-- `agent_timeout` : le budget agent est dépassé ;
-- `agent_exit` : la sortie agent est non nulle ou incomplète ;
+- `agent_timeout` : le budget agent (Harbor ou plafond CLI interne) est dépassé ;
+- `agent_exit` : arrêt non timeout (crash logique, abort utilisateur) **sans**
+  télémétrie finale, ou avec télémétrie `agent_exit` ;
 - `verifier_timeout` : le grader ne rend pas de verdict ;
 - `infra_error` : Docker, installation, dataset ou orchestration ;
 - `cancelled` : annulation externe.

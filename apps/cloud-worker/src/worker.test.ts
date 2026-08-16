@@ -12,17 +12,26 @@ import { TempWorkspaceProvisioner } from "./workspace.js";
 
 const roots: string[] = [];
 
-async function setup(executor: AgentJobExecutor) {
+async function setup(executor: AgentJobExecutor, options?: { delayWorkspaceMs?: number }) {
   const root = await mkdtemp(path.join(os.tmpdir(), "ninjacode-worker-test-"));
   roots.push(root);
   const queue = new FileSystemJobQueue(path.join(root, "queue"));
   const policy = new DenyByDefaultPolicy();
+  const provisioner = new TempWorkspaceProvisioner(path.join(root, "workspaces"));
+  const delayWorkspaceMs = options?.delayWorkspaceMs;
   const worker = new CloudWorker({
     workerId: "test-worker",
     queue,
     executor,
     policy,
-    workspaces: new TempWorkspaceProvisioner(path.join(root, "workspaces")),
+    workspaces: delayWorkspaceMs
+      ? {
+          create: async (job) => {
+            await new Promise((resolve) => setTimeout(resolve, delayWorkspaceMs));
+            return provisioner.create(job);
+          },
+        }
+      : provisioner,
     artifacts: new FileSystemArtifactStore(path.join(root, "artifacts")),
     pollMs: 5,
   });
@@ -72,7 +81,7 @@ describe("CloudWorker", () => {
     const executor: AgentJobExecutor = {
       execute: vi.fn(() => new Promise<AgentExecutionResult>(() => undefined)),
     };
-    const { queue, worker } = await setup(executor);
+    const { queue, worker } = await setup(executor, { delayWorkspaceMs: 40 });
     const job = testJob("timeout");
     await queue.enqueue({
       ...job,

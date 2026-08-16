@@ -2,6 +2,7 @@ import { resolveModelPricing, type TokenUsage, type ToolSpec } from "@ninjacode/
 import type { Message } from "@ninjacode/providers";
 import { estimateContextUsage, type ContextUsageBreakdown } from "./contextEstimate.js";
 import type { BudgetTracker } from "./reliability.js";
+import type { AgentStopReason } from "./types.js";
 
 export function linkExternalAbortSignal(
   externalSignal: AbortSignal | undefined,
@@ -46,6 +47,38 @@ export function checkRunTimeout(runTimeoutMs: number, runStartedAt: number): str
     return `Run timeout exceeded (${Math.round(runTimeoutMs / 1000)}s).`;
   }
   return undefined;
+}
+
+export function isTimeoutAbortReason(reason: unknown): boolean {
+  if (reason instanceof DOMException && reason.name === "TimeoutError") return true;
+  if (reason instanceof Error && reason.name === "TimeoutError") return true;
+  const message =
+    reason instanceof Error ? reason.message : typeof reason === "string" ? reason : "";
+  return /run timeout exceeded/i.test(message);
+}
+
+export function abortReasonMessage(
+  signal: AbortSignal,
+  fallback = "Aborted by user.",
+): string {
+  const reason = signal.reason;
+  if (reason instanceof Error && reason.message.trim()) return reason.message;
+  if (typeof reason === "string" && reason.trim()) return reason;
+  return fallback;
+}
+
+export function classifyAgentStopReason(opts: {
+  completed: boolean;
+  aborted: boolean;
+  abortReason?: unknown;
+  answer?: string;
+}): AgentStopReason {
+  if (opts.completed) return "completed";
+  if (isTimeoutAbortReason(opts.abortReason) || /run timeout exceeded/i.test(opts.answer ?? "")) {
+    return "timeout";
+  }
+  if (opts.aborted) return "aborted";
+  return "incomplete";
 }
 
 export function trackTokenUsage(

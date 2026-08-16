@@ -22,6 +22,7 @@ import {
   volatileContextChanged,
 } from "./volatileContext.js";
 import type { AgentTurnDeps } from "./agentTurnTypes.js";
+import { abortReasonMessage } from "./agentRuntime.js";
 import { startSpan } from "./telemetry.js";
 import { isRetryableLlmError, isRetryWrappedProvider } from "./reliability.js";
 
@@ -54,7 +55,7 @@ export async function checkTurnPreconditions(deps: AgentTurnDeps): Promise<Agent
   if (deps.signal.aborted) {
     await deps.persist();
     await deps.setState("stopped");
-    return { kind: "stopped", message: "Aborted by user." };
+    return { kind: "stopped", message: abortReasonMessage(deps.signal) };
   }
 
   const timeoutReason = deps.checkRunTimeout();
@@ -314,10 +315,11 @@ export async function callLlmForTurn(
   } catch (e) {
     startSpan("llm", { turn: turn + 1, failed: true }).end();
     if (deps.isAbortError(e)) {
-      deps.logAgentEvent("cancel", `turn ${turn + 1}: LLM call aborted by user`);
+      const message = abortReasonMessage(deps.signal);
+      deps.logAgentEvent("cancel", `turn ${turn + 1}: ${message}`);
       await deps.persist();
       await deps.setState("stopped");
-      return { kind: "stopped", message: "Aborted by user." };
+      return { kind: "stopped", message };
     }
     const structured = classifyLlmError(e, emitted);
     const msg = structured.message;

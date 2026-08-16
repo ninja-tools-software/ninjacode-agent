@@ -35,6 +35,44 @@ describe("Harbor benchmark truth", () => {
     ).toBe("verify_failure");
   });
 
+  it("prefers complete telemetry over a leftover NonZeroAgentExitCodeError", () => {
+    expect(
+      classifyHarborFailure({
+        exception_info: { exception_type: "NonZeroAgentExitCodeError" },
+        agent_result: {
+          metadata: {
+            telemetry_available: true,
+            telemetry_complete: true,
+            failure_kind: "agent_timeout",
+          },
+        },
+        verifier_result: { rewards: { reward: 0 } },
+      }),
+    ).toBe("agent_timeout");
+    expect(
+      classifyHarborFailure({
+        exception_info: { exception_type: "NonZeroAgentExitCodeError" },
+        agent_result: {
+          metadata: {
+            telemetry_available: false,
+            telemetry_complete: false,
+          },
+        },
+      }),
+    ).toBe("agent_exit");
+    expect(
+      classifyHarborFailure({
+        agent_result: {
+          metadata: {
+            telemetry_available: true,
+            telemetry_complete: true,
+          },
+        },
+        verifier_result: { rewards: { reward: 0 } },
+      }),
+    ).toBe("verify_failure");
+  });
+
   it("reports explicit telemetry coverage and correction denominator", () => {
     const passed = harborTruthTrial({
       task_name: "a",

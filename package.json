@@ -36,7 +36,7 @@
     "bench:harbor:plan:subset": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js harbor plan subset",
     "bench:harbor:plan:full": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js harbor plan full",
     "bench:harbor:plan:publish": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js harbor plan publish",
-    "bench:harbor:smoke": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js harbor smoke --job-name smoke -o runs/harbor",
+    "bench:harbor:smoke": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js harbor smoke --job-name \"smoke-$(date +%Y%m%d-%H%M%S)\" -o runs/harbor",
     "bench:harbor:subset": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js harbor subset --job-name subset -o runs/harbor",
     "bench:harbor:full": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js harbor full --job-name full -o runs/harbor",
     "bench:harbor:publish": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js harbor publish --job-name publish -o runs/harbor"

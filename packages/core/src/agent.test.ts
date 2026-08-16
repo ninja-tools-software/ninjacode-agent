@@ -336,6 +336,7 @@ describe("Agent abort", () => {
     expect(agent.getState()).toBe("idle");
     const outcome = await agent.run("Say hello");
     expect(outcome.completed).toBe(true);
+    expect(outcome.stopReason).toBe("completed");
     expect(agent.getState()).toBe("completed");
   });
 
@@ -364,6 +365,7 @@ describe("Agent abort", () => {
     const outcome = await runPromise;
 
     expect(outcome.completed).toBe(false);
+    expect(outcome.stopReason).toBe("aborted");
     expect(outcome.answer).toContain("Aborted");
     expect(agent.getState()).toBe("stopped");
     expect(states).toEqual(
@@ -389,6 +391,7 @@ describe("Agent abort", () => {
     agent.abort();
     const outcome = await runPromise;
     expect(outcome.completed).toBe(false);
+    expect(outcome.stopReason).toBe("aborted");
     expect(agent.getState()).toBe("stopped");
   });
 
@@ -434,9 +437,29 @@ describe("Agent abort", () => {
     const outcome = await runPromise;
 
     expect(outcome.completed).toBe(false);
+    expect(outcome.stopReason).toBe("aborted");
     expect(agent.getState()).toBe("stopped");
     expect(states).toEqual(expect.arrayContaining(["waiting", "stopping", "stopped"]));
   });
+
+  it("reports stopReason timeout when a hanging LLM call hits the run budget", async () => {
+    const agent = new Agent({
+      provider: new HangingProvider(),
+      tools: createDefaultToolRegistry(),
+      permissions: new PermissionEngine(defaultPermissionPolicy("autonomous")),
+      workspaceRoot: process.cwd(),
+      enableCheckpoints: false,
+      persistSessions: false,
+      enableSubagents: false,
+      runTimeoutMs: 50,
+    });
+
+    const outcome = await agent.run("Do something that never returns");
+    expect(outcome.completed).toBe(false);
+    expect(outcome.stopReason).toBe("timeout");
+    expect(outcome.answer).toMatch(/timeout/i);
+    expect(outcome.answer).not.toMatch(/Aborted by user/i);
+  }, 10_000);
 
   it("aborts an in-flight shell tool call without hanging", async () => {
     const provider = new MockProvider([
@@ -470,6 +493,7 @@ describe("Agent abort", () => {
 
     const outcome = await runPromise;
     expect(outcome.completed).toBe(false);
+    expect(outcome.stopReason).toBe("aborted");
     expect(agent.getState()).toBe("stopped");
     const invocation = outcome.turns[0]?.toolInvocations[0];
     expect(invocation?.error).toBe("aborted");
@@ -503,6 +527,9 @@ describe("Agent abort", () => {
     });
     const outcome = await agent.run("timeout this");
     expect(outcome.completed).toBe(false);
+    expect(outcome.stopReason).toBe("timeout");
+    expect(outcome.answer).toMatch(/timeout/i);
+    expect(outcome.answer).not.toMatch(/Aborted by user/i);
     expect(["stopped", "failed"]).toContain(agent.getState());
     const lastToolStart = events.lastIndexOf("tool_start");
     const lastErrorOrDone = Math.max(events.lastIndexOf("error"), events.lastIndexOf("done"));

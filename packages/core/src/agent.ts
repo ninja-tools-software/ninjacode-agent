@@ -18,7 +18,9 @@ import { applySavedSession } from "./agentResume.js";
 import { runAgentMainLoop } from "./agentRunWiring.js";
 import { setupAgentHooks, setupAgentSkills, startAgentDebugServer } from "./agentSetup.js";
 import {
+  classifyAgentStopReason,
   isAbortError,
+  isTimeoutAbortReason,
   linkExternalAbortSignal,
   trackTokenUsage,
   waitOrAbort,
@@ -82,8 +84,12 @@ export class Agent {
 
   abort(reason?: unknown): void {
     if (this.runtime.controller.signal.aborted) return;
-    this.runtime.controller.abort(reason ?? new DOMException("Aborted by user", "AbortError"));
-    this.logAgentEvent("cancel", "Run aborted by user.");
+    const abortReason = reason ?? new DOMException("Aborted by user", "AbortError");
+    this.runtime.controller.abort(abortReason);
+    this.logAgentEvent(
+      "cancel",
+      isTimeoutAbortReason(abortReason) ? "Run timed out." : "Run aborted by user.",
+    );
     if (this.runtime.state === "running" || this.runtime.state === "waiting") {
       void this.persist(true).finally(async () => {
         if (this.runtime.state === "running" || this.runtime.state === "waiting") {
@@ -521,10 +527,17 @@ export class Agent {
 
   private outcome(answer: string, completed: boolean): AgentOutcome {
     const estimatedCostUsd = this.config.budget.snapshot().estimatedCostUsd;
+    const stopReason = classifyAgentStopReason({
+      completed,
+      aborted: this.runtime.controller.signal.aborted,
+      abortReason: this.runtime.controller.signal.reason,
+      answer,
+    });
     return {
       answer,
       turns: this.runtime.turns,
       completed,
+      stopReason,
       sessionId: this.config.sessionId,
       trajectory: this.trajectoryRecorder?.finalize({
         completed,

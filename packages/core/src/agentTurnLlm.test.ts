@@ -87,6 +87,7 @@ function depsFor(history: Message[], provider: LlmProvider): AgentTurnDeps {
     outcome: (answer: string, completed: boolean) => ({
       answer,
       completed,
+      stopReason: completed ? "completed" : "incomplete",
       turns: [],
       sessionId: "test",
     }),

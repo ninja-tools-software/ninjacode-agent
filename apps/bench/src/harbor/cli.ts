@@ -32,6 +32,19 @@ function getFlag(args: string[], ...names: string[]): string | undefined {
   return index >= 0 ? args[index + 1] : undefined;
 }
 
+export function uniqueSmokeJobName(now = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return (
+    `smoke-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-` +
+    `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+  );
+}
+
+export function withJobName(args: string[], jobName: string): string[] {
+  if (hasFlag(args, "--job-name")) return args;
+  return ["--job-name", jobName, ...args];
+}
+
 function harborPythonPath(): string {
   const harborDir = path.dirname(agentImportPath());
   const existing = process.env.PYTHONPATH;
@@ -133,7 +146,7 @@ async function cmdOracle(args: string[]): Promise<void> {
 }
 
 async function cmdSmoke(args: string[]): Promise<void> {
-  await cmdProfile("smoke", args);
+  await cmdProfile("smoke", withJobName(args, uniqueSmokeJobName()));
 }
 
 async function cmdRun(args: string[]): Promise<void> {
@@ -262,7 +275,7 @@ function printHarborHelp(): void {
       "",
       "  ninjabench harbor oracle [harbor args]   Verify Harbor + Docker (1 oracle task)",
       "  ninjabench harbor plan PROFILE           Print a pinned command without running it",
-      "  ninjabench harbor smoke [harbor args]    Instrumented pinned smoke (1×1)",
+      "  ninjabench harbor smoke [harbor args]    Instrumented pinned smoke (1×1, unique job name)",
       "  ninjabench harbor subset [harbor args]   Stratified pinned subset (20×3)",
       "  ninjabench harbor full [harbor args]     Pinned full baseline (89×1)",
       "  ninjabench harbor publish [harbor args]  Pinned publication run (89×3)",
@@ -276,7 +289,7 @@ function printHarborHelp(): void {
       "Examples:",
       "  ninjabench harbor oracle",
       "  ninjabench harbor plan subset",
-      "  ninjabench harbor smoke -n 1 -o runs/harbor/smoke",
+      "  ninjabench harbor smoke -n 1 -o runs/harbor",
       "  ninjabench harbor audit runs/harbor/full --profile full",
       "",
       "OpenThoughts-TBLite is faster but not comparable to the TB 2.1 leaderboard:",

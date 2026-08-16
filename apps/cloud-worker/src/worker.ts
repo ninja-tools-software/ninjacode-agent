@@ -80,6 +80,9 @@ export class CloudWorker {
     const timeoutPromise = new Promise<never>((_resolve, reject) => {
       rejectTimeout = reject;
     });
+    // Timeout can fire during setup, persist, or after race settles. Keep a listener
+    // attached so Node/Vitest never see an unhandled rejection.
+    void timeoutPromise.catch(() => undefined);
     const heartbeat = setInterval(() => {
       void this.options.queue
         .heartbeat(job.id, claimed.lease.token, job.execution.leaseMs)
@@ -94,18 +97,21 @@ export class CloudWorker {
 
     try {
       const policy = this.options.policy.resolve(job);
-      await this.options.queue.markRunning(job.id, claimed.lease.token);
-      workspace = await this.options.workspaces.create(job);
       const result = await Promise.race([
-        this.options.executor.execute({
-          job,
-          attempt: claimed.record.attempt,
-          workspaceRoot: workspace.root,
-          policy,
-          signal: controller.signal,
-        }),
+        (async () => {
+          await this.options.queue.markRunning(job.id, claimed.lease.token);
+          workspace = await this.options.workspaces.create(job);
+          return this.options.executor.execute({
+            job,
+            attempt: claimed.record.attempt,
+            workspaceRoot: workspace.root,
+            policy,
+            signal: controller.signal,
+          });
+        })(),
         timeoutPromise,
       ]);
+      if (!workspace) throw new Error("workspace was not provisioned");
       const persisted = await this.options.artifacts.persist({
         job,
         attempt: claimed.record.attempt,

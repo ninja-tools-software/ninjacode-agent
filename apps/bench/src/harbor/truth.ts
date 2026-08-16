@@ -69,10 +69,7 @@ const FAILURE_KINDS: FailureKind[] = [
   "cancelled",
 ];
 
-export function classifyHarborFailure(
-  result: HarborTrialResult,
-): FailureKind | undefined {
-  const exceptionType = result.exception_info?.exception_type;
+function harborExceptionFailure(exceptionType: string | undefined): FailureKind | undefined {
   if (exceptionType === "AgentTimeoutError") return "agent_timeout";
   if (exceptionType === "VerifierTimeoutError") return "verifier_timeout";
   if (exceptionType === "NonZeroAgentExitCodeError") return "agent_exit";
@@ -80,9 +77,20 @@ export function classifyHarborFailure(
     return "cancelled";
   }
   if (exceptionType) return "infra_error";
+  return undefined;
+}
 
-  const explicit = result.agent_result?.metadata?.failure_kind;
-  if (explicit) return explicit;
+export function classifyHarborFailure(
+  result: HarborTrialResult,
+): FailureKind | undefined {
+  const metadata = result.agent_result?.metadata;
+  if (metadata?.telemetry_complete === true && metadata.failure_kind) {
+    return metadata.failure_kind;
+  }
+
+  const fromException = harborExceptionFailure(result.exception_info?.exception_type);
+  if (fromException) return fromException;
+
   const rewards = Object.values(result.verifier_result?.rewards ?? {});
   if (rewards.length === 0 || !rewards.some((reward) => reward > 0)) {
     return "verify_failure";

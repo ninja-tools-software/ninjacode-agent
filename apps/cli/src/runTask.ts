@@ -141,12 +141,32 @@ async function writeTelemetrySafely(
   agent: Agent,
   outcome: AgentOutcome,
   config: BenchmarkTelemetryConfig,
-): Promise<void> {
+): Promise<boolean> {
   try {
-    await writeBenchmarkTelemetry(agent, outcome, undefined, config);
+    return await writeBenchmarkTelemetry(agent, outcome, undefined, config);
   } catch (error) {
     console.error(`Benchmark telemetry unavailable: ${(error as Error).message}`);
+    return false;
   }
+}
+
+function harborTelemetryEnabled(): boolean {
+  return Boolean(process.env.NINJACODE_BENCH_TELEMETRY_FILE);
+}
+
+export function incompleteRunExitCode(opts: {
+  harborTelemetry: boolean;
+  wroteFinalTelemetry: boolean;
+  gatewayExit?: number;
+}): number {
+  if (opts.harborTelemetry && opts.wroteFinalTelemetry) return 0;
+  return opts.gatewayExit ?? 2;
+}
+
+function trajectoryCaptureFromEnv(): { enabled: true; persistPath: string } | undefined {
+  const persistPath = process.env.NINJACODE_TRAJECTORY_FILE;
+  if (!persistPath) return undefined;
+  return { enabled: true, persistPath: path.resolve(persistPath) };
 }
 
 function parseReasoningEffort(flags: Record<string, string | boolean>): ReasoningEffort | undefined {
@@ -213,6 +233,7 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
       ...performanceAblationFromEnv(),
       enableCheckpoints: !flags["no-checkpoints"],
       enableWorkspaceHooks: workspaceTrusted,
+      trajectory: trajectoryCaptureFromEnv(),
       onEvent: handleAgentEvent,
       onApproval: flags.yes
         ? async () => ({ approved: true })
@@ -227,7 +248,7 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
     t("cli.runHeader", { provider: provider.name, mode, workspace }),
   );
   const outcome = await agent.run(task);
-  await writeTelemetrySafely(agent, outcome, telemetryConfig);
+  const wroteFinalTelemetry = await writeTelemetrySafely(agent, outcome, telemetryConfig);
   console.log("\n");
   if (!outcome.completed) {
     const gateway = consumeLastGatewayError();
@@ -235,7 +256,13 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
     if (!gateway) {
       console.error(t("cli.incomplete", { answer: outcome.answer }));
     }
-    process.exitCode = exit ?? 2;
+    // Harbor scores from telemetry + verifier. A complete envelope is a
+    // scorable trial, not an infrastructure crash, so exit 0.
+    process.exitCode = incompleteRunExitCode({
+      harborTelemetry: harborTelemetryEnabled(),
+      wroteFinalTelemetry,
+      gatewayExit: exit,
+    });
   }
 }
 

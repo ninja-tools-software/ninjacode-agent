@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { AgentOutcome } from "@ninjacode/core";
+import type { AgentOutcome, AgentStopReason } from "@ninjacode/core";
 
 interface TelemetryAgent {
   getCacheStats(): {
@@ -12,11 +12,28 @@ interface TelemetryAgent {
   };
 }
 
+type BenchmarkTelemetryStatus =
+  | "started"
+  | "completed"
+  | "agent_timeout"
+  | "agent_exit"
+  | "aborted";
+
+type BenchmarkFailureKind =
+  | "verify_failure"
+  | "agent_timeout"
+  | "verifier_timeout"
+  | "agent_exit"
+  | "infra_error"
+  | "cancelled";
+
 interface BenchmarkTelemetry {
   schemaVersion: 1;
-  status: "started" | "completed" | "agent_exit";
+  status: BenchmarkTelemetryStatus;
   telemetryComplete: boolean;
   completed: boolean;
+  stopReason?: AgentStopReason;
+  failureKind?: BenchmarkFailureKind;
   sessionId?: string;
   inputTokens: number;
   outputTokens: number;
@@ -44,6 +61,22 @@ function toolHistogram(names: string[]): Record<string, number> {
   return histogram;
 }
 
+export function telemetryFromStopReason(stopReason: AgentStopReason): {
+  status: Exclude<BenchmarkTelemetryStatus, "started">;
+  failureKind?: BenchmarkFailureKind;
+} {
+  switch (stopReason) {
+    case "completed":
+      return { status: "completed" };
+    case "timeout":
+      return { status: "agent_timeout", failureKind: "agent_timeout" };
+    case "aborted":
+      return { status: "aborted", failureKind: "agent_exit" };
+    case "incomplete":
+      return { status: "agent_exit", failureKind: "agent_exit" };
+  }
+}
+
 export function collectBenchmarkTelemetry(
   agent: TelemetryAgent,
   outcome: AgentOutcome,
@@ -51,11 +84,15 @@ export function collectBenchmarkTelemetry(
 ): BenchmarkTelemetry {
   const stats = agent.getCacheStats();
   const invocations = outcome.turns.flatMap((turn) => turn.toolInvocations);
+  const stopReason = outcome.stopReason ?? (outcome.completed ? "completed" : "incomplete");
+  const mapped = telemetryFromStopReason(stopReason);
   return {
     schemaVersion: 1,
-    status: outcome.completed ? "completed" : "agent_exit",
+    status: mapped.status,
     telemetryComplete: true,
     completed: outcome.completed,
+    stopReason,
+    failureKind: mapped.failureKind,
     sessionId: outcome.sessionId,
     inputTokens: stats.inputTokens,
     outputTokens: stats.outputTokens,
@@ -94,20 +131,21 @@ function startedTelemetry(config?: BenchmarkTelemetryConfig): BenchmarkTelemetry
 async function writeTelemetryFile(
   telemetry: BenchmarkTelemetry,
   outputPath: string | undefined,
-): Promise<void> {
-  if (!outputPath) return;
+): Promise<boolean> {
+  if (!outputPath) return false;
   const absolutePath = path.resolve(outputPath);
   const temporaryPath = `${absolutePath}.${process.pid}.tmp`;
   await fs.mkdir(path.dirname(absolutePath), { recursive: true });
   await fs.writeFile(temporaryPath, `${JSON.stringify(telemetry)}\n`, { mode: 0o600 });
   await fs.rename(temporaryPath, absolutePath);
+  return true;
 }
 
 export async function writeBenchmarkTelemetryStart(
   config?: BenchmarkTelemetryConfig,
   outputPath = process.env.NINJACODE_BENCH_TELEMETRY_FILE,
-): Promise<void> {
-  await writeTelemetryFile(startedTelemetry(config), outputPath);
+): Promise<boolean> {
+  return writeTelemetryFile(startedTelemetry(config), outputPath);
 }
 
 export async function writeBenchmarkTelemetry(
@@ -115,6 +153,6 @@ export async function writeBenchmarkTelemetry(
   outcome: AgentOutcome,
   outputPath = process.env.NINJACODE_BENCH_TELEMETRY_FILE,
   config?: BenchmarkTelemetryConfig,
-): Promise<void> {
-  await writeTelemetryFile(collectBenchmarkTelemetry(agent, outcome, config), outputPath);
+): Promise<boolean> {
+  return writeTelemetryFile(collectBenchmarkTelemetry(agent, outcome, config), outputPath);
 }

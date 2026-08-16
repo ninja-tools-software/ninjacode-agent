@@ -106,7 +106,10 @@ function toRunResult(agent: Agent, outcome: AgentOutcome): RunResult {
       ...trajectoryMetrics(outcome.trajectory),
     },
     outputTail: outcome.answer.slice(-8000),
-    agentError: outcome.completed ? undefined : outcome.answer || "agent did not complete",
+    agentError: outcome.stopReason === "timeout" || outcome.completed
+      ? undefined
+      : outcome.answer || "agent did not complete",
+    timedOut: outcome.stopReason === "timeout",
     trajectory: outcome.trajectory,
   };
 }

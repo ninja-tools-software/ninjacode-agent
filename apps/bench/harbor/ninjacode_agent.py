@@ -10,7 +10,11 @@ import shlex
 from pathlib import Path
 from typing import Any
 
-from harbor.agents.installed.base import BaseInstalledAgent, with_prompt_template
+from harbor.agents.installed.base import (
+    BaseInstalledAgent,
+    NonZeroAgentExitCodeError,
+    with_prompt_template,
+)
 from harbor.agents.model_connection import ModelConnectionSpec
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
@@ -18,6 +22,16 @@ from harbor.models.agent.context import AgentContext
 REMOTE_BUNDLE = "/installed-agent/ninjacode.cjs"
 REMOTE_MANIFEST = "/installed-agent/ninjacode-manifest.json"
 REMOTE_TELEMETRY = "/tmp/ninjacode-harbor-telemetry.json"
+REMOTE_TRAJECTORY = "/tmp/ninjacode-harbor-trajectory.json"
+REMOTE_TRAJECTORY_ARTIFACT = "/logs/artifacts/trajectory.json"
+FAILURE_KINDS = {
+    "verify_failure",
+    "agent_timeout",
+    "verifier_timeout",
+    "agent_exit",
+    "infra_error",
+    "cancelled",
+}
 MINIMUM_FREE_KIB = 512 * 1024
 REQUIRED_MANIFEST_KEYS = (
     "adapterVersion",
@@ -118,6 +132,73 @@ def pinned_node_install_snippet(version: str) -> str:
         f"nvm install {shlex.quote(version)} && "
         f"nvm alias default {shlex.quote(version)}"
     )
+
+
+def failure_kind_from_telemetry(telemetry: dict[str, Any]) -> str | None:
+    kind = telemetry.get("failureKind")
+    if isinstance(kind, str) and kind in FAILURE_KINDS:
+        return kind
+    status = telemetry.get("status")
+    if status == "agent_timeout":
+        return "agent_timeout"
+    if status in {"agent_exit", "aborted"}:
+        return "agent_exit"
+    return None
+
+
+def summarize_trajectory(
+    trajectory: dict[str, Any],
+    stop_reason: str | None,
+    tool_histogram: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    events = trajectory.get("events") or []
+    started = float(trajectory.get("startedAt") or 0)
+    tool_events = [event for event in events if event.get("type") == "tool"]
+    turn_events = [
+        event
+        for event in events
+        if event.get("type") == "turn" and not (event.get("attributes") or {}).get("category")
+    ]
+    mutation_turns = {
+        (event.get("attributes") or {}).get("turn")
+        for event in tool_events
+        if (event.get("attributes") or {}).get("mutation") is True
+    }
+    first_edit = next(
+        (
+            event
+            for event in tool_events
+            if (event.get("attributes") or {}).get("mutation") is True
+        ),
+        None,
+    )
+    histogram: dict[str, int] = {}
+    if isinstance(tool_histogram, dict):
+        for name, count in tool_histogram.items():
+            if isinstance(name, str) and isinstance(count, (int, float)) and count >= 0:
+                histogram[name] = int(count)
+    else:
+        for event in tool_events:
+            name = (event.get("attributes") or {}).get("tool")
+            if isinstance(name, str) and name and name != "[REDACTED]":
+                histogram[name] = histogram.get(name, 0) + 1
+    time_to_first = None
+    if first_edit and isinstance(first_edit.get("timestamp"), (int, float)):
+        time_to_first = max(0, int(first_edit["timestamp"] - started))
+    read_only = 0
+    for event in turn_events:
+        turn = (event.get("attributes") or {}).get("turn")
+        if not isinstance(turn, (int, float)) or turn not in mutation_turns:
+            read_only += 1
+    outcome = trajectory.get("outcome") or {}
+    return {
+        "turns": len(turn_events),
+        "timeToFirstEditMs": time_to_first,
+        "readOnlyTurns": read_only,
+        "toolHistogram": histogram,
+        "stopReason": stop_reason,
+        "completed": bool(outcome.get("completed")),
+    }
 
 
 class NinjaCodeAgent(BaseInstalledAgent):
@@ -244,6 +325,8 @@ class NinjaCodeAgent(BaseInstalledAgent):
         command = (
             "rm -f "
             + shlex.quote(REMOTE_TELEMETRY)
+            + " "
+            + shlex.quote(REMOTE_TRAJECTORY)
             + "; if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
             + shlex.join(cmd)
         )
@@ -256,13 +339,22 @@ class NinjaCodeAgent(BaseInstalledAgent):
                 "key for `-m provider/model`) in the same shell as Harbor."
             )
         env["NINJACODE_BENCH_TELEMETRY_FILE"] = REMOTE_TELEMETRY
+        env["NINJACODE_TRAJECTORY_FILE"] = REMOTE_TRAJECTORY
         ablation = (getattr(self, "_manifest", {}).get("ablation") or {}).get("name")
         if ablation:
             env["NINJACODE_PERF_ABLATION"] = str(ablation)
+        captured_exit: BaseException | None = None
         try:
             await self.exec_as_agent(environment, command=command, env=env)
+        except NonZeroAgentExitCodeError as exc:
+            captured_exit = exc
         finally:
             await self._collect_telemetry(environment, context)
+            await self._collect_trajectory(environment, context)
+        if captured_exit is not None and not (context.metadata or {}).get(
+            "telemetry_complete"
+        ):
+            raise captured_exit
 
     async def _collect_telemetry(
         self, environment: BaseEnvironment, context: AgentContext
@@ -319,9 +411,8 @@ class NinjaCodeAgent(BaseInstalledAgent):
                 "telemetry_available": True,
                 "telemetry_complete": bool(telemetry.get("telemetryComplete", True)),
                 "telemetry_status": telemetry.get("status", "completed"),
-                "failure_kind": (
-                    "agent_exit" if telemetry.get("status") == "agent_exit" else None
-                ),
+                "failure_kind": failure_kind_from_telemetry(telemetry),
+                "stop_reason": telemetry.get("stopReason"),
                 "cache_write_tokens": int(metrics["cacheWriteTokens"]),
                 "completed": bool(telemetry.get("completed")),
                 "session_id": telemetry.get("sessionId"),
@@ -333,6 +424,47 @@ class NinjaCodeAgent(BaseInstalledAgent):
             }
         )
         context.metadata = {**(context.metadata or {}), **metadata}
+
+    async def _collect_trajectory(
+        self, environment: BaseEnvironment, context: AgentContext
+    ) -> None:
+        metadata = dict(context.metadata or {})
+        result = await environment.exec(
+            command=f"test -s {REMOTE_TRAJECTORY} && cat {REMOTE_TRAJECTORY}"
+        )
+        if result.return_code != 0:
+            metadata["trajectory_available"] = False
+            context.metadata = metadata
+            return
+        try:
+            trajectory = json.loads(result.stdout or "")
+        except json.JSONDecodeError:
+            metadata["trajectory_available"] = False
+            metadata["trajectory_error"] = "invalid_json"
+            context.metadata = metadata
+            return
+        if not isinstance(trajectory, dict) or trajectory.get("schemaVersion") != "1.0":
+            metadata["trajectory_available"] = False
+            metadata["trajectory_error"] = "unsupported_schema"
+            context.metadata = metadata
+            return
+        stop_reason = metadata.get("stop_reason")
+        if not isinstance(stop_reason, str):
+            stop_reason = None
+        metadata["trajectory_available"] = True
+        metadata["trajectory"] = summarize_trajectory(
+            trajectory,
+            stop_reason,
+            metadata.get("tool_histogram") if isinstance(metadata.get("tool_histogram"), dict) else None,
+        )
+        context.metadata = metadata
+        await environment.exec(
+            command=(
+                "if [ -d /logs/artifacts ]; then "
+                f"cp {shlex.quote(REMOTE_TRAJECTORY)} "
+                f"{shlex.quote(REMOTE_TRAJECTORY_ARTIFACT)}; fi"
+            )
+        )
 
     def _container_api_env(self) -> dict[str, str]:
         env: dict[str, str] = {}

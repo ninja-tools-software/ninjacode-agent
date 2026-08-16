@@ -352,5 +352,6 @@ export type {
   ApprovalRequest,
   ApprovalHandler,
   AgentOutcome,
+  AgentStopReason,
   SessionState,
 } from "./types.js";

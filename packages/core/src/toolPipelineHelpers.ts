@@ -6,7 +6,7 @@ import type { ApprovalHandler, ApprovalRequest, RunState, ToolInvocation } from 
 export function abortedInvocation(tc: ToolCall): ToolInvocation {
   return {
     toolCall: tc,
-    output: "Aborted by user before this tool call ran.",
+    output: "Run stopped before this tool call ran.",
     approved: false,
     durationMs: 0,
     error: "aborted",
@@ -268,7 +268,7 @@ async function collectApprovalResult(
         approvalWaitMs: Date.now() - approvalStarted,
         earlyReturn: {
           toolCall: tc,
-          output: "Approval wait aborted by user.",
+          output: "Approval wait aborted.",
           approved: false,
           durationMs: Date.now() - started,
           approvalWaitMs: Date.now() - approvalStarted,

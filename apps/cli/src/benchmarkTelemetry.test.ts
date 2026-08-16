@@ -5,16 +5,18 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { AgentOutcome } from "@ninjacode/core";
 import {
   collectBenchmarkTelemetry,
+  telemetryFromStopReason,
   writeBenchmarkTelemetry,
   writeBenchmarkTelemetryStart,
 } from "./benchmarkTelemetry.js";
 
 const temporaryDirectories: string[] = [];
 
-function outcome(): AgentOutcome {
+function outcome(overrides: Partial<AgentOutcome> = {}): AgentOutcome {
   return {
     answer: "done",
     completed: true,
+    stopReason: "completed",
     sessionId: "session-1",
     turns: [
       {
@@ -27,6 +29,7 @@ function outcome(): AgentOutcome {
         ] as never,
       },
     ],
+    ...overrides,
   };
 }
 
@@ -89,6 +92,33 @@ describe("benchmark telemetry", () => {
   });
 
   it("does nothing without an output path", async () => {
-    await expect(writeBenchmarkTelemetry(agent, outcome(), undefined)).resolves.toBeUndefined();
+    await expect(writeBenchmarkTelemetry(agent, outcome(), undefined)).resolves.toBe(false);
+  });
+
+  it("maps timeout, abort, and incomplete outcomes onto Harbor failure kinds", () => {
+    expect(telemetryFromStopReason("timeout")).toEqual({
+      status: "agent_timeout",
+      failureKind: "agent_timeout",
+    });
+    expect(telemetryFromStopReason("aborted")).toEqual({
+      status: "aborted",
+      failureKind: "agent_exit",
+    });
+    expect(telemetryFromStopReason("incomplete")).toEqual({
+      status: "agent_exit",
+      failureKind: "agent_exit",
+    });
+    expect(
+      collectBenchmarkTelemetry(
+        agent,
+        outcome({ completed: false, stopReason: "timeout", answer: "Run timeout exceeded (840s)." }),
+      ),
+    ).toMatchObject({
+      status: "agent_timeout",
+      failureKind: "agent_timeout",
+      stopReason: "timeout",
+      telemetryComplete: true,
+      completed: false,
+    });
   });
 });

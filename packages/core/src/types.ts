@@ -136,10 +136,14 @@ export type ApprovalHandler = (req: ApprovalRequest) => Promise<{
   remember?: boolean;
 }>;
 
+/** Why a run ended. Timeouts stay distinct from a user abort. */
+export type AgentStopReason = "completed" | "timeout" | "aborted" | "incomplete";
+
 export interface AgentOutcome {
   answer: string;
   turns: TurnTrace[];
   completed: boolean;
+  stopReason: AgentStopReason;
   sessionId: string;
   /** Present only when trajectory capture was explicitly enabled. */
   trajectory?: Trajectory;

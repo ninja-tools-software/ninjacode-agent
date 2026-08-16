@@ -33,10 +33,15 @@ class _ModelConnectionSpec:
         pass
 
 
+class _NonZeroAgentExitCodeError(RuntimeError):
+    pass
+
+
 _stub_module(
     "harbor.agents.installed.base",
     BaseInstalledAgent=_BaseInstalledAgent,
     with_prompt_template=_with_prompt_template,
+    NonZeroAgentExitCodeError=_NonZeroAgentExitCodeError,
 )
 _stub_module("harbor.agents.model_connection", ModelConnectionSpec=_ModelConnectionSpec)
 _stub_module("harbor.environments.base", BaseEnvironment=object)
@@ -130,6 +135,45 @@ class HarborAdapterTests(unittest.TestCase):
         self.assertEqual(context.metadata["tool_errors"], 1)
         self.assertTrue(context.metadata["telemetry_available"])
         self.assertTrue(context.metadata["telemetry_complete"])
+        self.assertIsNone(context.metadata["failure_kind"])
+
+    def test_timeout_telemetry_sets_agent_timeout_failure_kind(self) -> None:
+        telemetry = {
+            "schemaVersion": 1,
+            "status": "agent_timeout",
+            "telemetryComplete": True,
+            "completed": False,
+            "stopReason": "timeout",
+            "failureKind": "agent_timeout",
+            "sessionId": "session-1",
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "estimatedCostUsd": 0.01,
+            "turns": 2,
+            "toolCalls": 1,
+            "toolErrors": 0,
+            "toolHistogram": {"read_file": 1},
+        }
+
+        class Environment:
+            async def exec(self, **_kwargs):
+                return SimpleNamespace(return_code=0, stdout=json.dumps(telemetry))
+
+        context = SimpleNamespace(
+            metadata=None,
+            n_input_tokens=None,
+            n_cache_tokens=None,
+            n_output_tokens=None,
+            cost_usd=None,
+        )
+        agent = object.__new__(ADAPTER.NinjaCodeAgent)
+        agent._manifest = {"gitCommit": "abc"}
+        asyncio.run(agent._collect_telemetry(Environment(), context))
+        self.assertEqual(context.metadata["failure_kind"], "agent_timeout")
+        self.assertEqual(context.metadata["stop_reason"], "timeout")
+        self.assertTrue(context.metadata["telemetry_complete"])
 
     def test_invalid_telemetry_is_never_marked_available(self) -> None:
         class Environment:
@@ -142,6 +186,117 @@ class HarborAdapterTests(unittest.TestCase):
         asyncio.run(agent._collect_telemetry(Environment(), context))
         self.assertFalse(context.metadata["telemetry_available"])
         self.assertEqual(context.metadata["telemetry_error"], "invalid_json")
+
+    def test_summarizes_redacted_trajectory_without_prompts(self) -> None:
+        summary = ADAPTER.summarize_trajectory(
+            {
+                "schemaVersion": "1.0",
+                "startedAt": 1000,
+                "outcome": {"completed": False},
+                "events": [
+                    {"type": "turn", "attributes": {"turn": 1}},
+                    {
+                        "type": "tool",
+                        "timestamp": 1300,
+                        "attributes": {"tool": "write_file", "mutation": True, "turn": 1},
+                    },
+                    {"type": "turn", "attributes": {"turn": 2}},
+                    {
+                        "type": "tool",
+                        "timestamp": 1600,
+                        "attributes": {"tool": "read_file", "mutation": False, "turn": 2},
+                    },
+                ],
+            },
+            "timeout",
+            {"write_file": 1, "read_file": 1},
+        )
+        self.assertEqual(summary["turns"], 2)
+        self.assertEqual(summary["timeToFirstEditMs"], 300)
+        self.assertEqual(summary["readOnlyTurns"], 1)
+        self.assertEqual(summary["toolHistogram"], {"write_file": 1, "read_file": 1})
+        self.assertEqual(summary["stopReason"], "timeout")
+        self.assertNotIn("prompt", summary)
+        self.assertNotIn("events", summary)
+
+    def test_nonzero_exit_with_complete_telemetry_is_scorable(self) -> None:
+        telemetry = {
+            "schemaVersion": 1,
+            "status": "agent_timeout",
+            "telemetryComplete": True,
+            "completed": False,
+            "stopReason": "timeout",
+            "failureKind": "agent_timeout",
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "estimatedCostUsd": 0,
+            "turns": 1,
+            "toolCalls": 0,
+            "toolErrors": 0,
+            "toolHistogram": {},
+        }
+        trajectory = {
+            "schemaVersion": "1.0",
+            "startedAt": 1,
+            "outcome": {"completed": False},
+            "events": [{"type": "turn", "attributes": {"turn": 1}}],
+        }
+        copied = []
+
+        class Environment:
+            async def exec(self, command="", **_kwargs):
+                if ADAPTER.REMOTE_TELEMETRY in command and "cat" in command:
+                    return SimpleNamespace(return_code=0, stdout=json.dumps(telemetry))
+                if ADAPTER.REMOTE_TRAJECTORY in command and "cat" in command:
+                    return SimpleNamespace(return_code=0, stdout=json.dumps(trajectory))
+                if "/logs/artifacts" in command:
+                    copied.append(command)
+                    return SimpleNamespace(return_code=0, stdout="")
+                return SimpleNamespace(return_code=0, stdout="")
+
+        class Agent(ADAPTER.NinjaCodeAgent):
+            async def exec_as_agent(self, *_args, **_kwargs):
+                raise _NonZeroAgentExitCodeError("exit 2")
+
+        context = SimpleNamespace(metadata=None, n_input_tokens=None, n_cache_tokens=None, n_output_tokens=None, cost_usd=None)
+        agent = Agent()
+        agent._manifest = {
+            "reasoningEffort": "high",
+            "cliRunTimeoutMs": 840000,
+            "model": "xai/grok-4.6",
+        }
+        agent.model_name = "xai/grok-4.6"
+        agent._container_api_env = lambda: {"XAI_API_KEY": "test"}
+        asyncio.run(agent.run("do the task", Environment(), context))
+        self.assertTrue(context.metadata["telemetry_complete"])
+        self.assertEqual(context.metadata["failure_kind"], "agent_timeout")
+        self.assertTrue(context.metadata["trajectory_available"])
+        self.assertEqual(context.metadata["trajectory"]["stopReason"], "timeout")
+        self.assertTrue(copied)
+
+    def test_nonzero_exit_without_telemetry_is_reraised(self) -> None:
+        class Environment:
+            async def exec(self, **_kwargs):
+                return SimpleNamespace(return_code=1, stdout="")
+
+        class Agent(ADAPTER.NinjaCodeAgent):
+            async def exec_as_agent(self, *_args, **_kwargs):
+                raise _NonZeroAgentExitCodeError("exit 2")
+
+        context = SimpleNamespace(metadata=None)
+        agent = Agent()
+        agent._manifest = {
+            "reasoningEffort": "high",
+            "cliRunTimeoutMs": 840000,
+            "model": "xai/grok-4.6",
+        }
+        agent.model_name = "xai/grok-4.6"
+        agent._container_api_env = lambda: {"XAI_API_KEY": "test"}
+        with self.assertRaises(_NonZeroAgentExitCodeError):
+            asyncio.run(agent.run("do the task", Environment(), context))
+        self.assertFalse(context.metadata["telemetry_complete"])
 
 
 if __name__ == "__main__":
