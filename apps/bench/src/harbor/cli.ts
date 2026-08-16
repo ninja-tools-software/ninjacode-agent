@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import path from "node:path";
 import { spawn } from "node:child_process";
 import {
   agentImportPath,
@@ -11,12 +12,21 @@ function hasFlag(args: string[], ...names: string[]): boolean {
   return names.some((name) => args.includes(name));
 }
 
+function harborPythonPath(): string {
+  const harborDir = path.dirname(agentImportPath());
+  const existing = process.env.PYTHONPATH;
+  return existing ? `${harborDir}${path.delimiter}${existing}` : harborDir;
+}
+
 function spawnInherit(command: string, args: string[], cwd?: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
       stdio: "inherit",
-      env: process.env,
+      env: {
+        ...process.env,
+        ...(command === "harbor" ? { PYTHONPATH: harborPythonPath() } : {}),
+      },
     });
     child.on("error", (err) => {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
@@ -63,12 +73,7 @@ function withDefaultModel(args: string[]): string[] {
 }
 
 function ninjacodeAgentArgs(): string[] {
-  return [
-    "--agent",
-    "ninjacode_agent:NinjaCodeAgent",
-    "--agent-import-path",
-    agentImportPath(),
-  ];
+  return ["--agent", "ninjacode_agent:NinjaCodeAgent"];
 }
 
 async function runHarbor(args: string[]): Promise<void> {

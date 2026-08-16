@@ -93,6 +93,7 @@ export const ALL_PROVIDERS = [
   "moonshot",
   "glm",
   "mistral",
+  "xai",
   "mammouth",
   "openai-compatible",
   "local",

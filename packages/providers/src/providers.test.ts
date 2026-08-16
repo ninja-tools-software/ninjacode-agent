@@ -65,10 +65,11 @@ describe("DeepSeek catalog", () => {
     expect(provider.name).toBe("deepseek");
   });
 
-  it("factory builds moonshot, glm, mistral, and mammouth providers", () => {
+  it("factory builds moonshot, glm, mistral, xai, and mammouth providers", () => {
     expect(createProvider({ kind: "moonshot", apiKey: "test" }).name).toBe("moonshot");
     expect(createProvider({ kind: "glm", apiKey: "test" }).name).toBe("glm");
     expect(createProvider({ kind: "mistral", apiKey: "test" }).name).toBe("mistral");
+    expect(createProvider({ kind: "xai", apiKey: "test" }).name).toBe("xai");
     expect(createProvider({ kind: "mammouth", apiKey: "test" }).name).toBe("mammouth");
   });
 
@@ -87,6 +88,19 @@ describe("local provider", () => {
     const catalog = getProviderCatalog("local");
     expect(catalog?.label).toBe("Local LLM");
     expect(catalog?.models[0]?.id).toBe("default");
+  });
+});
+
+describe("xai provider", () => {
+  it("factory builds an xai provider named 'xai'", () => {
+    const provider = createProvider({ kind: "xai", apiKey: "test" });
+    expect(provider.name).toBe("xai");
+  });
+
+  it("exposes Grok 4.6 as the default catalog model", () => {
+    const catalog = getProviderCatalog("xai");
+    expect(catalog?.label).toBe("xAI");
+    expect(catalog?.models[0]?.id).toBe("grok-4.6");
   });
 });
 

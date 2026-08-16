@@ -37,6 +37,7 @@ function resolveApiKey(flags: Record<string, string | boolean>): string {
     process.env.MOONSHOT_API_KEY ??
     process.env.GLM_API_KEY ??
     process.env.MISTRAL_API_KEY ??
+    process.env.XAI_API_KEY ??
     process.env.MAMMOUTH_API_KEY ??
     ""
   );
@@ -142,6 +143,7 @@ function detectProvider(): ProviderKind {
   if (process.env.MOONSHOT_API_KEY) return "moonshot";
   if (process.env.GLM_API_KEY) return "glm";
   if (process.env.MISTRAL_API_KEY) return "mistral";
+  if (process.env.XAI_API_KEY) return "xai";
   if (process.env.MAMMOUTH_API_KEY) return "mammouth";
   return "mock";
 }

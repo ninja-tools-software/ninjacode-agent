@@ -108,6 +108,7 @@ export function registerApiKeyCommand(context: vscode.ExtensionContext): void {
         "moonshot",
         "glm",
         "mistral",
+        "xai",
         "mammouth",
         "openai-compatible",
       ];

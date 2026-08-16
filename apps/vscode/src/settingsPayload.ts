@@ -42,6 +42,7 @@ const ALL_PROVIDER_KINDS: ProviderKind[] = [
   "moonshot",
   "glm",
   "mistral",
+  "xai",
   "mammouth",
   "openai-compatible",
   "local",

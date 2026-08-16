@@ -159,6 +159,15 @@ export function createMistralProvider(apiKey: string, model?: string): OpenAICom
   });
 }
 
+export function createXaiProvider(apiKey: string, model?: string): OpenAICompatibleProvider {
+  return new OpenAICompatibleProvider({
+    apiKey,
+    baseUrl: "https://api.x.ai/v1",
+    model: model ?? "grok-4.6",
+    name: "xai",
+  });
+}
+
 export function createMammouthProvider(apiKey: string, model?: string): OpenAICompatibleProvider {
   return new OpenAICompatibleProvider({
     apiKey,

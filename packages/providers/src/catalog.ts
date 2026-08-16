@@ -260,6 +260,39 @@ const CATALOG: ProviderCatalog[] = [
     ],
   },
   {
+    kind: "xai",
+    label: "xAI",
+    models: [
+      {
+        id: "grok-4.6",
+        label: "Grok 4.6",
+        contextWindow: 500_000,
+        maxOutput: 128_000,
+        reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "high" },
+        vision: true,
+        editFormat: "string_replace",
+      },
+      {
+        id: "grok-4.5",
+        label: "Grok 4.5",
+        contextWindow: 500_000,
+        maxOutput: 128_000,
+        reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "medium" },
+        vision: true,
+        editFormat: "string_replace",
+      },
+      {
+        id: "grok-4.3",
+        label: "Grok 4.3",
+        contextWindow: 1_000_000,
+        maxOutput: 128_000,
+        reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "medium" },
+        vision: true,
+        editFormat: "string_replace",
+      },
+    ],
+  },
+  {
     kind: "mammouth",
     label: "Mammouth AI",
     models: [

@@ -22,6 +22,7 @@ API_KEY_ENVS = (
     "MOONSHOT_API_KEY",
     "GLM_API_KEY",
     "MISTRAL_API_KEY",
+    "XAI_API_KEY",
     "MAMMOUTH_API_KEY",
 )
 
@@ -105,4 +106,29 @@ class NinjaCodeAgent(BaseInstalledAgent):
         command = (
             "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; " + shlex.join(cmd)
         )
-        await self.exec_as_agent(environment, command=command)
+        # Harbor does not automatically copy host API keys into the trial
+        # container. Pass them as exec env (never as CLI flags — those are logged).
+        env = self._container_api_env()
+        if not env:
+            raise RuntimeError(
+                "No provider API key on the host. Export XAI_API_KEY (or the "
+                "key for `-m provider/model`) in the same shell as Harbor."
+            )
+        await self.exec_as_agent(environment, command=command, env=env)
+
+    def _container_api_env(self) -> dict[str, str]:
+        env: dict[str, str] = {}
+        for name in API_KEY_ENVS:
+            value = self._get_env(name)
+            if value:
+                env[name] = value
+        connection = self.model_connection
+        if connection.api_key:
+            provider, _ = parse_harbor_model(self.model_name)
+            key_name = (
+                f"{provider.upper().replace('-', '_')}_API_KEY"
+                if provider
+                else "XAI_API_KEY"
+            )
+            env.setdefault(key_name, connection.api_key)
+        return env

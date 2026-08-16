@@ -17,6 +17,10 @@ describe("Harbor model parsing", () => {
       provider: "openrouter",
       model: "anthropic/claude-sonnet-4",
     });
+    expect(parseHarborModel("xai/grok-4.6")).toEqual({
+      provider: "xai",
+      model: "grok-4.6",
+    });
   });
 
   it("keeps a bare model id as --model only", () => {

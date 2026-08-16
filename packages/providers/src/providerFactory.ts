@@ -6,6 +6,7 @@ import {
   createMoonshotProvider,
   createGlmProvider,
   createMistralProvider,
+  createXaiProvider,
   createMammouthProvider,
   OpenAICompatibleProvider,
 } from "./openai-compatible.js";
@@ -55,6 +56,7 @@ const PROVIDER_FACTORIES: Record<ProviderKind, ProviderFactory> = {
   moonshot: (opts) => createMoonshotProvider(opts.apiKey ?? "", opts.model),
   glm: (opts) => createGlmProvider(opts.apiKey ?? "", opts.model),
   mistral: (opts) => createMistralProvider(opts.apiKey ?? "", opts.model),
+  xai: (opts) => createXaiProvider(opts.apiKey ?? "", opts.model),
   mammouth: (opts) => createMammouthProvider(opts.apiKey ?? "", opts.model),
   "openai-compatible": openAiCompatFactory,
   local: localFactory,

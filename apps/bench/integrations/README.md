@@ -57,10 +57,9 @@ node apps/bench/dist/index.js harbor run -m deepseek/deepseek-chat -n 4
 Raw Harbor equivalent:
 
 ```bash
-harbor run -d terminal-bench/terminal-bench-2-1 \
+PYTHONPATH=apps/bench/harbor harbor run -d terminal-bench/terminal-bench-2-1 \
   --agent ninjacode_agent:NinjaCodeAgent \
-  --agent-import-path apps/bench/harbor/ninjacode_agent.py \
-  -m deepseek/deepseek-chat -n 4
+  -m xai/grok-4.6 -n 2
 ```
 
 `-m` is Harbor's `provider/model` form. The adapter maps it to

@@ -81,6 +81,7 @@ export {
   createMoonshotProvider,
   createGlmProvider,
   createMistralProvider,
+  createXaiProvider,
   createMammouthProvider,
 } from "./openai-compatible.js";
 export type { OpenAICompatibleConfig } from "./openai-compatible.js";

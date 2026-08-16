@@ -12,6 +12,7 @@ export type ProviderKind =
   | "moonshot"
   | "glm"
   | "mistral"
+  | "xai"
   | "mammouth"
   | "openai-compatible"
   | "local"
