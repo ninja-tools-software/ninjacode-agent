@@ -417,8 +417,12 @@ export const searchCodebaseTool: Tool = {
 
     const lines = hits.map((h, i) => {
       const symbolNote = h.symbols?.length ? ` [symbols: ${h.symbols.join(", ")}]` : "";
+      const rangeNote =
+        h.startLine !== undefined
+          ? `:${h.startLine}${h.endLine && h.endLine !== h.startLine ? `-${h.endLine}` : ""}`
+          : "";
       const snippetNote = h.snippet ? `\n    ${h.snippet.split("\n").join("\n    ")}` : "";
-      return `${i + 1}. ${h.path} (score ${h.score.toFixed(2)})${symbolNote}${snippetNote}`;
+      return `${i + 1}. ${h.path}${rangeNote} (score ${h.score.toFixed(2)})${symbolNote}${snippetNote}`;
     });
 
     return {

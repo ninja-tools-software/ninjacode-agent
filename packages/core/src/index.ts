@@ -1,5 +1,14 @@
 export { Agent, createSubAgent } from "./agent.js";
-export type { AgentOptions, AgentTaskInput, SubAgentGovernanceOptions } from "./agent.js";
+export type {
+  AgentOptions,
+  AgentTaskInput,
+  IndependentVerifierOptions,
+  PerformanceOptions,
+  ResolvedIndependentVerifierOptions,
+  ResolvedPerformanceOptions,
+  SubAgentGovernanceOptions,
+  VerificationMode,
+} from "./agent.js";
 
 export { buildAgentRuntime } from "./runtime.js";
 export type { AgentRuntime, BuildAgentRuntimeOptions } from "./runtime.js";
@@ -12,7 +21,11 @@ export {
 export type { ApprovalMode, PermissionCall, PermissionDecision, PermissionPolicy } from "./permissions.js";
 export type { ContextViewOptions } from "./contextViewBuilder.js";
 export type { PutArtifactOptions } from "./sessionArtifacts.js";
-export { DEFAULT_RUN_TIMEOUT_MS } from "./agentOptions.js";
+export {
+  DEFAULT_RUN_TIMEOUT_MS,
+  resolveIndependentVerifierOptions,
+  resolvePerformanceOptions,
+} from "./agentOptions.js";
 export {
   configureTelemetry,
   createTelemetryContext,
@@ -44,16 +57,20 @@ export type {
   OtlpHttpExporterOptions,
 } from "./otlpHttpExporter.js";
 export {
+  attachTrajectoryOutcome,
   compareTrajectories,
   createTrajectory,
   createTrajectoryEvent,
   deserializeTrajectory,
+  persistTrajectory,
   replayTrajectory,
   serializeTrajectory,
+  TrajectoryRecorder,
   TRAJECTORY_SCHEMA_VERSION,
 } from "./trajectory.js";
 export type {
   Trajectory,
+  TrajectoryCaptureOptions,
   TrajectoryComparison,
   TrajectoryEvent,
   TrajectoryEventType,
@@ -148,11 +165,51 @@ export type {
   VerificationPolicy,
 } from "./harnessProfiles.js";
 
+export {
+  collectIndependentVerifierEvidence,
+  INDEPENDENT_VERIFIER_SCHEMA_VERSION,
+  parseIndependentVerifierVerdict,
+  runVerificationSubAgent,
+} from "./agentSupport.js";
+export type {
+  IndependentVerifierEvidence,
+  IndependentVerifierIssue,
+  IndependentVerifierRunResult,
+  IndependentVerifierVerdict,
+} from "./agentSupport.js";
+
+export {
+  classifyTaskComplexity,
+  createPhasePolicyState,
+  DEFAULT_ADAPTIVE_ORCHESTRATION,
+  enterVerificationPhase,
+  explorationBudgetFor,
+  observePhaseTurn,
+  recordVerificationFailure,
+  resolveAdaptiveOrchestrationOptions,
+} from "./phasePolicy.js";
+export type {
+  AdaptiveDelegationDecision,
+  AdaptiveDelegationRole,
+  AdaptiveOrchestrationOptions,
+  AgentPhase,
+  OrchestrationProfile,
+  PhasePolicyState,
+  PhaseTransition,
+  ResolvedAdaptiveOrchestrationOptions,
+  TaskComplexity,
+} from "./phasePolicy.js";
+
 export { classifyToolFailure } from "./toolErrors.js";
 export type { ToolErrorCategory, ClassifiedToolError } from "./toolErrors.js";
 
 export { loadVerifyConfig, runVerification } from "./verify.js";
-export type { VerifyConfig, VerificationResult, RunVerificationOptions } from "./verify.js";
+export type {
+  VerifyConfig,
+  VerificationCommandResult,
+  VerificationResult,
+  RunVerificationOptions,
+} from "./verify.js";
 
 export { scaffoldVerifyConfig } from "./verifyInfer.js";
 export type { ScaffoldVerifyResult } from "./verifyInfer.js";

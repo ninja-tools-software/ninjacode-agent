@@ -55,7 +55,9 @@ Les taux sont des fractions (`0.05` = 5 points de pourcentage) et les hausses de
 coût/temps sont des pourcentages (`25` = 25 %). Les mêmes seuils sont configurables
 avec `BENCH_MIN_PASS_RATE`, `BENCH_MAX_PASS_RATE_DROP`,
 `BENCH_MAX_COST_INCREASE_PCT`, `BENCH_MAX_WALL_TIME_INCREASE_PCT` et
-`BENCH_MAX_TOOL_ERRORS_INCREASE`.
+`BENCH_MAX_TOOL_ERRORS_INCREASE`. Les gates de promotion
+`BENCH_MIN_TELEMETRY_COVERAGE` (défaut `0.95`) et
+`BENCH_MAX_INFRA_ERROR_RATE` (défaut `0.05`) sont aussi appliqués.
 
 Par défaut, un changement de liste de tâches ou de nombre d'essais fait échouer le
 gate : les totaux restent visibles mais ne constituent pas une régression contrôlée.
@@ -68,7 +70,7 @@ mesurer une régression.
 
 ## Terminal-Bench 2.1 / Harbor
 
-Prérequis : Docker, Harbor 0.21.x (`uv tool install harbor`), le bundle CLI et une
+Prérequis : Docker, Harbor 0.21.0 (`uv tool install harbor==0.21.0`), le bundle CLI et une
 clé du fournisseur choisi.
 
 ```bash
@@ -78,17 +80,30 @@ pnpm --filter @ninjacode/bench build
 # Valide Harbor + Docker, sans modèle
 node apps/bench/dist/index.js harbor oracle
 
-# Un cas : smoke coûteux, non comparable au leaderboard
-node apps/bench/dist/index.js harbor smoke -m deepseek/deepseek-chat
+# Plans sans coût : configuration et commande exactes, sans appel modèle
+pnpm bench:harbor:plan:smoke
+pnpm bench:harbor:plan:subset
+pnpm bench:harbor:plan:full
+pnpm bench:harbor:plan:publish
 
-# Dataset complet TB 2.1 : long, coûteux, comparable si le protocole reste identique
-node apps/bench/dist/index.js harbor run -m deepseek/deepseek-chat -n 4
+# Exécutions live explicites (jamais sur une pull request)
+pnpm bench:harbor:smoke    # 1 tâche × 1, instrumentation
+pnpm bench:harbor:subset   # subset stratifié stable 20 × 3
+pnpm bench:harbor:full     # TB2.1 complet 89 × 1
+pnpm bench:harbor:publish  # TB2.1 complet 89 × 3, publication uniquement
+
+# Audit sans appel modèle
+node apps/bench/dist/index.js harbor audit runs/harbor/full \
+  --profile full --output runs/harbor/full/truth.md
 ```
 
 Le wrapper génère `apps/cli/dist/ninjacode.harbor-manifest.json` avec la version CLI,
 la version de l'adaptateur, le commit (`NINJACODE_GIT_COMMIT` ou `GITHUB_SHA` en
 archive sans `.git`), le SHA-256 et la taille du bundle, ainsi que la politique Node.
-L'adaptateur refuse un bundle qui ne correspond pas au manifeste.
+Il épingle aussi Harbor 0.21.0, `xai/grok-4.6`, l'effort `high`, le timeout CLI,
+les multiplicateurs agent/verifier, le dataset, le profil, le nombre de tâches et
+d'essais. Le lanceur refuse une version Harbor différente ; l'adaptateur refuse un
+modèle ou un bundle qui ne correspond pas au manifeste.
 
 L'installation vérifie l'espace **dans le conteneur d'essai** (minimum 512 MiB).
 Elle réutilise Node quand l'image fournit une version compatible, tente ensuite le
@@ -100,11 +115,69 @@ Quand la CLI termine, l'adaptateur remplit `AgentContext` avec les tokens d'entr
 de cache et de sortie et le coût. Les turns, appels/erreurs d'outils, histogramme
 d'outils, cache write, session et manifeste sont placés dans `metadata`. Selon le
 contrat Harbor, `n_input_tokens` inclut les tokens lus depuis le cache ; le détail
-reste disponible dans `n_cache_tokens`. Si la télémétrie est absente ou invalide,
-le résultat le signale au lieu d'inventer des zéros.
+reste disponible dans `n_cache_tokens`. La CLI écrit d'abord une enveloppe atomique
+`started`, puis une enveloppe finale. Harbor ne marque `telemetry_available=true`
+qu'après validation du schéma et de toutes les métriques ; un JSON invalide ou
+incomplet ne devient jamais une suite de zéros inventés.
 
 Un smoke (`-l 1`) et OpenThoughts-TBLite ne sont pas des scores Terminal-Bench 2.1.
 Ne pas les présenter comme comparables au leaderboard.
+
+## Taxonomie et dénominateurs
+
+Chaque essai non réussi reçoit exactement une catégorie :
+
+- `verify_failure` : l'agent termine, mais le grader rejette la correction ;
+- `agent_timeout` : le budget agent est dépassé ;
+- `agent_exit` : la sortie agent est non nulle ou incomplète ;
+- `verifier_timeout` : le grader ne rend pas de verdict ;
+- `infra_error` : Docker, installation, dataset ou orchestration ;
+- `cancelled` : annulation externe.
+
+`verifier_timeout`, `infra_error` et `cancelled` sont affichés dans le taux
+d'infrastructure et exclus du dénominateur de correction. `harbor audit` échoue
+sous 95 % d'enveloppes télémétriques finales valides, au-dessus de 5 % d'erreurs
+d'infrastructure, si le nombre de tâches/essais ne correspond pas au profil, ou
+si `--baseline` contient une autre liste tâche/essai.
+
+## Holdout privé externe
+
+Le holdout reste hors du dépôt et reprend le format `task.json` + `fixture/` :
+
+```bash
+export NINJABENCH_HOLDOUT_DIR=/chemin/prive/ninjabench-holdout
+export XAI_API_KEY=...
+pnpm bench:holdout
+```
+
+Le corpus doit contenir 10 à 15 tâches par défaut (bornes configurables avec
+`NINJABENCH_HOLDOUT_MIN_TASKS` et `NINJABENCH_HOLDOUT_MAX_TASKS`). Le manifeste
+ne persiste ni le chemin externe ni son contenu : uniquement sa taille et un hash
+stable du jeu de tâches. Les rapports restent sous `runs/`, ignoré par Git.
+
+## Ablations coût / latence
+
+Chaque rapport enregistre la variante et l'état des quatre composants :
+lectures/recherches parallèles, persistance asynchrone, cache provider et deltas
+de contexte volatile. `optimized` est le défaut sûr ; les variantes
+`no-parallel-reads`, `no-async-persistence`, `no-provider-cache` et
+`no-context-deltas` désactivent exactement un composant. `control` les désactive
+tous et ne doit pas être utilisé avec le gate d'isolation.
+
+Ces commandes affichent seulement le protocole et les commandes live ; elles
+n'exécutent aucun benchmark :
+
+```bash
+pnpm bench:ablation:plan:quick -- --variant no-parallel-reads
+pnpm bench:ablation:plan:holdout -- --variant no-async-persistence
+pnpm bench:ablation:plan:public-subset -- --variant no-provider-cache
+```
+
+La promotion compare d'abord quick ×3, puis le holdout privé ×3, puis le subset
+public TB2.1 20×3. Utiliser `--require-single-ablation` avec les plafonds de coût,
+temps total et latence p95. Une variante n'est retenue que si la correction ne
+baisse pas ; les gains de coût ou latence ne compensent jamais une régression de
+correction, de déterminisme ou de reprise.
 
 ## Publication honnête
 

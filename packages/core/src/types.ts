@@ -1,5 +1,6 @@
 import type { Message, TokenUsage, ToolCall } from "@ninjacode/providers";
 import type { ToolErrorCategory } from "./toolErrors.js";
+import type { Trajectory } from "./trajectory.js";
 
 export type AgentMode = "agent" | "plan" | "ask" | "debug";
 
@@ -100,7 +101,10 @@ export interface AgentEvent {
     | "hook_run"
     | "subagent_start"
     | "subagent_progress"
-    | "subagent_end";
+    | "subagent_end"
+    | "phase_change"
+    | "verification_start"
+    | "verification_end";
   payload: unknown;
 }
 
@@ -137,6 +141,8 @@ export interface AgentOutcome {
   turns: TurnTrace[];
   completed: boolean;
   sessionId: string;
+  /** Present only when trajectory capture was explicitly enabled. */
+  trajectory?: Trajectory;
 }
 
 /**

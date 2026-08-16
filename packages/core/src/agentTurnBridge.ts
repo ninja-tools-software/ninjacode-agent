@@ -11,9 +11,25 @@ import type { ToolPipeline } from "./toolPipeline.js";
 import type { VerifyConfig } from "./verify.js";
 import type { AgentEventHandler, RunState } from "./types.js";
 import type { AgentFactory } from "./agentFactory.js";
-import { runCompletionVerification, runVerificationSubAgent } from "./agentSupport.js";
+import {
+  runAdaptiveOrchestrationSubAgent,
+  runCompletionVerification,
+  runVerificationSubAgent,
+} from "./agentSupport.js";
 import { sessionEventLog } from "./sessionEventLog.js";
 import { SessionArtifactStore } from "./sessionArtifacts.js";
+import type {
+  OrchestrationProfile,
+  ResolvedAdaptiveOrchestrationOptions,
+} from "./phasePolicy.js";
+import type {
+  ResolvedSubAgentGovernance,
+  SubAgentOrchestrator,
+} from "./subagentOrchestrator.js";
+import type {
+  ResolvedIndependentVerifierOptions,
+  VerificationMode,
+} from "./agentOptions.js";
 
 export interface TurnHostInput {
   provider: LlmProvider;
@@ -22,6 +38,7 @@ export interface TurnHostInput {
   model?: string;
   utilityModel?: string;
   enablePromptCache: boolean;
+  minimalVolatileContext: boolean;
   reasoningEffort?: import("@ninjacode/providers").ReasoningEffort;
   thinkingBudgetTokens?: number;
   contextWindow?: number;
@@ -29,6 +46,13 @@ export interface TurnHostInput {
   enableLoopDetection: boolean;
   enableCompletionVerification: boolean;
   enableVerificationSubAgent: boolean;
+  verificationMode: VerificationMode;
+  independentVerifier: ResolvedIndependentVerifierOptions;
+  enableSubagents: boolean;
+  orchestrationProfile: OrchestrationProfile;
+  adaptiveOrchestration: ResolvedAdaptiveOrchestrationOptions;
+  subagentGovernance: ResolvedSubAgentGovernance;
+  subagentOrchestrator: SubAgentOrchestrator;
   createAgent: AgentFactory;
   modifiedFiles: Set<string>;
   budget: BudgetTracker;
@@ -41,6 +65,9 @@ export interface TurnHostInput {
   onEvent?: AgentEventHandler;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
+  activeFilesProvider?: () =>
+    | readonly string[]
+    | Promise<readonly string[]>;
   cacheStats: { cacheReadTokens: number; cacheWriteTokens: number };
   signal: AbortSignal;
   readScratchpad: () => Promise<string>;
@@ -94,6 +121,7 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
     model: host.model,
     utilityModel: host.utilityModel,
     enablePromptCache: host.enablePromptCache,
+    minimalVolatileContext: host.minimalVolatileContext,
     reasoningEffort: host.reasoningEffort,
     thinkingBudgetTokens: host.thinkingBudgetTokens,
     contextWindow: host.contextWindow,
@@ -101,7 +129,13 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
     enableLoopDetection: host.enableLoopDetection,
     enableCompletionVerification: host.enableCompletionVerification,
     enableVerificationSubAgent: host.enableVerificationSubAgent,
+    verificationMode: host.verificationMode,
+    independentVerifier: host.independentVerifier,
+    enableSubagents: host.enableSubagents,
+    orchestrationProfile: host.orchestrationProfile,
+    adaptiveOrchestration: host.adaptiveOrchestration,
     modifiedFiles: host.modifiedFiles,
+    activeFilesProvider: host.activeFilesProvider,
     budget: host.budget,
     readScratchpad: host.readScratchpad,
     readActivePlan: host.readActivePlan,
@@ -123,7 +157,7 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
         modifiedFiles: host.modifiedFiles,
         config,
       }),
-    runVerificationSubAgent: (answer) =>
+    runVerificationSubAgent: (verification) =>
       runVerificationSubAgent({
         provider: host.provider,
         workspaceRoot: host.workspaceRoot,
@@ -131,8 +165,28 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
         onEvent: host.onEvent,
         signal: host.signal,
         modifiedFiles: host.modifiedFiles,
-        answer,
+        verification,
+        mode: host.verificationMode,
+        verifier: host.independentVerifier,
+        utilityModel: host.utilityModel,
+        budget: host.budget,
         createAgent: host.createAgent,
+        orchestrator: host.subagentOrchestrator,
+      }),
+    runAdaptiveSubAgent: (role, reason) =>
+      runAdaptiveOrchestrationSubAgent({
+        provider: host.provider,
+        workspaceRoot: host.workspaceRoot,
+        agentDir: host.agentDir,
+        onEvent: host.onEvent,
+        signal: host.signal,
+        task: host.pinnedTask ?? "",
+        reason,
+        role,
+        parentModel: host.model,
+        utilityModel: host.utilityModel,
+        createAgent: host.createAgent,
+        orchestrator: host.subagentOrchestrator,
       }),
     recordSessionEvent: async (type, payload) => {
       if (!host.persistSessionContext) return;

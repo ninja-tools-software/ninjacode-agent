@@ -1,5 +1,7 @@
 import type { ProviderKind, ReasoningEffort } from "@ninjacode/providers";
 import type { ToolRegistry } from "@ninjacode/tools";
+import type { OrchestrationProfile } from "./phasePolicy.js";
+import type { VerificationMode } from "./verificationTypes.js";
 
 export type HarnessProfileVersion = "v1";
 export type VerificationPolicy = "standard" | "strict";
@@ -12,6 +14,8 @@ export interface HarnessProfile {
   readonly editFormat: EditFormat;
   readonly optionalTools: readonly string[];
   readonly verification: VerificationPolicy;
+  readonly verificationMode: VerificationMode;
+  readonly orchestration: OrchestrationProfile;
   readonly reasoningEffort?: ReasoningEffort;
 }
 
@@ -22,7 +26,15 @@ export interface ResolveHarnessProfileInput {
 }
 
 type ProfileOverrides = Partial<
-  Pick<HarnessProfile, "editFormat" | "optionalTools" | "verification" | "reasoningEffort">
+  Pick<
+    HarnessProfile,
+    | "editFormat"
+    | "optionalTools"
+    | "verification"
+    | "verificationMode"
+    | "orchestration"
+    | "reasoningEffort"
+  >
 >;
 
 const GIT_TOOLS = Object.freeze(["git_status", "git_diff", "git_log", "git_show"]);
@@ -32,6 +44,8 @@ const DEFAULT_PROFILE: ProfileOverrides = Object.freeze({
   editFormat: "string_replace",
   optionalTools: GIT_TOOLS,
   verification: "standard",
+  verificationMode: "current",
+  orchestration: "legacy",
 });
 
 const FAMILY_PROFILES: Readonly<Partial<Record<ProviderKind, ProfileOverrides>>> = Object.freeze({
@@ -117,6 +131,9 @@ export function resolveHarnessProfile(input: ResolveHarnessProfileInput = {}): H
     editFormat: model?.editFormat ?? family?.editFormat ?? DEFAULT_PROFILE.editFormat!,
     optionalTools: model?.optionalTools ?? family?.optionalTools ?? DEFAULT_PROFILE.optionalTools!,
     verification: model?.verification ?? family?.verification ?? DEFAULT_PROFILE.verification!,
+    verificationMode:
+      model?.verificationMode ?? family?.verificationMode ?? DEFAULT_PROFILE.verificationMode!,
+    orchestration: model?.orchestration ?? family?.orchestration ?? DEFAULT_PROFILE.orchestration!,
     reasoningEffort: model?.reasoningEffort ?? family?.reasoningEffort,
   });
 }

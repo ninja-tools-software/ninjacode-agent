@@ -8,10 +8,21 @@ import type { ToolRegistry } from "@ninjacode/tools";
 import type { BudgetTracker } from "./reliability.js";
 import type { HookRunResult } from "./hooks.js";
 import type { ToolPipeline } from "./toolPipeline.js";
-import type { VerifyConfig } from "./verify.js";
+import type { VerificationResult, VerifyConfig } from "./verify.js";
 import type { VolatileContext } from "./volatileContext.js";
 import type { AgentOutcome, RunState, TurnTrace } from "./types.js";
 import type { Message } from "@ninjacode/providers";
+import type {
+  AdaptiveDelegationRole,
+  OrchestrationProfile,
+  PhasePolicyState,
+  ResolvedAdaptiveOrchestrationOptions,
+} from "./phasePolicy.js";
+import type {
+  ResolvedIndependentVerifierOptions,
+  VerificationMode,
+} from "./agentOptions.js";
+import type { IndependentVerifierRunResult } from "./agentSupport.js";
 
 export interface AgentTurnMutableState {
   history: Message[];
@@ -25,6 +36,7 @@ export interface AgentTurnMutableState {
   verificationRetries: number;
   globalTurn: number;
   toolCallFingerprints: string[];
+  phasePolicy?: PhasePolicyState;
 }
 
 export interface AgentTurnDeps {
@@ -41,6 +53,7 @@ export interface AgentTurnDeps {
   model?: string;
   utilityModel?: string;
   enablePromptCache: boolean;
+  minimalVolatileContext: boolean;
   reasoningEffort?: ReasoningEffort;
   thinkingBudgetTokens?: number;
   contextWindow?: number;
@@ -48,7 +61,15 @@ export interface AgentTurnDeps {
   enableLoopDetection: boolean;
   enableCompletionVerification: boolean;
   enableVerificationSubAgent: boolean;
+  verificationMode: VerificationMode;
+  independentVerifier: ResolvedIndependentVerifierOptions;
+  enableSubagents: boolean;
+  orchestrationProfile: OrchestrationProfile;
+  adaptiveOrchestration: ResolvedAdaptiveOrchestrationOptions;
   modifiedFiles: Set<string>;
+  activeFilesProvider?: () =>
+    | readonly string[]
+    | Promise<readonly string[]>;
   budget: BudgetTracker;
   toolPipeline: ToolPipeline;
   readScratchpad: () => Promise<string>;
@@ -68,8 +89,12 @@ export interface AgentTurnDeps {
     event: HookRunResult["event"],
     input: { toolName?: string; arguments?: Record<string, unknown>; output?: string; error?: string },
   ) => Promise<HookRunResult[]>;
-  runCompletionVerification: (config: VerifyConfig) => Promise<{ ok: boolean; messages: string[] }>;
-  runVerificationSubAgent: (answer: string) => Promise<string | undefined>;
+  runCompletionVerification: (config: VerifyConfig) => Promise<VerificationResult>;
+  runVerificationSubAgent: (verification: VerificationResult) => Promise<IndependentVerifierRunResult>;
+  runAdaptiveSubAgent: (
+    role: AdaptiveDelegationRole,
+    reason: string,
+  ) => Promise<string>;
   recordSessionEvent: (
     type: "assistant_message" | "compaction",
     payload: Record<string, unknown>,
@@ -91,7 +116,10 @@ export interface AgentTurnDeps {
       | "error"
       | "done"
       | "compaction"
-      | "usage",
+      | "usage"
+      | "phase_change"
+      | "verification_start"
+      | "verification_end",
     payload: unknown,
   ) => Promise<void>;
   logAgentEvent: (

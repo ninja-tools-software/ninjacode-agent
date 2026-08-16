@@ -3,7 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { AgentOutcome } from "@ninjacode/core";
-import { collectBenchmarkTelemetry, writeBenchmarkTelemetry } from "./benchmarkTelemetry.js";
+import {
+  collectBenchmarkTelemetry,
+  writeBenchmarkTelemetry,
+  writeBenchmarkTelemetryStart,
+} from "./benchmarkTelemetry.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -44,6 +48,8 @@ describe("benchmark telemetry", () => {
   it("collects Harbor-compatible token and tool metrics", () => {
     expect(collectBenchmarkTelemetry(agent, outcome())).toMatchObject({
       schemaVersion: 1,
+      status: "completed",
+      telemetryComplete: true,
       completed: true,
       inputTokens: 100,
       cacheReadTokens: 200,
@@ -60,6 +66,26 @@ describe("benchmark telemetry", () => {
     await writeBenchmarkTelemetry(agent, outcome(), destination);
     const parsed = JSON.parse(await fs.readFile(destination, "utf8")) as { sessionId: string };
     expect(parsed.sessionId).toBe("session-1");
+  });
+
+  it("writes a valid start envelope before the agent can fail", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ninjacode-telemetry-"));
+    temporaryDirectories.push(dir);
+    const destination = path.join(dir, "telemetry.json");
+    await writeBenchmarkTelemetryStart(
+      { provider: "xai", model: "grok-4.6", reasoningEffort: "high" },
+      destination,
+    );
+    const parsed = JSON.parse(await fs.readFile(destination, "utf8")) as {
+      status: string;
+      telemetryComplete: boolean;
+      config: { reasoningEffort: string };
+    };
+    expect(parsed).toMatchObject({
+      status: "started",
+      telemetryComplete: false,
+      config: { reasoningEffort: "high" },
+    });
   });
 
   it("does nothing without an output path", async () => {

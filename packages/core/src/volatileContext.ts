@@ -36,6 +36,24 @@ export function buildVolatileContextMessage(context: VolatileContext): Message |
   return { role: "user", content: sections.join("\n") };
 }
 
+/** Build only changed volatile sections; explicit clears prevent stale model state. */
+export function buildVolatileContextDelta(
+  previous: VolatileContext,
+  next: VolatileContext,
+): Message | null {
+  if (!volatileContextChanged(previous, next)) return null;
+  const scratchpad = truncateSection(next.scratchpad);
+  const plan = truncateSection(next.plan);
+  const sections = [
+    "[Workspace state delta] Apply these changes to the latest workspace state.",
+    previous.scratchpad !== next.scratchpad
+      ? `\nCurrent scratchpad:\n${scratchpad || "(cleared)"}`
+      : "",
+    previous.plan !== next.plan ? `\nCurrent plan:\n${plan || "(cleared)"}` : "",
+  ].filter(Boolean);
+  return { role: "user", content: sections.join("\n") };
+}
+
 /** True when the snapshot differs from what the model has already been told. */
 export function volatileContextChanged(previous: VolatileContext, next: VolatileContext): boolean {
   return previous.scratchpad !== next.scratchpad || previous.plan !== next.plan;
@@ -61,5 +79,9 @@ export function stubSupersededVolatileContext(history: Message[]): Message[] {
 }
 
 export function isVolatileContextMessage(message: Message): boolean {
-  return message.role === "user" && message.content.startsWith("[Workspace state]");
+  return (
+    message.role === "user" &&
+    (message.content.startsWith("[Workspace state]") ||
+      message.content.startsWith("[Workspace state delta]"))
+  );
 }

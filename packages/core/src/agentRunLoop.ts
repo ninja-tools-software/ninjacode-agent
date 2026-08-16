@@ -19,6 +19,11 @@ import type { ToolPipeline } from "./toolPipeline.js";
 import type { AgentTaskInput } from "./agentOptions.js";
 import { buildVolatileContextMessage } from "./volatileContext.js";
 import type { AgentMode, AgentOutcome, RequestCheckpoint, RunState } from "./types.js";
+import {
+  createPhasePolicyState,
+  type OrchestrationProfile,
+  type ResolvedAdaptiveOrchestrationOptions,
+} from "./phasePolicy.js";
 
 interface RunLoopContext {
   toolSpecs: ToolSpec[];
@@ -36,6 +41,10 @@ export interface RunLoopSetupInput {
   workspaceRoot: string;
   agentDir: string;
   mode: AgentMode;
+  maxTurns: number;
+  enableSubagents: boolean;
+  orchestrationProfile: OrchestrationProfile;
+  adaptiveOrchestration: ResolvedAdaptiveOrchestrationOptions;
   providerName: string;
   model?: string;
   tools: ToolRegistry;
@@ -119,6 +128,20 @@ export async function prepareRunLoop(input: RunLoopSetupInput): Promise<RunLoopS
     verificationRetries: 0,
     globalTurn: input.globalTurn,
     toolCallFingerprints: input.toolCallFingerprints,
+    phasePolicy:
+      input.orchestrationProfile === "adaptive" &&
+      (input.mode === "agent" || input.mode === "debug" || input.mode === "plan")
+        ? createPhasePolicyState({
+            task: pinnedTask,
+            maxTurns: input.maxTurns,
+            goal: input.mode === "plan" ? "plan" : "edit",
+            options: {
+              ...input.adaptiveOrchestration,
+              automaticDelegation:
+                input.enableSubagents && input.adaptiveOrchestration.automaticDelegation,
+            },
+          })
+        : undefined,
   };
 
   return {

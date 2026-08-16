@@ -9,7 +9,6 @@ import { CodebaseIndex } from "@ninjacode/tools";
  */
 export class CodebaseIndexService {
   private readonly indexes = new Map<string, CodebaseIndex>();
-  private readonly builds = new Map<string, Promise<CodebaseIndex>>();
   private readonly watchers = new Map<string, vscode.FileSystemWatcher>();
 
   constructor(private readonly subscriptions: vscode.Disposable[]) {}
@@ -17,22 +16,10 @@ export class CodebaseIndexService {
   async getOrCreate(workspaceRoot: string): Promise<CodebaseIndex> {
     const existing = this.indexes.get(workspaceRoot);
     if (existing) return existing;
-    const inFlight = this.builds.get(workspaceRoot);
-    if (inFlight) return inFlight;
-
-    const build = (async () => {
-      const index = new CodebaseIndex(workspaceRoot);
-      await index.build();
-      this.indexes.set(workspaceRoot, index);
-      this.watch(workspaceRoot, index);
-      return index;
-    })();
-    this.builds.set(workspaceRoot, build);
-    try {
-      return await build;
-    } finally {
-      this.builds.delete(workspaceRoot);
-    }
+    const index = new CodebaseIndex(workspaceRoot);
+    this.indexes.set(workspaceRoot, index);
+    this.watch(workspaceRoot, index);
+    return index;
   }
 
   /** The already-built index for a root, if any — never triggers a build. */
@@ -46,9 +33,9 @@ export class CodebaseIndexService {
       new vscode.RelativePattern(vscode.Uri.file(workspaceRoot), "**/*"),
     );
     const toRel = (uri: vscode.Uri) => path.relative(workspaceRoot, uri.fsPath).replace(/\\/g, "/");
-    watcher.onDidCreate((uri) => void index.refreshFile(toRel(uri)));
-    watcher.onDidChange((uri) => void index.refreshFile(toRel(uri)));
-    watcher.onDidDelete((uri) => index.removeFile(toRel(uri)));
+    watcher.onDidCreate((uri) => void index.refreshFile(toRel(uri)).catch(() => undefined));
+    watcher.onDidChange((uri) => void index.refreshFile(toRel(uri)).catch(() => undefined));
+    watcher.onDidDelete((uri) => void index.removeFile(toRel(uri)).catch(() => undefined));
     this.watchers.set(workspaceRoot, watcher);
     this.subscriptions.push(watcher);
   }

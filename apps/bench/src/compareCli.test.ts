@@ -9,6 +9,12 @@ const environmentKeys = [
   "BENCH_MIN_PASS_RATE",
   "BENCH_MAX_PASS_RATE_DROP",
   "BENCH_MAX_COST_INCREASE_PCT",
+  "BENCH_MIN_TELEMETRY_COVERAGE",
+  "BENCH_MAX_INFRA_ERROR_RATE",
+  "BENCH_MIN_PASS_AT_3",
+  "BENCH_MIN_PASS_POW_3",
+  "BENCH_MAX_INTER_TRIAL_VARIANCE",
+  "BENCH_MIN_CONFIDENCE_LOWER_BOUND",
 ] as const;
 
 afterEach(async () => {
@@ -48,12 +54,16 @@ describe("compare CLI", () => {
   it("loads configurable thresholds from flags and environment", () => {
     process.env.BENCH_MIN_PASS_RATE = "0.8";
     process.env.BENCH_MAX_COST_INCREASE_PCT = "20";
+    process.env.BENCH_MIN_PASS_AT_3 = "0.9";
     expect(
       thresholdsFromArgs(["--max-pass-rate-drop", "0.05", "--allow-incompatible"]),
     ).toMatchObject({
       minPassRate: 0.8,
       maxPassRateDrop: 0.05,
       maxCostIncreasePercent: 20,
+      minTelemetryCoverage: 0.95,
+      maxInfrastructureErrorRate: 0.05,
+      minPassAt3: 0.9,
       requireComparable: false,
     });
   });

@@ -10,7 +10,9 @@ export type ToolErrorCategory =
   | "PermissionDenied"
   | "NotFound"
   | "CircuitOpen"
-  | "BlockedByHook";
+  | "BlockedByHook"
+  | "StalePatch"
+  | "AmbiguousEdit";
 
 export interface ClassifiedToolError {
   category: ToolErrorCategory;
@@ -52,6 +54,18 @@ const BY_TOOL_ERROR_CODE: Partial<
     retryable: false,
     blame: "user",
     recoveryHint: "Stop unless the user explicitly asks to continue.",
+  },
+  stale_patch: {
+    category: "StalePatch",
+    retryable: true,
+    blame: "model",
+    recoveryHint: "Re-read the target and regenerate the edit from current content.",
+  },
+  ambiguous_edit: {
+    category: "AmbiguousEdit",
+    retryable: true,
+    blame: "model",
+    recoveryHint: "Add offsets or more unchanged context to identify one occurrence.",
   },
 };
 

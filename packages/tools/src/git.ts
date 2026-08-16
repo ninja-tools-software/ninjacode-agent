@@ -4,10 +4,46 @@ import { buildExecutionEnv, sandboxCommand } from "./sandbox.js";
 import { resolveInWorkspace, toWorkspaceRelative } from "./paths.js";
 import type { Tool, ToolContext, ToolResult } from "./types.js";
 import { ToolError } from "./types.js";
+import { spawnCapture } from "./process.js";
 
 const OUTPUT_LIMIT = 80_000;
 const ERROR_LIMIT = 8_000;
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Host-facing, read-only discovery used to seed first-turn scoped context. */
+export async function listGitChangedFiles(
+  workspaceRoot: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const commands = [
+    ["diff", "--name-only", "--no-ext-diff"],
+    ["diff", "--cached", "--name-only", "--no-ext-diff"],
+    ["ls-files", "--others", "--exclude-standard"],
+  ];
+  const changed = new Set<string>();
+  await Promise.all(
+    commands.map(async (args) => {
+      try {
+        const result = await spawnCapture("git", args, { cwd: workspaceRoot, signal });
+        if (result.code !== 0) return;
+        for (const line of result.stdout.split("\n")) {
+          const normalized = line.trim().replace(/\\/g, "/");
+          if (
+            normalized &&
+            !path.isAbsolute(normalized) &&
+            normalized !== ".." &&
+            !normalized.startsWith("../")
+          ) {
+            changed.add(normalized);
+          }
+        }
+      } catch {
+        // Non-git workspaces and unavailable git simply contribute no files.
+      }
+    }),
+  );
+  return [...changed];
+}
 
 interface GitRequest {
   command: string;

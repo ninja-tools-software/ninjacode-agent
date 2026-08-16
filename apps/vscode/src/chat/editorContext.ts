@@ -5,6 +5,28 @@ import { createRef } from "./contextRefs.js";
 
 const MAX_SELECTION_CHARS = 8_000;
 
+/** Open/visible editor files, including the active selection's document. */
+export function activeEditorFiles(workspaceRoot: string): string[] {
+  const files = new Set<string>();
+  const editors = [
+    ...(vscode.window.activeTextEditor ? [vscode.window.activeTextEditor] : []),
+    ...vscode.window.visibleTextEditors,
+  ];
+  for (const editor of editors) {
+    if (editor.document.uri.scheme !== "file") continue;
+    const relative = path.relative(workspaceRoot, editor.document.uri.fsPath);
+    if (
+      relative &&
+      relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative)
+    ) {
+      files.add(relative.replace(/\\/g, "/"));
+    }
+  }
+  return [...files];
+}
+
 /** The active editor selection as an attachable reference, or null when there is none. */
 export function currentSelectionRef(root: string | undefined): ContextRef | null {
   const editor = vscode.window.activeTextEditor;

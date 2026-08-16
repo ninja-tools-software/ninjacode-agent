@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "@ninjacode/providers";
-import { isMaskableObservation, maskOldObservations } from "./observationMasking.js";
+import {
+  hasRecoverableArtifact,
+  isMaskableObservation,
+  maskOldObservations,
+} from "./observationMasking.js";
 
 function observation(name: string, index: number, size = 2000): Message {
   return {
@@ -68,10 +72,21 @@ describe("maskOldObservations", () => {
     expect(masked).toHaveLength(history.length);
     expect(masked.map((m) => m.toolCallId)).toEqual(history.map((m) => m.toolCallId));
     expect(masked.every((m) => m.role === "tool")).toBe(true);
+    expect(masked).toEqual(history);
+  });
+
+  it("requires an artifact before replacing any observation body", () => {
+    const legacy = observation("read_file", 0);
+    const archived = archivedObservations("read_file", 1)[0]!;
+    expect(hasRecoverableArtifact(legacy)).toBe(false);
+    expect(hasRecoverableArtifact(archived)).toBe(true);
   });
 
   it("spares small outputs, where masking would only lose information", () => {
-    const history = [...observations("read_file", 12), ...observations("grep", 4)];
+    const history = [
+      ...archivedObservations("read_file", 12),
+      ...archivedObservations("grep", 4),
+    ];
     history[0] = { ...history[0]!, content: "exit 0" };
     const masked = maskOldObservations(history);
 
@@ -80,7 +95,7 @@ describe("maskOldObservations", () => {
   });
 
   it("preserves the path annotation superseded-read tracking depends on", () => {
-    const history = observations("read_file", 14).map((m, i) => ({
+    const history = archivedObservations("read_file", 14).map((m, i) => ({
       ...m,
       content: `[path:src/a${i}.ts]\n${m.content}`,
     }));

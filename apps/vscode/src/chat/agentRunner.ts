@@ -11,14 +11,24 @@ import {
   type AgentOptions,
 } from "@ninjacode/core";
 import { createProvider } from "@ninjacode/providers";
-import { createDefaultToolRegistry, setAskUserHandler, setUserActionHandler } from "@ninjacode/tools";
+import {
+  createDefaultToolRegistry,
+  listGitChangedFiles,
+  setAskUserHandler,
+  setUserActionHandler,
+} from "@ninjacode/tools";
 import type { AskUserAnswer, AskUserRequest, UserActionRequest } from "@ninjacode/tools";
 import type { ComposerNode, ContextRef, HostToWebview } from "../protocol.js";
 import type { SessionRuntimeManager } from "../sessionRuntime.js";
 import type { AgentEvent } from "./agentEventBridge.js";
 import type { ContextEnv } from "./context/index.js";
 import { buildTask, withoutImages } from "./contextRefs.js";
-import { activeSelectionSection, createDiagnosticsProvider, workspaceErrorsSection } from "./editorContext.js";
+import {
+  activeEditorFiles,
+  activeSelectionSection,
+  createDiagnosticsProvider,
+  workspaceErrorsSection,
+} from "./editorContext.js";
 import { ensureApiKey, grantsFrom, readRunConfig, withGatewayContextWindow } from "./runConfig.js";
 import type { McpService } from "./mcpService.js";
 import { isWorkspaceTrusted, warnIfUntrustedWorkspace } from "../workspaceTrust.js";
@@ -157,6 +167,10 @@ export class AgentRunner {
         runTimeoutMs: config.runTimeoutMs,
         codebaseIndex: codebaseIndex as never,
         diagnosticsProvider: createDiagnosticsProvider(root),
+        activeFilesProvider: async () => [
+          ...activeEditorFiles(root),
+          ...(await listGitChangedFiles(root)),
+        ],
         enableWorkspaceHooks: trusted,
       },
     });

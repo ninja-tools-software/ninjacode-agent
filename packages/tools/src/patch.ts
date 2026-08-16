@@ -4,13 +4,31 @@ import type { Tool, ToolContext, ToolResult } from "./types.js";
 import { ToolError } from "./types.js";
 import { resolveInWorkspace, toWorkspaceRelative } from "./paths.js";
 
+export class StalePatch extends ToolError {
+  constructor(message: string) {
+    super(message, "stale_patch");
+    this.name = "StalePatch";
+  }
+}
+
+export class AmbiguousEdit extends ToolError {
+  constructor(message: string) {
+    super(message, "ambiguous_edit");
+    this.name = "AmbiguousEdit";
+  }
+}
+
 /** Generate a simple unified diff between old and new content. */
 export function unifiedDiff(filePath: string, before: string, after: string): string {
-  const a = before.split("\n");
-  const b = after.split("\n");
+  const a = before === "" ? [] : before.replace(/\n$/, "").split("\n");
+  const b = after === "" ? [] : after.replace(/\n$/, "").split("\n");
   // Myers-lite: line-based LCS for reasonable files
   const lcs = computeLcs(a, b);
-  const lines: string[] = [`--- a/${filePath}`, `+++ b/${filePath}`, "@@ @@"];
+  const lines: string[] = [
+    `--- a/${filePath}`,
+    `+++ b/${filePath}`,
+    `@@ -1,${a.length} +1,${b.length} @@`,
+  ];
   let i = 0;
   let j = 0;
   let k = 0;
@@ -95,14 +113,27 @@ export const applyPatchTool: Tool = {
     const diffs: Record<string, string> = {};
     const fileChanges: Record<string, { before: string; after: string }> = {};
     const snapshots = new Map<string, { existed: boolean; content: string }>();
+    const planned: Array<{ rel: string; abs: string; before: string; after: string; existed: boolean }> = [];
+
+    // Verify every path and hunk against one immutable snapshot before writing
+    // anything. A stale later file can therefore never leave earlier files
+    // transiently modified.
+    const seen = new Set<string>();
+    for (const file of files) {
+      const rel = toWorkspaceRelative(ctx.workspaceRoot, file.path);
+      if (seen.has(rel)) {
+        throw new AmbiguousEdit(`Patch contains more than one file section for ${rel}`);
+      }
+      seen.add(rel);
+      const abs = resolveInWorkspace(ctx.workspaceRoot, rel);
+      const { before, existed } = await readPatchTarget(abs, rel, file.isNew);
+      const after = applyHunks(before, file.hunks);
+      planned.push({ rel, abs, before, after, existed });
+      snapshots.set(rel, { existed, content: before });
+    }
 
     try {
-      for (const file of files) {
-        const rel = toWorkspaceRelative(ctx.workspaceRoot, file.path);
-        const abs = resolveInWorkspace(ctx.workspaceRoot, rel);
-        const { before, existed } = await readPatchTarget(abs, rel, file.isNew);
-        snapshots.set(rel, { existed, content: before });
-        const after = applyHunks(before, file.hunks);
+      for (const { rel, abs, before, after } of planned) {
         await fs.mkdir(path.dirname(abs), { recursive: true });
         await fs.writeFile(abs, after, "utf8");
         diffs[rel] = unifiedDiff(rel, before, after);
@@ -144,26 +175,36 @@ async function readPatchTarget(
 export interface ParsedFile {
   path: string;
   isNew: boolean;
-  hunks: Array<{ lines: string[] }>;
+  hunks: ParsedHunk[];
+}
+
+export interface ParsedHunk {
+  lines: string[];
+  oldStart?: number;
+  oldCount?: number;
+  newStart?: number;
+  newCount?: number;
 }
 
 export function parseUnifiedDiff(patch: string): ParsedFile[] {
   const lines = patch.replace(/\r\n/g, "\n").split("\n");
   const files: ParsedFile[] = [];
   let current: ParsedFile | null = null;
-  let hunkLines: string[] = [];
+  let hunk: ParsedHunk | null = null;
+  let oldPath: string | undefined;
 
   const flushHunk = () => {
-    if (current && hunkLines.length) {
-      current.hunks.push({ lines: hunkLines });
-      hunkLines = [];
+    if (current && hunk && hunk.lines.length) {
+      current.hunks.push(hunk);
     }
+    hunk = null;
   };
 
   for (const line of lines) {
     if (line.startsWith("--- ")) {
       flushHunk();
       current = null;
+      oldPath = line.slice(4).trim();
       continue;
     }
     if (line.startsWith("+++ ")) {
@@ -171,40 +212,45 @@ export function parseUnifiedDiff(patch: string): ParsedFile[] {
       let p = line.slice(4).trim();
       if (p.startsWith("b/")) p = p.slice(2);
       if (p === "/dev/null") continue;
-      current = { path: p, isNew: false, hunks: [] };
+      current = { path: p, isNew: oldPath === "/dev/null", hunks: [] };
       files.push(current);
       continue;
     }
     if (line.startsWith("@@")) {
       flushHunk();
+      const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
+      hunk = match
+        ? {
+            lines: [],
+            oldStart: Number(match[1]),
+            oldCount: match[2] === undefined ? 1 : Number(match[2]),
+            newStart: Number(match[3]),
+            newCount: match[4] === undefined ? 1 : Number(match[4]),
+          }
+        : { lines: [] };
       continue;
     }
     if (current && (line.startsWith(" ") || line.startsWith("+") || line.startsWith("-") || line === "\\ No newline at end of file")) {
-      hunkLines.push(line);
+      (hunk ??= { lines: [] }).lines.push(line);
     }
   }
   flushHunk();
 
-  // Detect new files (all additions)
+  // Tolerate the common headerless new-file form while retaining /dev/null as
+  // the authoritative signal.
   for (const f of files) {
     const all = f.hunks.flatMap((h) => h.lines);
-    f.isNew = all.length > 0 && all.every((l) => l.startsWith("+") || l.startsWith("\\"));
+    f.isNew ||= all.length > 0 && all.every((l) => l.startsWith("+") || l.startsWith("\\"));
   }
   return files;
 }
 
-export function applyHunks(before: string, hunks: Array<{ lines: string[] }>): string {
+export function applyHunks(before: string, hunks: ParsedHunk[]): string {
   if (hunks.length === 0) return before;
-  // Reconstruct from hunks: start from empty and apply + and context, skip -
-  // For robustness: if file empty / new, just take all + lines
-  const allLines = hunks.flatMap((h) => h.lines);
-  const onlyAdds = allLines.every((l) => l.startsWith("+") || l.startsWith("\\") || l.startsWith(" "));
-  if (!before && onlyAdds) {
-    return allLines.filter((l) => l.startsWith("+")).map((l) => l.slice(1)).join("\n") + (allLines.some((l) => l.startsWith("+")) ? "\n" : "");
-  }
+  const trailingNewline = before.endsWith("\n") || before.length === 0;
+  const contentLines = before === "" ? [] : before.replace(/\n$/, "").split("\n");
+  let lineDelta = 0;
 
-  let content = before;
-  // Apply each hunk by locating context
   for (const hunk of hunks) {
     const oldLines = hunk.lines
       .filter((l) => l.startsWith(" ") || l.startsWith("-"))
@@ -212,73 +258,90 @@ export function applyHunks(before: string, hunks: Array<{ lines: string[] }>): s
     const newLines = hunk.lines
       .filter((l) => l.startsWith(" ") || l.startsWith("+"))
       .map((l) => l.slice(1));
-    const oldBlock = oldLines.join("\n");
-    const newBlock = newLines.join("\n");
-    if (!oldBlock) {
-      // pure insert at end
-      content = content.endsWith("\n") || content === "" ? content + newBlock : content + "\n" + newBlock;
-      if (!content.endsWith("\n") && newBlock) content += "\n";
-      continue;
-    }
-    const idx = findContextIndex(content, oldBlock);
-    if (idx === -1) {
-      throw new ToolError(
-        `Hunk context not found in file (patch may be stale):\n${oldLines.slice(0, 3).join("\n")}`,
-        "invalid_args",
-      );
-    }
-    content = content.slice(0, idx) + newBlock + content.slice(idx + oldBlock.length);
+
+    validateHunkCounts(hunk, oldLines.length, newLines.length);
+    const expected =
+      hunk.oldStart === undefined
+        ? undefined
+        : Math.max(0, Math.min(contentLines.length, hunk.oldStart - 1 + lineDelta));
+    const index =
+      oldLines.length === 0
+        ? expected ?? contentLines.length
+        : locateHunk(contentLines, oldLines, expected);
+    contentLines.splice(index, oldLines.length, ...newLines);
+    lineDelta += newLines.length - oldLines.length;
   }
-  return content;
+
+  const content = contentLines.join("\n");
+  return trailingNewline && content ? `${content}\n` : content;
 }
 
-function uniqueBlockIndex(haystack: string, needle: string): number {
-  let match = -1;
-  let offset = 0;
-  while (offset <= haystack.length) {
-    const candidate = haystack.indexOf(needle, offset);
-    if (candidate === -1) break;
-    const startsOnLine = candidate === 0 || haystack[candidate - 1] === "\n";
-    const end = candidate + needle.length;
-    const endsOnLine = end === haystack.length || haystack[end] === "\n";
-    if (startsOnLine && endsOnLine) {
-      if (match !== -1) {
-        throw new ToolError(
-          "Hunk context is ambiguous; add more unchanged context around the edit",
-          "invalid_args",
-        );
-      }
-      match = candidate;
-    }
-    offset = candidate + 1;
+function validateHunkCounts(hunk: ParsedHunk, oldCount: number, newCount: number): void {
+  if (hunk.oldCount !== undefined && hunk.oldCount !== oldCount) {
+    throw new StalePatch(
+      `Hunk declares ${hunk.oldCount} old line(s) but contains ${oldCount}`,
+    );
   }
-  return match;
+  if (hunk.newCount !== undefined && hunk.newCount !== newCount) {
+    throw new StalePatch(
+      `Hunk declares ${hunk.newCount} new line(s) but contains ${newCount}`,
+    );
+  }
 }
 
-/** Unique exact match first, then a unique whitespace-normalized match. */
-function findContextIndex(content: string, oldBlock: string): number {
-  const exact = uniqueBlockIndex(content, oldBlock);
+function blockMatches(
+  content: string[],
+  needle: string[],
+  start: number,
+  normalize = false,
+): boolean {
+  if (start < 0 || start + needle.length > content.length) return false;
+  return needle.every((line, offset) => {
+    const candidate = content[start + offset]!;
+    return normalize ? normalizeLine(candidate) === normalizeLine(line) : candidate === line;
+  });
+}
+
+function candidateStarts(content: string[], needle: string[], normalize = false): number[] {
+  const candidates: number[] = [];
+  for (let start = 0; start + needle.length <= content.length; start++) {
+    if (blockMatches(content, needle, start, normalize)) candidates.push(start);
+  }
+  return candidates;
+}
+
+function chooseCandidate(candidates: number[], expected: number | undefined): number {
+  if (candidates.length === 1) return candidates[0]!;
+  if (candidates.length === 0) return -1;
+  if (expected === undefined) {
+    throw new AmbiguousEdit("Hunk context is ambiguous; add offsets or more unchanged context");
+  }
+  const ranked = candidates
+    .map((candidate) => ({ candidate, distance: Math.abs(candidate - expected) }))
+    .sort((a, b) => a.distance - b.distance);
+  if (ranked[0]!.distance === ranked[1]!.distance) {
+    throw new AmbiguousEdit("Hunk offset is equally close to multiple matching occurrences");
+  }
+  return ranked[0]!.candidate;
+}
+
+function locateHunk(content: string[], oldLines: string[], expected: number | undefined): number {
+  if (expected !== undefined && blockMatches(content, oldLines, expected)) return expected;
+
+  const exact = chooseCandidate(candidateStarts(content, oldLines), expected);
   if (exact !== -1) return exact;
 
-  const normContent = normalizeWs(content);
-  const normBlock = normalizeWs(oldBlock);
-  if (!normBlock) return -1;
-  const normIdx = uniqueBlockIndex(normContent, normBlock);
-  if (normIdx === -1) return -1;
+  if (expected !== undefined && blockMatches(content, oldLines, expected, true)) return expected;
+  const normalized = chooseCandidate(candidateStarts(content, oldLines, true), expected);
+  if (normalized !== -1) return normalized;
 
-  // Map normalized index back to original — approximate by line offset
-  const linesBefore = normContent.slice(0, normIdx).split("\n").length - 1;
-  const contentLines = content.split("\n");
-  const blockLineCount = oldBlock.split("\n").length;
-  const candidate = contentLines.slice(linesBefore, linesBefore + blockLineCount).join("\n");
-  if (normalizeWs(candidate) === normBlock) {
-    return content.indexOf(candidate);
-  }
-  return -1;
+  throw new StalePatch(
+    `Hunk context not found (patch is stale):\n${oldLines.slice(0, 3).join("\n")}`,
+  );
 }
 
-function normalizeWs(s: string): string {
-  return s.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").trim();
+function normalizeLine(value: string): string {
+  return value.replace(/[ \t]+/g, " ").trim();
 }
 
 /** Helper used by write/edit tools to attach diffs. */

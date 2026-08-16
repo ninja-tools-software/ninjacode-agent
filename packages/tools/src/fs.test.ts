@@ -139,4 +139,48 @@ describe("edit_file", () => {
       expect((e as Error).message).toContain("const beta = 2;");
     }
   });
+
+  it("uses a unique, tightly bounded fuzzy fallback for a stale edit", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "nc-edit-fuzzy-"));
+    await fs.writeFile(
+      path.join(root, "app.ts"),
+      "export function calculateInvoiceTotal(value: number) { return value + 1; }\n",
+      "utf8",
+    );
+
+    const result = await editFileTool.execute(ctx(root), {
+      path: "app.ts",
+      old_string:
+        "export function calculateInvoiceTotals(value: number) { return value + 1; }",
+      new_string:
+        "export function calculateInvoiceTotal(value: number) { return value + 2; }",
+    });
+
+    expect(result.meta).toMatchObject({ matchMode: "fuzzy", replacements: 1 });
+    await expect(fs.readFile(path.join(root, "app.ts"), "utf8")).resolves.toContain(
+      "return value + 2",
+    );
+  });
+
+  it("refuses fuzzy candidates without a unique safety margin", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "nc-edit-ambiguous-"));
+    await fs.writeFile(
+      path.join(root, "app.ts"),
+      [
+        "export function calculateInvoiceTotalA(value: number) { return value + 1; }",
+        "export function calculateInvoiceTotalB(value: number) { return value + 1; }",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await expect(
+      editFileTool.execute(ctx(root), {
+        path: "app.ts",
+        old_string:
+          "export function calculateInvoiceTotalX(value: number) { return value + 1; }",
+        new_string: "unsafe",
+      }),
+    ).rejects.toMatchObject({ name: "AmbiguousEdit", code: "ambiguous_edit" });
+  });
 });

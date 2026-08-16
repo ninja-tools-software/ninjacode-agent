@@ -221,6 +221,36 @@ describe("sessions metadata", () => {
     }
   });
 
+  it("recovers the newest fsynced pending snapshot after a crash", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nc-recover-"));
+    const agentDir = path.join(dir, ".ninjacode");
+    const base = buildPersistedSession({
+      config: { id: "recover", workspaceRoot: dir, mode: "agent", createdAt: "2026-01-01" },
+      history: [{ role: "user", content: "old" }],
+      turns: [],
+      grants: [],
+    });
+    try {
+      await saveSession(agentDir, { ...base, updatedAt: "2026-01-01T00:00:00.000Z" });
+      const pending = {
+        ...base,
+        history: [{ role: "user" as const, content: "new" }],
+        updatedAt: "2026-01-01T00:01:00.000Z",
+      };
+      await fs.writeFile(
+        path.join(agentDir, "sessions", "recover.json.pending"),
+        JSON.stringify(pending),
+      );
+
+      expect((await loadSession(agentDir, "recover"))?.history[0]?.content).toBe("new");
+      expect(
+        await fs.stat(path.join(agentDir, "sessions", "recover.json.pending")).catch(() => null),
+      ).toBeNull();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("sorts pinned sessions first, then by recency", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nc-hist-pin-"));
     const agentDir = path.join(dir, ".ninjacode");

@@ -23,6 +23,15 @@ function result(partial: Partial<TaskResult> & { taskId: string; passed: boolean
       toolCalls: 5,
       toolErrors: 1,
       estimatedCostUsd: 0.01,
+      telemetryAvailable: true,
+      trajectoryAvailable: true,
+      timeToFirstEditMs: 500,
+      readOnlyTurns: 1,
+      rereads: 0,
+      errorCategories: {},
+      compactions: 0,
+      verifications: 1,
+      delegations: 0,
     },
     outputTail: "",
     ...partial,
@@ -68,6 +77,8 @@ describe("totals", () => {
     expect(t.cacheReadTokens).toBe(200);
     expect(t.cacheReadRate).toBeCloseTo(200 / 400);
     expect(t.estimatedCostUsd).toBeCloseTo(0.03);
+    expect(t.wallTimeDistributionMs).toEqual({ p50: 1500, p95: 1950 });
+    expect(t.costPerSuccessUsd).toBeCloseTo(0.03);
   });
 });
 
@@ -164,10 +175,38 @@ describe("evaluateCompareGates", () => {
       maxPassRateDrop: 0.1,
       maxCostIncreasePercent: 10,
       maxWallTimeIncreasePercent: 10,
+      maxP95LatencyIncreasePercent: 10,
       maxToolErrorsIncrease: 0,
     });
     expect(gate.passed).toBe(false);
-    expect(gate.failures).toHaveLength(5);
+    expect(gate.failures).toHaveLength(6);
+  });
+
+  it("requires an isolated one-component ablation when requested", () => {
+    const baseline = report([result({ taskId: "a", passed: true })]);
+    const current = report([result({ taskId: "a", passed: true })]);
+    baseline.manifest = {
+      harnessVersion: "test",
+      platform: "test",
+      publishable: false,
+      ablation: {
+        name: "optimized",
+        disabled: [],
+        components: { cache: true, persistence: true },
+      },
+    };
+    current.manifest = {
+      ...baseline.manifest,
+      ablation: {
+        name: "no-cache",
+        disabled: ["cache"],
+        components: { cache: false, persistence: true },
+      },
+    };
+
+    const comparison = compareReports(baseline, current);
+    expect(comparison.ablation.changedComponents).toEqual(["cache"]);
+    expect(evaluateCompareGates(comparison, { requireSingleAblation: true }).passed).toBe(true);
   });
 
   it("passes an unchanged comparable report", () => {
@@ -179,6 +218,61 @@ describe("evaluateCompareGates", () => {
         maxCostIncreasePercent: 0,
       }),
     ).toEqual({ passed: true, failures: [] });
+  });
+
+  it("computes and gates pass@3, pass^3, variance and confidence", () => {
+    const baselineResults = [
+      result({ taskId: "a", trial: 1, passed: true }),
+      result({ taskId: "a", trial: 2, passed: true }),
+      result({ taskId: "a", trial: 3, passed: true }),
+      result({ taskId: "b", trial: 1, passed: true }),
+      result({ taskId: "b", trial: 2, passed: true }),
+      result({ taskId: "b", trial: 3, passed: true }),
+    ];
+    const currentResults = [
+      result({ taskId: "a", trial: 1, passed: true }),
+      result({ taskId: "a", trial: 2, passed: false }),
+      result({ taskId: "a", trial: 3, passed: false }),
+      result({ taskId: "b", trial: 1, passed: false }),
+      result({ taskId: "b", trial: 2, passed: false }),
+      result({ taskId: "b", trial: 3, passed: false }),
+    ];
+    const comparison = compareReports(report(baselineResults), report(currentResults));
+
+    expect(comparison.after.passAt3).toBe(0.5);
+    expect(comparison.after.passPow3).toBe(0);
+    expect(comparison.after.interTrialVariance).toBeGreaterThan(0);
+    expect(comparison.after.confidence95.lower).toBeGreaterThanOrEqual(0);
+    const gate = evaluateCompareGates(comparison, {
+      minPassAt3: 0.75,
+      minPassPow3: 0.5,
+      maxInterTrialVariance: 0.01,
+      minConfidenceLowerBound: 0.25,
+    });
+    expect(gate.passed).toBe(false);
+    expect(gate.failures).toHaveLength(4);
+  });
+
+  it("gates telemetry and infrastructure without lowering correction denominator", () => {
+    const stable = report([result({ taskId: "a", passed: true })]);
+    const current = report([
+      result({
+        taskId: "a",
+        passed: false,
+        failureKind: "infra_error",
+        metrics: {
+          ...result({ taskId: "ignored", passed: false }).metrics,
+          telemetryAvailable: false,
+        },
+      }),
+    ]);
+    const comparison = compareReports(stable, current);
+    expect(comparison.after.correctionPassRate).toBe(0);
+    const gate = evaluateCompareGates(comparison, {
+      minTelemetryCoverage: 0.95,
+      maxInfrastructureErrorRate: 0.05,
+    });
+    expect(gate.failures).toHaveLength(2);
   });
 });
 

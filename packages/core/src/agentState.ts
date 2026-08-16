@@ -6,7 +6,12 @@ import type {
   SandboxMode,
   ToolRegistry,
 } from "@ninjacode/tools";
-import { resolveAgentConfig, type AgentOptions } from "./agentOptions.js";
+import {
+  resolveAgentConfig,
+  type AgentOptions,
+  type ResolvedIndependentVerifierOptions,
+  type VerificationMode,
+} from "./agentOptions.js";
 import { ToolCircuitBreaker } from "./reliability.js";
 import { DebugLogServer, DebugSession } from "./debug.js";
 import { HookRunner } from "./hooks.js";
@@ -19,6 +24,12 @@ import type {
   RunState,
   TurnTrace,
 } from "./types.js";
+import type { TrajectoryCaptureOptions } from "./trajectory.js";
+import type { SubAgentOrchestrator } from "./subagentOrchestrator.js";
+import type {
+  OrchestrationProfile,
+  ResolvedAdaptiveOrchestrationOptions,
+} from "./phasePolicy.js";
 
 export interface AgentConfig {
   provider: AgentOptions["provider"] & { name: string };
@@ -36,17 +47,28 @@ export interface AgentConfig {
   contextWindow?: number;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
+  activeFilesProvider?: () =>
+    | readonly string[]
+    | Promise<readonly string[]>;
   sandboxMode: SandboxMode;
   runTimeoutMs: number;
   enableCompletionVerification: boolean;
   enableVerificationSubAgent: boolean;
+  verificationMode: VerificationMode;
+  independentVerifier: ResolvedIndependentVerifierOptions;
   enableLoopDetection: boolean;
+  enableSubagents: boolean;
+  orchestrationProfile: OrchestrationProfile;
+  adaptiveOrchestration: ResolvedAdaptiveOrchestrationOptions;
+  subagentOrchestrator: SubAgentOrchestrator;
+  trajectory?: TrajectoryCaptureOptions;
   sessionId: string;
   onEvent?: AgentEventHandler;
   onApproval?: ApprovalHandler;
   enableCheckpoints: boolean;
   enablePromptCache: boolean;
   persistSessions: boolean;
+  performance: ReturnType<typeof resolveAgentConfig>["performance"];
   enableWorkspaceHooks: boolean;
   checkpoints: ReturnType<typeof resolveAgentConfig>["checkpoints"];
   budget: ReturnType<typeof resolveAgentConfig>["budget"];
@@ -79,6 +101,7 @@ export interface AgentRuntime {
 export function createAgentConfig(
   opts: AgentOptions,
   cfg: ReturnType<typeof resolveAgentConfig>,
+  subagentOrchestrator: SubAgentOrchestrator,
 ): AgentConfig {
   return {
     provider: cfg.provider,
@@ -96,17 +119,26 @@ export function createAgentConfig(
     contextWindow: cfg.contextWindow,
     codebaseIndex: cfg.codebaseIndex,
     diagnosticsProvider: cfg.diagnosticsProvider,
+    activeFilesProvider: cfg.activeFilesProvider,
     sandboxMode: cfg.sandboxMode,
     runTimeoutMs: cfg.runTimeoutMs,
     enableCompletionVerification: cfg.enableCompletionVerification,
     enableVerificationSubAgent: cfg.enableVerificationSubAgent,
+    verificationMode: cfg.verificationMode,
+    independentVerifier: cfg.independentVerifier,
     enableLoopDetection: cfg.enableLoopDetection,
+    enableSubagents: cfg.enableSubagents,
+    orchestrationProfile: cfg.orchestrationProfile,
+    adaptiveOrchestration: cfg.adaptiveOrchestration,
+    subagentOrchestrator,
+    trajectory: opts.trajectory,
     sessionId: cfg.sessionId,
     onEvent: opts.onEvent,
     onApproval: opts.onApproval,
     enableCheckpoints: cfg.enableCheckpoints,
     enablePromptCache: cfg.enablePromptCache,
     persistSessions: cfg.persistSessions,
+    performance: cfg.performance,
     enableWorkspaceHooks: opts.enableWorkspaceHooks !== false,
     budget: cfg.budget,
     checkpoints: cfg.checkpoints,
@@ -158,6 +190,7 @@ export function buildHostBindingSource(
     model: config.model,
     utilityModel: config.utilityModel,
     enablePromptCache: config.enablePromptCache,
+    minimalVolatileContext: config.performance.minimalVolatileContext,
     reasoningEffort: config.reasoningEffort,
     thinkingBudgetTokens: config.thinkingBudgetTokens,
     contextWindow: config.contextWindow,
@@ -165,6 +198,13 @@ export function buildHostBindingSource(
     enableLoopDetection: config.enableLoopDetection,
     enableCompletionVerification: config.enableCompletionVerification,
     enableVerificationSubAgent: config.enableVerificationSubAgent,
+    verificationMode: config.verificationMode,
+    independentVerifier: config.independentVerifier,
+    enableSubagents: config.enableSubagents,
+    orchestrationProfile: config.orchestrationProfile,
+    adaptiveOrchestration: config.adaptiveOrchestration,
+    subagentGovernance: config.subagentOrchestrator.governance,
+    subagentOrchestrator: config.subagentOrchestrator,
     createAgent,
     modifiedFiles: runtime.modifiedFiles,
     budget: config.budget,
@@ -179,6 +219,7 @@ export function buildHostBindingSource(
     onEvent: config.onEvent,
     codebaseIndex: config.codebaseIndex,
     diagnosticsProvider: config.diagnosticsProvider,
+    activeFilesProvider: config.activeFilesProvider,
     cacheStats: runtime.cacheStats,
     runTimeoutMs: config.runTimeoutMs,
     runStartedAt: runtime.runStartedAt,

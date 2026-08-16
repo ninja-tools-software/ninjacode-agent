@@ -1,3 +1,5 @@
+import type { Trajectory } from "@ninjacode/core";
+
 /** One scripted MockProvider turn (see packages/providers MockScript). */
 export interface BenchMockScript {
   text?: string;
@@ -38,7 +40,7 @@ export interface BenchTask {
    * When set, the task passes if the run ends with this failure kind
    * (e.g. harness-max-turns expects a clean agent_error).
    */
-  expectFailureKind?: "agent_error" | "timeout";
+  expectFailureKind?: FailureKind | "agent_error" | "timeout";
   /** Require at least this many tool errors (e.g. error-recovery scenarios). */
   minToolErrors?: number;
   /**
@@ -68,21 +70,47 @@ export interface TaskMetrics {
   toolErrors?: number;
   /** Calls per tool name — shows whether turns went to exploring or to editing. */
   toolHistogram?: Record<string, number>;
+  /** True only when the adapter produced a valid, explicit telemetry envelope. */
+  telemetryAvailable?: boolean;
+  /** Structural trajectory metrics; no prompt, output, path, or tool argument is retained. */
+  trajectoryAvailable?: boolean;
+  timeToFirstEditMs?: number;
+  readOnlyTurns?: number;
+  rereads?: number;
+  errorCategories?: Record<string, number>;
+  compactions?: number;
+  cacheReadRate?: number;
+  verifications?: number;
+  delegations?: number;
   /** Diff stats computed with git against the pristine fixture. */
   filesChanged: number;
   linesAdded: number;
   linesRemoved: number;
 }
 
+/**
+ * Canonical outcome taxonomy. Infrastructure failures are intentionally
+ * distinguishable from failures of the attempted correction.
+ */
+export type FailureKind =
+  | "verify_failure"
+  | "agent_timeout"
+  | "verifier_timeout"
+  | "agent_exit"
+  | "infra_error"
+  | "cancelled";
+
 export interface TaskResult {
   taskId: string;
   agentName: string;
   trial: number;
   passed: boolean;
-  /** Why it failed: verify command failed, agent errored, or timed out. */
-  failureKind?: "verify" | "agent_error" | "timeout";
+  /** Canonical reason the trial did not pass. */
+  failureKind?: FailureKind;
   errorMessage?: string;
   metrics: TaskMetrics;
+  /** Relative/absolute artifact path when this trial's redacted trajectory was persisted. */
+  trajectoryPath?: string;
   /** Raw agent output (final answer or CLI stdout tail), for debugging. */
   outputTail: string;
 }
@@ -98,8 +126,11 @@ export interface AgentAdapter {
   ): Promise<{
     metrics: Partial<TaskMetrics>;
     outputTail: string;
+    /** Internal hand-off to the runner; finalized with verifier correctness before persistence. */
+    trajectory?: Trajectory;
     agentError?: string;
     timedOut?: boolean;
+    cancelled?: boolean;
   }>;
 }
 
@@ -110,8 +141,25 @@ export interface RunManifest {
   rulesHash?: string;
   resolvedModel?: string;
   provider?: string;
+  reasoningEffort?: string;
   temperature?: number;
   budgets?: { maxTurns?: number; maxCostUsd?: number; runTimeoutMs?: number };
+  runtime?: {
+    nodeVersion: string;
+    bundleSha256?: string;
+    harborVersion?: string;
+  };
+  taskSet?: {
+    source: "repository" | "external-holdout";
+    count: number;
+    trials: number;
+    hash: string;
+  };
+  ablation?: {
+    name: string;
+    disabled: string[];
+    components: Record<string, boolean>;
+  };
   platform: string;
   sandboxMode?: string;
   contextSchema?: string;
@@ -128,4 +176,25 @@ export interface RunReport {
   manifest?: RunManifest;
   keepRate?: number;
   unpublished?: boolean;
+  trajectoryPairs?: TrajectoryPairSummary[];
+}
+
+export interface TrajectoryPairSummary {
+  taskId: string;
+  agent: string;
+  model: string;
+  successTrial: number;
+  failureTrial: number;
+  deltas: {
+    timeToFirstEditMs?: number;
+    readOnlyTurns?: number;
+    rereads?: number;
+    toolErrors?: number;
+    compactions?: number;
+    verifications?: number;
+    delegations?: number;
+    estimatedCostUsd?: number;
+    wallTimeMs: number;
+  };
+  insights: string[];
 }

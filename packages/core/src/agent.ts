@@ -39,11 +39,18 @@ import type {
 } from "./types.js";
 import type { ContextUsageBreakdown } from "./contextEstimate.js";
 import { startSpan } from "./telemetry.js";
+import { persistTrajectory, TrajectoryRecorder } from "./trajectory.js";
+import { DebouncedSessionPersistence } from "./sessionPersistence.js";
 
 export type {
   AgentOptions,
   AgentTaskInput,
+  IndependentVerifierOptions,
+  PerformanceOptions,
+  ResolvedIndependentVerifierOptions,
+  ResolvedPerformanceOptions,
   SubAgentGovernanceOptions,
+  VerificationMode,
 } from "./agentOptions.js";
 
 export const createSubAgent: AgentFactory = (opts) =>
@@ -51,19 +58,48 @@ export const createSubAgent: AgentFactory = (opts) =>
 
 export class Agent {
   private readonly config: AgentConfig;
+  private readonly sessionPersistence: DebouncedSessionPersistence;
   private runtime: AgentRuntime;
+  private trajectoryRecorder?: TrajectoryRecorder;
 
   constructor(opts: AgentOptions) {
-    const initialized = initAgent(opts, createSubAgent);
+    const externalOnEvent = opts.onEvent;
+    const initialized = initAgent({
+      ...opts,
+      onEvent: async (event) => {
+        this.trajectoryRecorder?.recordAgentEvent(event);
+        await externalOnEvent?.(event);
+      },
+    }, createSubAgent);
     this.config = initialized.config;
     this.runtime = initialized.runtime;
+    this.sessionPersistence = new DebouncedSessionPersistence(
+      this.config.performance.asyncSessionPersistence
+        ? this.config.performance.persistenceDebounceMs
+        : 0,
+    );
   }
 
   abort(reason?: unknown): void {
     if (this.runtime.controller.signal.aborted) return;
     this.runtime.controller.abort(reason ?? new DOMException("Aborted by user", "AbortError"));
     this.logAgentEvent("cancel", "Run aborted by user.");
-    if (this.runtime.state === "running" || this.runtime.state === "waiting") void this.setState("stopping");
+    if (this.runtime.state === "running" || this.runtime.state === "waiting") {
+      void this.persist(true).finally(async () => {
+        if (this.runtime.state === "running" || this.runtime.state === "waiting") {
+          await this.setState("stopping");
+        }
+      });
+    }
+  }
+
+  /** Flush durable state and stop outstanding work before a host shuts down. */
+  async shutdown(reason?: unknown): Promise<void> {
+    this.abort(reason ?? new DOMException("Agent shutdown", "AbortError"));
+    await this.persist(true);
+    if (this.runtime.state !== "completed" && this.runtime.state !== "failed") {
+      await this.setState("stopped");
+    }
   }
 
   getState(): RunState {
@@ -190,6 +226,15 @@ export class Agent {
     this.runtime.toolCallFingerprints = [];
     this.runtime.pendingCheckpointId = undefined;
     this.runtime.runStartedAt = Date.now();
+    this.trajectoryRecorder =
+      this.config.trajectory?.enabled === true
+        ? new TrajectoryRecorder({
+            sessionId: this.config.sessionId,
+            startedAt: this.runtime.runStartedAt,
+            traceId: this.config.trajectory.traceId,
+            runId: this.config.trajectory.runId,
+          })
+        : undefined;
     linkExternalAbortSignal(this.config.externalSignal, this.runtime.controller, (reason) => this.abort(reason));
     await this.setState("running");
     if (this.config.persistSessions) {
@@ -199,6 +244,8 @@ export class Agent {
       });
     }
 
+    // A checkpoint must never get ahead of the latest resumable session snapshot.
+    await this.flushPersistence();
     const prepared = await prepareAgentRun({
       agentDir: this.config.agentDir,
       enableCheckpoints: this.config.enableCheckpoints,
@@ -232,12 +279,20 @@ export class Agent {
     try {
       const outcome = await this.runLoop(normalizedTask, prior, debugLogUrl);
       span.end({ completed: outcome.completed, turns: outcome.turns.length });
+      if (outcome.trajectory && this.config.trajectory?.persistPath) {
+        await persistTrajectory(this.config.trajectory.persistPath, outcome.trajectory);
+      }
       return outcome;
     } catch (error) {
+      this.trajectoryRecorder?.recordAgentEvent({
+        type: "error",
+        payload: { category: "run_error" },
+      });
       span.end({ failed: true });
       throw error;
     } finally {
       if (timeoutTimer) clearTimeout(timeoutTimer);
+      await this.persist(true);
       if (this.runtime.debugServer) {
         await this.runtime.debugServer.stop().catch(() => undefined);
         this.runtime.debugServer = null;
@@ -268,6 +323,14 @@ export class Agent {
 
   private async setState(next: RunState): Promise<void> {
     if (this.runtime.state === next) return;
+    if (
+      next === "stopping" ||
+      next === "stopped" ||
+      next === "completed" ||
+      next === "failed"
+    ) {
+      await this.flushPersistence();
+    }
     const previous = this.runtime.state;
     this.runtime.state = next;
     await this.emit("state_change", { state: next, previous });
@@ -355,6 +418,9 @@ export class Agent {
       planId: this.runtime.planId,
       sandboxMode: this.config.sandboxMode,
       persistSessionContext: this.config.persistSessions,
+      parallelToolReads:
+        this.config.performance.parallelToolReads &&
+        !this.runtime.hookRunner?.enabled,
       codebaseIndex: this.config.codebaseIndex,
       diagnosticsProvider: this.config.diagnosticsProvider,
       onApproval: this.config.onApproval,
@@ -406,12 +472,9 @@ export class Agent {
     });
   }
 
-  private async persist(): Promise<void> {
-    const existing = this.config.persistSessions
-      ? await loadSession(this.config.agentDir, this.config.sessionId).catch(() => null)
-      : null;
-    if (existing?.config.planId) this.runtime.planId = existing.config.planId;
-    await writeAgentSession({
+  private async persist(flush = false): Promise<void> {
+    if (!this.config.persistSessions) return;
+    const snapshot = {
       persistSessions: this.config.persistSessions,
       permissions: this.config.permissions,
       agentDir: this.config.agentDir,
@@ -422,11 +485,34 @@ export class Agent {
       providerName: this.config.provider.name,
       createdAt: this.config.createdAt,
       planId: this.runtime.planId,
-      history: this.runtime.history,
-      turns: this.runtime.turns,
+      history: structuredClone(this.runtime.history),
+      turns: structuredClone(this.runtime.turns),
       pinnedTask: this.runtime.pinnedTask,
-      requests: this.runtime.requests,
+      requests: structuredClone(this.runtime.requests),
+    };
+    this.sessionPersistence.schedule(async () => {
+      const existing = await loadSession(this.config.agentDir, this.config.sessionId).catch(() => null);
+      if (existing?.config.planId) {
+        snapshot.planId = existing.config.planId;
+        this.runtime.planId = existing.config.planId;
+      }
+      await writeAgentSession(snapshot);
     });
+    if (flush || !this.config.performance.asyncSessionPersistence) {
+      await this.flushPersistence();
+    }
+  }
+
+  private async flushPersistence(): Promise<void> {
+    if (!this.config.persistSessions) return;
+    try {
+      await this.sessionPersistence.flush();
+    } catch (error) {
+      this.logAgentEvent("error", "Session persistence failed.", String(error));
+      await this.emit("error", {
+        message: `Session persistence failed: ${error instanceof Error ? error.message : String(error)}`,
+      }).catch(() => undefined);
+    }
   }
 
   private async emit(type: Parameters<AgentEventHandler>[0]["type"], payload: unknown) {
@@ -434,6 +520,17 @@ export class Agent {
   }
 
   private outcome(answer: string, completed: boolean): AgentOutcome {
-    return { answer, turns: this.runtime.turns, completed, sessionId: this.config.sessionId };
+    const estimatedCostUsd = this.config.budget.snapshot().estimatedCostUsd;
+    return {
+      answer,
+      turns: this.runtime.turns,
+      completed,
+      sessionId: this.config.sessionId,
+      trajectory: this.trajectoryRecorder?.finalize({
+        completed,
+        evaluated: false,
+        estimatedCostUsd,
+      }),
+    };
   }
 }

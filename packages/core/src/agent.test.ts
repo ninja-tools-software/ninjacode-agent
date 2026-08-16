@@ -98,6 +98,34 @@ describe("Agent with mock provider", () => {
     expect(outcome.answer).toContain("Hello");
   });
 
+  it("attaches an opt-in redacted trajectory to the run outcome", async () => {
+    const provider = new MockProvider([{ text: "Do not persist this private answer." }]);
+    const tools = createDefaultToolRegistry();
+    const permissions = new PermissionEngine(defaultPermissionPolicy("autonomous"));
+    permissions.update({ allowlist: tools.names() });
+    const agent = new Agent({
+      provider,
+      tools,
+      permissions,
+      workspaceRoot: process.cwd(),
+      enableCheckpoints: false,
+      persistSessions: false,
+      enableSubagents: false,
+      trajectory: { enabled: true, runId: "agent-run", traceId: "agent-trace" },
+    });
+
+    const outcome = await agent.run("Private customer prompt");
+
+    expect(outcome.trajectory).toMatchObject({
+      runId: "agent-run",
+      traceId: "agent-trace",
+      outcome: { completed: true, evaluated: false },
+    });
+    expect(outcome.trajectory?.events.some((event) => event.type === "turn")).toBe(true);
+    expect(JSON.stringify(outcome.trajectory)).not.toContain("Private customer");
+    expect(JSON.stringify(outcome.trajectory)).not.toContain("private answer");
+  });
+
   it("executes a tool call then finishes", async () => {
     const provider = new MockProvider([
       {
@@ -483,6 +511,60 @@ describe("Agent abort", () => {
     }
     expect(events.filter((type) => type === "tool_start").length).toBeLessThanOrEqual(1);
   }, 10_000);
+});
+
+describe("Agent durable persistence boundaries", () => {
+  it("flushes a long-debounced session at normal run completion", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "nc-agent-flush-"));
+    const tools = createDefaultToolRegistry();
+    const permissions = new PermissionEngine(defaultPermissionPolicy("autonomous"));
+    permissions.update({ allowlist: tools.names() });
+    const agent = new Agent({
+      provider: new MockProvider([{ text: "persisted answer" }]),
+      tools,
+      permissions,
+      workspaceRoot: root,
+      agentDir: path.join(root, ".ninjacode"),
+      enableCheckpoints: false,
+      enableSubagents: false,
+      performance: { persistenceDebounceMs: 2_000 },
+    });
+    try {
+      const outcome = await agent.run("persist me");
+      const saved = await loadSession(path.join(root, ".ninjacode"), outcome.sessionId);
+      expect(saved?.history.some((message) => message.content === "persisted answer")).toBe(true);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("flushes resumable state when an in-flight run is aborted", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "nc-agent-abort-flush-"));
+    const tools = createDefaultToolRegistry();
+    const permissions = new PermissionEngine(defaultPermissionPolicy("autonomous"));
+    permissions.update({ allowlist: tools.names() });
+    const agent = new Agent({
+      provider: new HangingProvider(),
+      tools,
+      permissions,
+      workspaceRoot: root,
+      agentDir: path.join(root, ".ninjacode"),
+      enableCheckpoints: false,
+      enableSubagents: false,
+      runTimeoutMs: 0,
+      performance: { persistenceDebounceMs: 2_000 },
+    });
+    try {
+      const running = agent.run("abort but keep me");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      agent.abort();
+      const outcome = await running;
+      const saved = await loadSession(path.join(root, ".ninjacode"), outcome.sessionId);
+      expect(saved?.history.some((message) => message.content === "abort but keep me")).toBe(true);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("Agent multimodal task input", () => {

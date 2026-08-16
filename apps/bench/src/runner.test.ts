@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { createTrajectory, createTrajectoryEvent } from "@ninjacode/core";
 import { mapPool, runBench } from "./runner.js";
 import type { AgentAdapter, BenchTask } from "./types.js";
 
@@ -66,9 +70,74 @@ describe("runBench concurrency", () => {
       { id: "t2", description: "", category: "fix", difficulty: "easy", prompt: "", verify: "true" },
       { id: "t3", description: "", category: "fix", difficulty: "easy", prompt: "", verify: "true" },
     ];
-    const report = await runBench([agent], tasks, { trials: 1, concurrency });
+    const report = await runBench([agent], tasks, {
+      trials: 1,
+      concurrency,
+      ablation: { name: "no-provider-cache", disabled: ["provider-prompt-cache"] },
+    });
     expect(report.results).toHaveLength(concurrency);
     expect(maxInflight).toBe(concurrency);
-    expect(report.results.every((r) => r.failureKind === "agent_error")).toBe(true);
+    expect(report.results.every((r) => r.failureKind === "agent_exit")).toBe(true);
+    expect(report.manifest?.ablation).toMatchObject({
+      name: "no-provider-cache",
+      components: { "provider-prompt-cache": false },
+    });
+  });
+
+  it("persists one verifier-finalized redacted trajectory per trial", async () => {
+    const trajectoryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "ninjabench-trajectories-"));
+    const agent: AgentAdapter = {
+      name: "fake/model",
+      async run() {
+        return {
+          metrics: {
+            filesChanged: 0,
+            linesAdded: 0,
+            linesRemoved: 0,
+            trajectoryAvailable: true,
+          },
+          outputTail: "",
+          agentError: "expected failure",
+          trajectory: createTrajectory({
+            traceId: "trace",
+            runId: "run",
+            sessionId: "session",
+            startedAt: 1,
+            endedAt: 2,
+            events: [
+              createTrajectoryEvent({
+                type: "tool",
+                timestamp: 1,
+                attributes: { authorization: "Bearer private-value" },
+              }),
+            ],
+            outcome: { correctness: 0, completed: false, evaluated: false },
+          }),
+        };
+      },
+    };
+    const task: BenchTask = {
+      id: "trajectory-task",
+      description: "",
+      category: "fix",
+      difficulty: "easy",
+      prompt: "",
+      verify: "true",
+    };
+
+    try {
+      const report = await runBench([agent], [task], {
+        trials: 1,
+        trajectoryDirectory,
+      });
+      const trajectoryPath = report.results[0]?.trajectoryPath;
+      expect(trajectoryPath).toBeDefined();
+      const serialized = await fs.readFile(trajectoryPath!, "utf8");
+      expect(serialized).toContain('"evaluated":true');
+      expect(serialized).toContain('"correctness":0');
+      expect(serialized).not.toContain("private-value");
+    } finally {
+      await fs.rm(trajectoryDirectory, { recursive: true, force: true });
+    }
   });
 });

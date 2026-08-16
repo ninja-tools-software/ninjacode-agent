@@ -9,6 +9,7 @@ import type {
 import { parseGatewayError } from "./gatewayErrors.js";
 import { LlmError } from "./types.js";
 import { consumeOpenAIStream } from "./openaiStream.js";
+import { promptCacheKey } from "./promptCache.js";
 
 export interface OpenAICompatibleConfig {
   apiKey: string;
@@ -70,7 +71,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
     if (req.cacheSystemPrompt && (this.name === "openai" || this.name === "ninjacode-gateway")) {
       // Prefix-cache routing stickiness for upstreams with automatic caching
       // (OpenAI, DeepSeek, ...). Harmless for upstreams that ignore the field.
-      body.prompt_cache_key = `ninjacode:${model}:system`;
+      body.prompt_cache_key = promptCacheKey(model, req);
     }
 
     const res = await fetch(`${this.baseUrl}/chat/completions`, {

@@ -38,7 +38,7 @@ export function createCliAdapter(config: CliAdapterConfig): AgentAdapter {
       try {
         const { ok, timedOut, output } = await runShell(cmd, workspaceDir, timeoutMs);
         return {
-          metrics: {},
+          metrics: { telemetryAvailable: false },
           outputTail: output,
           timedOut,
           agentError: !ok && !timedOut ? "CLI exited non-zero" : undefined,

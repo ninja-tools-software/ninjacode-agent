@@ -154,8 +154,8 @@ export async function compactHistory(options: {
 
   if (shouldSkipCompaction(msgs, limits, gate)) return compactResult(original, msgs);
 
-  // Under pressure, spend the free tier first: masking old re-runnable outputs
-  // often buys back enough room that no summary — and no LLM call — is needed.
+  // Under pressure, spend the free tier first: mask only outputs whose exact
+  // bytes are recoverable from immutable artifacts.
   // A forced compaction is a request for a summary, so it skips the shortcut.
   const masked = maskOldObservations(msgs);
   if (!options.force && shouldSkipCompaction(masked, limits, gate)) {

@@ -42,28 +42,71 @@ function sessionPath(agentDir: string, sessionId: string): string {
   return path.join(sessionsDir(agentDir), `${safe}.json`);
 }
 
+function pendingSessionPath(agentDir: string, sessionId: string): string {
+  return `${sessionPath(agentDir, sessionId)}.pending`;
+}
+
+const sessionWrites = new Map<string, Promise<void>>();
+
+async function atomicSaveSession(agentDir: string, state: PersistedSession): Promise<void> {
+  const dir = sessionsDir(agentDir);
+  await fs.mkdir(dir, { recursive: true });
+  const pending = pendingSessionPath(agentDir, state.config.id);
+  const final = sessionPath(agentDir, state.config.id);
+  const handle = await fs.open(pending, "w");
+  try {
+    await handle.writeFile(JSON.stringify(state, null, 2), "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  await fs.rename(pending, final);
+  const directory = await fs.open(dir, "r").catch(() => undefined);
+  await directory?.sync().catch(() => undefined);
+  await directory?.close().catch(() => undefined);
+}
+
 export async function saveSession(
   agentDir: string,
   state: PersistedSession,
 ): Promise<void> {
-  const dir = sessionsDir(agentDir);
-  await fs.mkdir(dir, { recursive: true });
-  const tmp = sessionPath(agentDir, state.config.id) + ".tmp";
-  const final = sessionPath(agentDir, state.config.id);
-  await fs.writeFile(tmp, JSON.stringify(state, null, 2), "utf8");
-  await fs.rename(tmp, final);
+  const key = sessionPath(agentDir, state.config.id);
+  const previous = sessionWrites.get(key) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(() => atomicSaveSession(agentDir, state));
+  sessionWrites.set(key, current);
+  try {
+    await current;
+  } finally {
+    if (sessionWrites.get(key) === current) sessionWrites.delete(key);
+  }
+}
+
+async function readSessionCandidate(file: string): Promise<PersistedSession | null> {
+  try {
+    return JSON.parse(await fs.readFile(file, "utf8")) as PersistedSession;
+  } catch {
+    return null;
+  }
 }
 
 export async function loadSession(
   agentDir: string,
   sessionId: string,
 ): Promise<PersistedSession | null> {
-  try {
-    const raw = await fs.readFile(sessionPath(agentDir, sessionId), "utf8");
-    return JSON.parse(raw) as PersistedSession;
-  } catch {
-    return null;
+  const finalPath = sessionPath(agentDir, sessionId);
+  const pendingPath = pendingSessionPath(agentDir, sessionId);
+  const [saved, pending] = await Promise.all([
+    readSessionCandidate(finalPath),
+    readSessionCandidate(pendingPath),
+  ]);
+  if (!pending) return saved;
+  const pendingIsNewer = !saved || pending.updatedAt.localeCompare(saved.updatedAt) >= 0;
+  if (!pendingIsNewer) {
+    await fs.unlink(pendingPath).catch(() => undefined);
+    return saved;
   }
+  await fs.rename(pendingPath, finalPath).catch(() => undefined);
+  return pending;
 }
 
 /** Load and repair tool-call chains for safe LLM continuation. */
@@ -120,12 +163,23 @@ export async function listSessions(agentDir: string): Promise<SessionSummary[]> 
     return [];
   }
 
-  const out: SessionSummary[] = [];
+  const newest = new Map<string, PersistedSession>();
   for (const f of files) {
-    if (!f.endsWith(".json")) continue;
+    if (!f.endsWith(".json") && !f.endsWith(".json.pending")) continue;
     try {
       const raw = await fs.readFile(path.join(dir, f), "utf8");
       const s = JSON.parse(raw) as PersistedSession;
+      const prior = newest.get(s.config.id);
+      if (!prior || s.updatedAt.localeCompare(prior.updatedAt) >= 0) {
+        newest.set(s.config.id, s);
+      }
+    } catch {
+      // skip corrupt
+    }
+  }
+  const out: SessionSummary[] = [];
+  for (const s of newest.values()) {
+    try {
       const lastUser = [...s.history].reverse().find((m) => m.role === "user");
       const preview = (lastUser?.content ?? "").replace(/\s+/g, " ").slice(0, 120);
       out.push({
@@ -148,7 +202,7 @@ export async function listSessions(agentDir: string): Promise<SessionSummary[]> 
         },
       });
     } catch {
-      // skip corrupt
+      // skip malformed legacy sessions
     }
   }
   return out.sort((a, b) => {
@@ -159,6 +213,7 @@ export async function listSessions(agentDir: string): Promise<SessionSummary[]> 
 
 export async function deleteSession(agentDir: string, sessionId: string): Promise<void> {
   await fs.unlink(sessionPath(agentDir, sessionId)).catch(() => undefined);
+  await fs.unlink(pendingSessionPath(agentDir, sessionId)).catch(() => undefined);
   await fs.rm(sessionDataDir(agentDir, sessionId), { recursive: true, force: true });
 }
 

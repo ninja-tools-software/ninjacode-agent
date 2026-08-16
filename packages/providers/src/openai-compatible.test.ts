@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NinjaCodeGatewayProvider } from "./gateway.js";
 import { createDeepSeekProvider } from "./openai-compatible.js";
+import { promptCacheKey } from "./promptCache.js";
 
 function sseResponse(chunks: string[]): Response {
   const stream = new ReadableStream<Uint8Array>({
@@ -36,8 +37,44 @@ describe("prompt caching wiring", () => {
       messages: [{ role: "user", content: "hi" }],
       cacheSystemPrompt: true,
     });
-    expect(captured.prompt_cache_key).toBe("ninjacode:auto:system");
+    expect(captured.prompt_cache_key).toBe(
+      promptCacheKey("auto", {
+        messages: [{ role: "user", content: "hi" }],
+        cacheSystemPrompt: true,
+      }),
+    );
     expect(completion.usage.cacheReadTokens).toBe(8);
+  });
+
+  it("hashes stable system and tool prefixes into the routing key", () => {
+    const first = promptCacheKey("gpt", {
+      messages: [
+        { role: "system", content: "profile\nrules" },
+        { role: "user", content: "volatile one" },
+      ],
+      tools: [{
+        name: "read_file",
+        description: "read",
+        inputSchema: { required: ["path"], properties: { path: { type: "string" } } },
+      }],
+    });
+    const reorderedKeys = promptCacheKey("gpt", {
+      messages: [
+        { role: "system", content: "profile\nrules" },
+        { role: "user", content: "volatile two" },
+      ],
+      tools: [{
+        name: "read_file",
+        description: "read",
+        inputSchema: { properties: { path: { type: "string" } }, required: ["path"] },
+      }],
+    });
+    const changedRules = promptCacheKey("gpt", {
+      messages: [{ role: "system", content: "profile\nchanged rules" }],
+    });
+
+    expect(reorderedKeys).toBe(first);
+    expect(changedRules).not.toBe(first);
   });
 
   it("does not set prompt_cache_key for providers without cache routing", async () => {

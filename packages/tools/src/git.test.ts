@@ -4,7 +4,13 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDefaultToolRegistry } from "./index.js";
-import { gitDiffTool, gitLogTool, gitShowTool, gitStatusTool } from "./git.js";
+import {
+  gitDiffTool,
+  gitLogTool,
+  gitShowTool,
+  gitStatusTool,
+  listGitChangedFiles,
+} from "./git.js";
 import type { ToolContext } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -66,6 +72,18 @@ describe("structured Git tools", () => {
     expect(diff.output).toContain("-initial");
     expect(diff.output).toContain("+changed");
     expect(diff.meta).toMatchObject({ command: "diff", repository: ".", truncated: false });
+  });
+
+  it("discovers unstaged, staged, and untracked files for host context", async () => {
+    const { root } = await createRepository();
+    await fs.writeFile(path.join(root, "tracked.txt"), "changed\n", "utf8");
+    await fs.writeFile(path.join(root, "staged.txt"), "staged\n", "utf8");
+    await fs.writeFile(path.join(root, "untracked.txt"), "untracked\n", "utf8");
+    await git(root, "add", "staged.txt");
+
+    await expect(listGitChangedFiles(root)).resolves.toEqual(
+      expect.arrayContaining(["tracked.txt", "staged.txt", "untracked.txt"]),
+    );
   });
 
   it("provides structured history and a single commit", async () => {

@@ -40,11 +40,14 @@ function maskedContent(message: Message): string {
   );
 }
 
+export function hasRecoverableArtifact(message: Message): boolean {
+  return ARTIFACT_REFERENCE.test(message.content);
+}
+
 /**
- * Replace the body of old, re-runnable tool results with a stub. This is the
- * free tier of compaction: it costs nothing (no LLM call) and, unlike
- * summarization, does not distort what remains. Bodies are replaced rather than
- * deleted so assistant `tool_calls` chains stay valid.
+ * Replace old tool results only when their exact bytes are already archived.
+ * Without a recovery artifact the observation remains verbatim; later
+ * compaction may reduce it, but we never create an irreversible stub.
  */
 export function maskOldObservations(
   history: Message[],
@@ -54,7 +57,7 @@ export function maskOldObservations(
   const minChars = opts.minChars ?? MIN_MASKABLE_CHARS;
 
   const maskableIndices = history.reduce<number[]>((acc, m, i) => {
-    if (isMaskableObservation(m)) acc.push(i);
+    if (isMaskableObservation(m) && hasRecoverableArtifact(m)) acc.push(i);
     return acc;
   }, []);
   if (maskableIndices.length <= keepVerbatim) return history;

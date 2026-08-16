@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LlmProvider, Message, ToolSpec } from "@ninjacode/providers";
 import { LlmError } from "@ninjacode/providers";
 import {
+  activeFilesForContext,
   callLlmForTurn,
   ContextBudgetError,
   prepareTurnMessages,
@@ -67,6 +68,7 @@ function depsFor(history: Message[], provider: LlmProvider): AgentTurnDeps {
     maxTokens: 1024,
     maxTurns: 20,
     enablePromptCache: false,
+    minimalVolatileContext: true,
     enableLoopDetection: false,
     enableCompletionVerification: false,
     enableVerificationSubAgent: false,
@@ -90,6 +92,51 @@ function depsFor(history: Message[], provider: LlmProvider): AgentTurnDeps {
     }),
   } as unknown as AgentTurnDeps;
 }
+
+describe("activeFilesForContext", () => {
+  it("combines first-turn mentions, host files, git/IDE context, and touched paths", async () => {
+    const deps = depsFor(
+      [{ role: "user", content: "Update @src/mentioned.ts and `src/quoted.ts:12`." }],
+      countingProvider(),
+    );
+    deps.workspaceRoot = "/workspace";
+    deps.modifiedFiles.add("src/modified.ts");
+    deps.activeFilesProvider = async () => ["src/open-tab.ts", "src/git-diff.ts"];
+
+    await expect(activeFilesForContext(deps)).resolves.toEqual(
+      expect.arrayContaining([
+        "src/mentioned.ts",
+        "src/quoted.ts",
+        "src/modified.ts",
+        "src/open-tab.ts",
+        "src/git-diff.ts",
+      ]),
+    );
+  });
+
+  it("injects a mentioned file's scoped rule on the first turn", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "nc-first-turn-rules-"));
+    try {
+      await fs.mkdir(path.join(root, ".ninjacode", "rules"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, ".ninjacode", "rules", "typescript.md"),
+        '---\nglobs: ["**/*.ts"]\n---\nFIRST_TURN_TYPESCRIPT_RULE',
+      );
+      const deps = depsFor(
+        [{ role: "user", content: "Please update @src/mentioned.ts." }],
+        countingProvider(),
+      );
+      deps.workspaceRoot = root;
+
+      const messages = await prepareTurnMessages(deps);
+      expect(messages.map((message) => message.content).join("\n")).toContain(
+        "FIRST_TURN_TYPESCRIPT_RULE",
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("prepareTurnMessages persists compaction", () => {
   it("writes compacted history so the next turn does not call the utility model again", async () => {

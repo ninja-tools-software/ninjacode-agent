@@ -20,13 +20,13 @@ import type { ApprovalHandler, RunState, ToolInvocation } from "./types.js";
 import { isWriteTool, postEditDiagnostics } from "./toolPipelineDiagnostics.js";
 import {
   abortedInvocation,
-  isParallelizableBatch,
   preflightToolCall,
   registryToolOrThrow,
   resolveToolApproval,
   safeGrantPolicy,
   safeGrantScopes,
   safeTarget,
+  toolExecutionBatches,
 } from "./toolPipelineHelpers.js";
 
 interface ToolPipelineDeps {
@@ -39,6 +39,7 @@ interface ToolPipelineDeps {
   planId: string;
   sandboxMode: SandboxMode;
   persistSessionContext: boolean;
+  parallelToolReads: boolean;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
   onApproval?: ApprovalHandler;
@@ -79,17 +80,20 @@ export class ToolPipeline {
       return toolCalls.map((tc) => abortedInvocation(tc));
     }
 
-    if (isParallelizableBatch(registry, toolCalls) && toolCalls.length > 1) {
-      return Promise.all(toolCalls.map((tc) => this.runToolCall(registry, tc)));
-    }
-
     const invocations: ToolInvocation[] = [];
-    for (const tc of toolCalls) {
+    const batches = toolExecutionBatches(registry, toolCalls, this.deps.parallelToolReads);
+    for (const batch of batches) {
       if (this.deps.signal.aborted) {
-        invocations.push(abortedInvocation(tc));
+        invocations.push(...batch.map(abortedInvocation));
         continue;
       }
-      invocations.push(await this.runToolCall(registry, tc));
+      if (batch.length === 1) {
+        invocations.push(await this.runToolCall(registry, batch[0]!));
+      } else {
+        invocations.push(
+          ...(await Promise.all(batch.map((tc) => this.runToolCall(registry, tc)))),
+        );
+      }
     }
     return invocations;
   }

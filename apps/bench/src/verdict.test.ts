@@ -17,12 +17,14 @@ describe("decideTaskVerdict", () => {
   });
 
   it("fails on verify / agent_error / timeout", () => {
-    expect(decideTaskVerdict({ task: base, verifyOk: false }).failureKind).toBe("verify");
+    expect(decideTaskVerdict({ task: base, verifyOk: false }).failureKind).toBe(
+      "verify_failure",
+    );
     expect(
       decideTaskVerdict({ task: base, verifyOk: true, agentError: "boom" }).failureKind,
-    ).toBe("agent_error");
+    ).toBe("agent_exit");
     expect(decideTaskVerdict({ task: base, verifyOk: true, timedOut: true }).failureKind).toBe(
-      "timeout",
+      "agent_timeout",
     );
   });
 
@@ -33,13 +35,29 @@ describe("decideTaskVerdict", () => {
     ).toEqual({ passed: true, failureKind: undefined });
     expect(decideTaskVerdict({ task, verifyOk: true })).toEqual({
       passed: false,
-      failureKind: "verify",
+      failureKind: "verify_failure",
     });
   });
 
   it("requires minToolErrors after successful verify", () => {
     const task = { ...base, minToolErrors: 1 };
-    expect(decideTaskVerdict({ task, verifyOk: true, toolErrors: 0 }).failureKind).toBe("verify");
+    expect(decideTaskVerdict({ task, verifyOk: true, toolErrors: 0 }).failureKind).toBe(
+      "verify_failure",
+    );
     expect(decideTaskVerdict({ task, verifyOk: true, toolErrors: 1 })).toEqual({ passed: true });
+  });
+
+  it("keeps verifier and infrastructure failures out of correction failures", () => {
+    expect(
+      decideTaskVerdict({ task: base, verifyOk: false, verifierTimedOut: true })
+        .failureKind,
+    ).toBe("verifier_timeout");
+    expect(
+      decideTaskVerdict({ task: base, verifyOk: false, infraError: "docker" })
+        .failureKind,
+    ).toBe("infra_error");
+    expect(
+      decideTaskVerdict({ task: base, verifyOk: false, cancelled: true }).failureKind,
+    ).toBe("cancelled");
   });
 });

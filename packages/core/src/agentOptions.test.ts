@@ -38,4 +38,60 @@ describe("resolveAgentConfig harness profiles", () => {
 
     expect(config.enableVerificationSubAgent).toBe(false);
   });
+
+  it("keeps legacy orchestration by default and supports an adaptive A/B profile", () => {
+    const legacy = resolveAgentConfig(options());
+    const adaptive = resolveAgentConfig(options({
+      orchestrationProfile: "adaptive",
+      adaptiveOrchestration: {
+        automaticDelegation: false,
+        maxAutomaticDelegations: 2,
+        explorationBudgetScale: 1.25,
+      },
+    }));
+
+    expect(legacy.orchestrationProfile).toBe("legacy");
+    expect(adaptive).toMatchObject({
+      orchestrationProfile: "adaptive",
+      adaptiveOrchestration: {
+        automaticDelegation: false,
+        maxAutomaticDelegations: 2,
+        explorationBudgetScale: 1.25,
+      },
+    });
+  });
+
+  it("supports current/blind/adaptive verifier modes with a hard ten-percent budget", () => {
+    const current = resolveAgentConfig(options({ budget: { maxCostUsd: 2 } }));
+    const blind = resolveAgentConfig(options({
+      verificationMode: "blind",
+      budget: { maxCostUsd: 2 },
+      independentVerifier: {
+        maxRunCostRatio: 0.5,
+        maxCostUsd: 10,
+        maxTurns: 99,
+        timeoutMs: 999_999,
+      },
+    }));
+    const adaptiveDisabled = resolveAgentConfig(options({
+      verificationMode: "adaptive",
+      enableVerificationSubAgent: false,
+    }));
+
+    expect(current).toMatchObject({
+      verificationMode: "current",
+      enableVerificationSubAgent: false,
+    });
+    expect(blind).toMatchObject({
+      verificationMode: "blind",
+      enableVerificationSubAgent: true,
+      independentVerifier: {
+        maxRunCostRatio: 0.1,
+        maxCostUsd: 0.2,
+        maxTurns: 8,
+        timeoutMs: 60_000,
+      },
+    });
+    expect(adaptiveDisabled.enableVerificationSubAgent).toBe(false);
+  });
 });

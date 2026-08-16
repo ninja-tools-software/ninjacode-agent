@@ -23,28 +23,32 @@ describe("applyAnthropicCacheBreakpoints", () => {
     expect(tools[2]!.cache_control).toEqual(EPHEMERAL);
   });
 
-  it("marks the last block of the last message (string content)", () => {
+  it("marks a compacted summary but not the volatile tail", () => {
     const body = applyAnthropicCacheBreakpoints({
       messages: [
-        { role: "user", content: "first" },
-        { role: "user", content: "second" },
+        { role: "user", content: "[Compacted earlier conversation]\nstable summary" },
+        { role: "user", content: "[Workspace state delta]\nvolatile" },
       ],
     });
     const msgs = body.messages as Array<Record<string, unknown>>;
-    expect(msgs[0]!.content).toBe("first");
-    expect(msgs[1]!.content).toEqual([
-      { type: "text", text: "second", cache_control: EPHEMERAL },
+    expect(msgs[0]!.content).toEqual([
+      {
+        type: "text",
+        text: "[Compacted earlier conversation]\nstable summary",
+        cache_control: EPHEMERAL,
+      },
     ]);
+    expect(msgs[1]!.content).toBe("[Workspace state delta]\nvolatile");
   });
 
-  it("marks the last block when the last message has array content", () => {
+  it("marks the summary block when merged user content is an array", () => {
     const body = applyAnthropicCacheBreakpoints({
       messages: [
         {
           role: "user",
           content: [
-            { type: "tool_result", tool_use_id: "t1", content: "a" },
-            { type: "tool_result", tool_use_id: "t2", content: "b" },
+            { type: "text", text: "[Compacted earlier conversation]\nsummary" },
+            { type: "text", text: "[Workspace state delta]\nvolatile" },
           ],
         },
       ],
@@ -52,8 +56,8 @@ describe("applyAnthropicCacheBreakpoints", () => {
     const blocks = (body.messages as Array<Record<string, unknown>>)[0]!.content as Array<
       Record<string, unknown>
     >;
-    expect(blocks[0]!.cache_control).toBeUndefined();
-    expect(blocks[1]!.cache_control).toEqual(EPHEMERAL);
+    expect(blocks[0]!.cache_control).toEqual(EPHEMERAL);
+    expect(blocks[1]!.cache_control).toBeUndefined();
   });
 
   it("is a no-op on empty sections", () => {
@@ -67,7 +71,7 @@ describe("applyAnthropicCacheBreakpoints", () => {
     const input: AnthropicCacheablePayload = {
       system: "sys",
       tools: [{ name: "only" }],
-      messages: [{ role: "user", content: "hi" }],
+      messages: [{ role: "user", content: "[Compacted earlier conversation]\nsummary" }],
     };
     const body = applyAnthropicCacheBreakpoints(input);
     let count = 0;

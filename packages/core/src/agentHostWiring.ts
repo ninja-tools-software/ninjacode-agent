@@ -27,6 +27,18 @@ import {
   isAbortError,
   trackTokenUsage,
 } from "./agentRuntime.js";
+import type {
+  OrchestrationProfile,
+  ResolvedAdaptiveOrchestrationOptions,
+} from "./phasePolicy.js";
+import type {
+  ResolvedSubAgentGovernance,
+  SubAgentOrchestrator,
+} from "./subagentOrchestrator.js";
+import type {
+  ResolvedIndependentVerifierOptions,
+  VerificationMode,
+} from "./agentOptions.js";
 
 export interface AgentHostBindings {
   provider: LlmProvider;
@@ -35,6 +47,7 @@ export interface AgentHostBindings {
   model?: string;
   utilityModel?: string;
   enablePromptCache: boolean;
+  minimalVolatileContext: boolean;
   reasoningEffort?: import("@ninjacode/providers").ReasoningEffort;
   thinkingBudgetTokens?: number;
   contextWindow?: number;
@@ -42,6 +55,13 @@ export interface AgentHostBindings {
   enableLoopDetection: boolean;
   enableCompletionVerification: boolean;
   enableVerificationSubAgent: boolean;
+  verificationMode: VerificationMode;
+  independentVerifier: ResolvedIndependentVerifierOptions;
+  enableSubagents: boolean;
+  orchestrationProfile: OrchestrationProfile;
+  adaptiveOrchestration: ResolvedAdaptiveOrchestrationOptions;
+  subagentGovernance: ResolvedSubAgentGovernance;
+  subagentOrchestrator: SubAgentOrchestrator;
   createAgent: AgentFactory;
   modifiedFiles: Set<string>;
   budget: BudgetTracker;
@@ -56,6 +76,9 @@ export interface AgentHostBindings {
   onEvent?: AgentEventHandler;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
+  activeFilesProvider?: () =>
+    | readonly string[]
+    | Promise<readonly string[]>;
   cacheStats: { cacheReadTokens: number; cacheWriteTokens: number };
   runTimeoutMs: number;
   runStartedAt: number;
@@ -77,6 +100,7 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
     model: host.model,
     utilityModel: host.utilityModel,
     enablePromptCache: host.enablePromptCache,
+    minimalVolatileContext: host.minimalVolatileContext,
     reasoningEffort: host.reasoningEffort,
     thinkingBudgetTokens: host.thinkingBudgetTokens,
     contextWindow: host.contextWindow,
@@ -84,6 +108,13 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
     enableLoopDetection: host.enableLoopDetection,
     enableCompletionVerification: host.enableCompletionVerification,
     enableVerificationSubAgent: host.enableVerificationSubAgent,
+    verificationMode: host.verificationMode,
+    independentVerifier: host.independentVerifier,
+    enableSubagents: host.enableSubagents,
+    orchestrationProfile: host.orchestrationProfile,
+    adaptiveOrchestration: host.adaptiveOrchestration,
+    subagentGovernance: host.subagentGovernance,
+    subagentOrchestrator: host.subagentOrchestrator,
     createAgent: host.createAgent,
     modifiedFiles: host.modifiedFiles,
     budget: host.budget,
@@ -96,6 +127,7 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
     onEvent: host.onEvent,
     codebaseIndex: host.codebaseIndex,
     diagnosticsProvider: host.diagnosticsProvider,
+    activeFilesProvider: host.activeFilesProvider,
     cacheStats: host.cacheStats,
     signal: host.signal,
     readScratchpad: () => readAgentScratchpad(host.agentDir, host.sessionId),
@@ -140,8 +172,12 @@ export function createRunToolPipeline(opts: {
   planId: string;
   sandboxMode: SandboxMode;
   persistSessionContext: boolean;
+  parallelToolReads: boolean;
   codebaseIndex?: CodebaseIndexLike;
   diagnosticsProvider?: DiagnosticsProvider;
+  activeFilesProvider?: () =>
+    | readonly string[]
+    | Promise<readonly string[]>;
   onApproval?: ApprovalHandler;
   getState: () => RunState;
   setState: (next: RunState) => Promise<void>;
@@ -179,6 +215,10 @@ export function buildRunLoopPrepareInput(host: AgentHostBindings & {
     mode: host.mode,
     providerName: host.providerName,
     model: host.model,
+    maxTurns: host.maxTurns,
+    enableSubagents: host.enableSubagents,
+    orchestrationProfile: host.orchestrationProfile,
+    adaptiveOrchestration: host.adaptiveOrchestration,
     tools: host.tools,
     history: host.history,
     pinnedTask: host.pinnedTask,

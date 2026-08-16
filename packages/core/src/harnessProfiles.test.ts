@@ -61,6 +61,8 @@ describe("versioned harness profiles", () => {
       key: "default",
       editFormat: "string_replace",
       verification: "standard",
+      verificationMode: "current",
+      orchestration: "legacy",
     });
     expect(Object.isFrozen(profile)).toBe(true);
     expect(Object.isFrozen(profile.optionalTools)).toBe(true);

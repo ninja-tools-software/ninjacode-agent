@@ -4,7 +4,7 @@ import type { Tool, ToolContext, ToolResult } from "./types.js";
 import { ToolError } from "./types.js";
 import { isSkippedDir } from "./ignore.js";
 import { resolveInWorkspace, toWorkspaceRelative } from "./paths.js";
-import { writeWithDiff } from "./patch.js";
+import { AmbiguousEdit, StalePatch, writeWithDiff } from "./patch.js";
 
 function relPath(ctx: ToolContext, relOrAbs: string): string {
   return toWorkspaceRelative(ctx.workspaceRoot, relOrAbs);
@@ -245,6 +245,62 @@ function nearestEditSnippet(content: string, oldStr: string, radius = 5): string
   return lines.slice(start, end).map((l, i) => `${start + i + 1}|${l}`).join("\n");
 }
 
+interface FuzzyEditMatch {
+  matched: string;
+  distance: number;
+}
+
+/** Levenshtein distance with an early cutoff, bounded for edit safety and CPU. */
+function boundedEditDistance(a: string, b: string, maxDistance: number): number {
+  if (Math.abs(a.length - b.length) > maxDistance) return maxDistance + 1;
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      const value = Math.min(
+        previous[j]! + 1,
+        current[j - 1]! + 1,
+        previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+      current[j] = value;
+      rowMin = Math.min(rowMin, value);
+    }
+    if (rowMin > maxDistance) return maxDistance + 1;
+    previous = current;
+  }
+  return previous[b.length]!;
+}
+
+/**
+ * Conservative fallback for a slightly stale edit: compare only whole,
+ * same-sized line windows, accept a very small distance, and require a unique
+ * best candidate with a margin. It never silently picks between occurrences.
+ */
+function findBoundedFuzzyEdit(content: string, oldStr: string): FuzzyEditMatch | undefined {
+  if (oldStr.length < 24 || oldStr.length > 8_000) return undefined;
+  const lineCount = oldStr.split("\n").length;
+  const lines = content.split("\n");
+  if (lineCount > lines.length || lineCount > 80) return undefined;
+  const maxDistance = Math.min(24, Math.max(2, Math.floor(oldStr.length * 0.06)));
+  const matches: FuzzyEditMatch[] = [];
+
+  for (let start = 0; start + lineCount <= lines.length; start++) {
+    const candidate = lines.slice(start, start + lineCount).join("\n");
+    if (Math.abs(candidate.length - oldStr.length) > maxDistance) continue;
+    const distance = boundedEditDistance(oldStr, candidate, maxDistance);
+    if (distance <= maxDistance) matches.push({ matched: candidate, distance });
+  }
+  matches.sort((a, b) => a.distance - b.distance);
+  if (matches.length === 0) return undefined;
+  if (matches[1] && matches[1].distance <= matches[0]!.distance + 1) {
+    throw new AmbiguousEdit(
+      "Fuzzy edit matches multiple occurrences too closely; provide more exact context",
+    );
+  }
+  return matches[0];
+}
+
 export const editFileTool: Tool = {
   name: "edit_file",
   description:
@@ -275,29 +331,36 @@ export const editFileTool: Tool = {
     } catch (e) {
       throw new ToolError(`Cannot read ${rel}: ${(e as Error).message}`, "not_found");
     }
+    if (!oldStr) throw new ToolError("old_string must not be empty", "invalid_args");
     const count = content.split(oldStr).length - 1;
+    let matched = oldStr;
+    let matchMode: "exact" | "fuzzy" = "exact";
     if (count === 0) {
-      const snippet = nearestEditSnippet(content, oldStr);
-      const hint = snippet
-        ? `\nNearby lines:\n${snippet}`
-        : "";
-      throw new ToolError(`old_string not found in ${rel}${hint}`, "invalid_args");
+      const fuzzy = replaceAll ? undefined : findBoundedFuzzyEdit(content, oldStr);
+      if (fuzzy) {
+        matched = fuzzy.matched;
+        matchMode = "fuzzy";
+      } else {
+        const snippet = nearestEditSnippet(content, oldStr);
+        const hint = snippet ? `\nNearby lines:\n${snippet}` : "";
+        throw new StalePatch(`old_string not found in ${rel}${hint}`);
+      }
     }
     if (count > 1 && !replaceAll) {
-      throw new ToolError(
+      throw new AmbiguousEdit(
         `old_string found ${count} times in ${rel}; set replace_all or provide more context`,
-        "invalid_args",
       );
     }
-    const next = replaceAll ? content.split(oldStr).join(newStr) : content.replace(oldStr, newStr);
+    const next = replaceAll ? content.split(oldStr).join(newStr) : content.replace(matched, newStr);
     const result = await writeWithDiff(ctx, rel, next);
     const verifyError = verifyWrittenFile(rel, next);
     const verifyNote = verifyError ? `\nVerification warning: ${verifyError}` : "";
     return {
-      output: `Edited ${rel} (${replaceAll ? count : 1} replacement(s))${verifyNote ? `. ${verifyNote}` : ""}`,
+      output: `Edited ${rel} (${replaceAll ? count : 1} replacement(s), ${matchMode} match)${verifyNote ? `. ${verifyNote}` : ""}`,
       meta: {
         path: rel,
         replacements: replaceAll ? count : 1,
+        matchMode,
         action: "edit",
         diff: result.diff,
         before: result.before,

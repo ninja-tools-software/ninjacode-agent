@@ -16,6 +16,7 @@ function pipeline(signal = new AbortController().signal): ToolPipeline {
     planId: "plan",
     sandboxMode: "workspace-write",
     persistSessionContext: false,
+    parallelToolReads: true,
     getState: () => "running",
     setState: async () => undefined,
     runHooks: async () => [],
@@ -222,5 +223,46 @@ describe("ToolPipeline bounded retries", () => {
 
     expect(attempts).toBe(1);
     expect(result.error).toBe("aborted");
+  });
+});
+
+describe("ToolPipeline read concurrency", () => {
+  it("preserves result order and never overlaps a mutation barrier", async () => {
+    let readsInFlight = 0;
+    let mutationOverlapped = false;
+    const registry = new ToolRegistry();
+    for (const [name, delay] of [["read_file", 25], ["grep", 5]] as const) {
+      registry.register({
+        ...testTool(),
+        name,
+        inputSchema: { type: "object", properties: {} },
+        target: (args) => String(args.path ?? args.pattern ?? name),
+        execute: async () => {
+          readsInFlight += 1;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          readsInFlight -= 1;
+          return { output: name };
+        },
+      });
+    }
+    registry.register({
+      ...testTool(),
+      name: "edit_file",
+      risk: "write",
+      inputSchema: { type: "object", properties: {} },
+      execute: async () => {
+        mutationOverlapped ||= readsInFlight > 0;
+        return { output: "edit" };
+      },
+    });
+
+    const results = await pipeline().executeToolCalls(registry, [
+      { id: "slow", name: "read_file", arguments: { path: "a.ts" } },
+      { id: "fast", name: "grep", arguments: { pattern: "x" } },
+      { id: "write", name: "edit_file", arguments: { path: "a.ts" } },
+    ]);
+
+    expect(results.map((result) => result.toolCall.id)).toEqual(["slow", "fast", "write"]);
+    expect(mutationOverlapped).toBe(false);
   });
 });

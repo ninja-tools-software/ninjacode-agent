@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "@ninjacode/providers";
 import {
+  buildVolatileContextDelta,
   buildVolatileContextMessage,
   isVolatileContextMessage,
   stubSupersededVolatileContext,
@@ -28,6 +29,24 @@ describe("buildVolatileContextMessage", () => {
     const message = buildVolatileContextMessage({ scratchpad: "x".repeat(10_000), plan: "" });
     expect(message?.content.length).toBeLessThan(4_500);
     expect(message?.content).toContain("[truncated]");
+  });
+});
+
+describe("buildVolatileContextDelta", () => {
+  it("emits only changed sections and represents clears", () => {
+    const changed = buildVolatileContextDelta(
+      { scratchpad: "same", plan: "old plan" },
+      { scratchpad: "same", plan: "new plan" },
+    );
+    expect(changed?.content).not.toContain("scratchpad");
+    expect(changed?.content).toContain("new plan");
+
+    const cleared = buildVolatileContextDelta(
+      { scratchpad: "note", plan: "plan" },
+      { scratchpad: "", plan: "plan" },
+    );
+    expect(cleared?.content).toContain("(cleared)");
+    expect(cleared && isVolatileContextMessage(cleared)).toBe(true);
   });
 });
 

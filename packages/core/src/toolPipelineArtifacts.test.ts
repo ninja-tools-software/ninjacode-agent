@@ -32,6 +32,7 @@ describe("ToolPipeline artifact persistence", () => {
       planId: "plan",
       sandboxMode: "workspace-write",
       persistSessionContext: true,
+      parallelToolReads: true,
       getState: () => "running",
       setState: async () => undefined,
       runHooks: async () => [],

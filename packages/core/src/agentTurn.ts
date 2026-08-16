@@ -17,6 +17,12 @@ import { repeatedReadWarning } from "./readChurn.js";
 import type { AgentTurnDeps, AgentTurnOutcome } from "./agentTurnTypes.js";
 import type { ToolInvocation } from "./types.js";
 import { startSpan } from "./telemetry.js";
+import {
+  markAutomaticDelegation,
+  observePhaseTurn,
+  takeInitialPhaseTransition,
+  type PhaseTransition,
+} from "./phasePolicy.js";
 
 export type { AgentTurnDeps, AgentTurnMutableState } from "./agentTurnTypes.js";
 export { buildUserMessageContent, dropOrphanUserMessage } from "./agentTurnLlm.js";
@@ -30,6 +36,7 @@ export async function runAgentTurn(deps: AgentTurnDeps): Promise<AgentTurnOutcom
   }
 
   try {
+    await emitInitialPhase(deps);
     await syncVolatileContext(deps);
     await deps.emit("thinking", { turn: deps.turn + 1 });
 
@@ -116,21 +123,93 @@ async function handleToolTurn(
     return { kind: "done", answer };
   }
 
-  const guidance = [
-    repeatedReadWarning(state.history),
-    editProgressWarning({
-      turn: deps.turn + 1,
-      maxTurns: deps.maxTurns,
-      mutated: progressMutated(deps),
-      goal: progressGoal(deps),
-    }),
-  ].filter((line): line is string => line !== undefined);
+  const adaptive = state.phasePolicy ? await adaptiveGuidance(deps, invocations) : undefined;
+  if (adaptive?.terminalFailure) {
+    await deps.emit("error", {
+      message: adaptive.terminalFailure,
+      category: "verification_recovery_exhausted",
+    });
+    await deps.persist();
+    await deps.setState("failed");
+    return { kind: "failed", message: adaptive.terminalFailure };
+  }
+  const guidance = adaptive
+    ? adaptive.guidance
+    : [
+        repeatedReadWarning(state.history),
+        editProgressWarning({
+          turn: deps.turn + 1,
+          maxTurns: deps.maxTurns,
+          mutated: progressMutated(deps),
+          goal: progressGoal(deps),
+        }),
+      ].filter((line): line is string => line !== undefined);
   if (guidance.length > 0) {
     state.history.push({ role: "user", content: `[System] ${guidance.join(" ")}` });
   }
 
   await deps.persist();
   return { kind: "continue" };
+}
+
+async function adaptiveGuidance(
+  deps: AgentTurnDeps,
+  invocations: ToolInvocation[],
+): Promise<{ guidance: string[]; terminalFailure?: string }> {
+  const policy = deps.state.phasePolicy;
+  if (!policy) return { guidance: [] };
+  const turn = deps.turn + 1;
+  const decision = observePhaseTurn(policy, invocations, turn);
+  await emitPhaseTransition(deps, decision.transition);
+
+  if (decision.terminalFailure) {
+    return { guidance: [], terminalFailure: decision.terminalFailure };
+  }
+
+  const guidance = decision.guidance ? [decision.guidance] : [];
+  if (!decision.delegation || !deps.enableSubagents) return { guidance };
+
+  markAutomaticDelegation(policy);
+  const { role, reason } = decision.delegation;
+  await deps.emit("status", {
+    text: `Adaptive ${role} delegation (${reason})`,
+  });
+  try {
+    const summary = await deps.runAdaptiveSubAgent(role, reason);
+    guidance.push(
+      `[${role} sub-agent, triggered by ${reason}] ${summary.slice(0, 6000)}`,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    guidance.push(
+      `Adaptive ${role} delegation failed (${message.slice(0, 500)}). Continue with current evidence; do not retry the same delegation.`,
+    );
+  }
+  return { guidance };
+}
+
+async function emitInitialPhase(deps: AgentTurnDeps): Promise<void> {
+  const policy = deps.state.phasePolicy;
+  if (!policy) return;
+  await emitPhaseTransition(deps, takeInitialPhaseTransition(policy));
+}
+
+async function emitPhaseTransition(
+  deps: Pick<AgentTurnDeps, "emit" | "state">,
+  transition: PhaseTransition | undefined,
+): Promise<void> {
+  const policy = deps.state.phasePolicy;
+  if (!policy || !transition) return;
+  await deps.emit("phase_change", {
+    from: transition.from,
+    phase: transition.to,
+    turn: transition.turn,
+    reason: transition.reason,
+    complexity: policy.complexity,
+    explorationBudget: policy.explorationBudget,
+    mutationCount: policy.mutationCount,
+    recoveryCycles: policy.recoveryCycles,
+  });
 }
 
 function progressGoal(deps: AgentTurnDeps): ProgressGoal | undefined {

@@ -19,7 +19,13 @@ describe("runVerification", () => {
       { requireCleanDiagnostics: false },
       [],
     );
-    expect(result).toEqual({ ok: true, messages: [] });
+    expect(result).toEqual({
+      ok: true,
+      messages: [],
+      diagnostics: { checked: false, entries: [] },
+      commands: [],
+      ambiguous: true,
+    });
   });
 
   it("fails when a verify command exits non-zero", async () => {
@@ -45,6 +51,10 @@ describe("runVerification", () => {
     expect(result.messages[0]).toContain("Verify command failed (exit 1)");
     expect(result.messages[0]).toContain("pnpm fail");
     expect(result.messages[0]).toContain("boom");
+    expect(result.commands).toEqual([
+      { command: "pnpm test", exitCode: 0, passed: true, output: "" },
+      { command: "pnpm fail", exitCode: 1, passed: false, output: "boom" },
+    ]);
   });
 
   it("succeeds when all verify commands exit zero", async () => {

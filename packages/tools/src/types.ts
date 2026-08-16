@@ -14,6 +14,11 @@ export interface CodebaseSearchHit {
   snippet?: string;
   /** Symbol names in this file that matched the query, if any. */
   symbols?: string[];
+  /** Best matching symbol chunk, when the index can identify one. */
+  symbol?: string;
+  /** 1-based source range of the best matching chunk. */
+  startLine?: number;
+  endLine?: number;
 }
 
 /**
@@ -74,7 +79,9 @@ export class ToolError extends Error {
       | "permission"
       | "runtime"
       | "timeout"
-      | "aborted" = "runtime",
+      | "aborted"
+      | "stale_patch"
+      | "ambiguous_edit" = "runtime",
   ) {
     super(message);
     this.name = "ToolError";

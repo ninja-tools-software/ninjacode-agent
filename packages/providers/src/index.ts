@@ -111,6 +111,7 @@ export { AnthropicProvider } from "./anthropic.js";
 export type { AnthropicConfig } from "./anthropic.js";
 
 export { applyAnthropicCacheBreakpoints } from "./anthropicCache.js";
+export { promptCacheKey } from "./promptCache.js";
 export type { AnthropicCacheablePayload } from "./anthropicCache.js";
 
 export { MockProvider, EchoProvider } from "./mock.js";

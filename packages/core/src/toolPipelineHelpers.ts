@@ -54,32 +54,70 @@ function safeRisk(tool: Tool, args: Record<string, unknown>): RiskClass {
   }
 }
 
-const PARALLEL_META_TOOLS = new Set(["delegate", "todo_write", "write_scratchpad", "write_plan"]);
-const PARALLEL_WRITE_TOOLS = new Set(["edit_file", "write_file", "apply_patch"]);
+const PARALLEL_READ_TOOLS = new Set([
+  "read_file",
+  "list_dir",
+  "glob",
+  "grep",
+  "search_codebase",
+]);
+const PATH_READ_TOOLS = new Set(["read_file", "list_dir"]);
+const MAX_PARALLEL_READS = 4;
 
-function writeTarget(tool: Tool, args: Record<string, unknown>): string {
-  if (typeof args.path === "string" && args.path.trim()) return args.path;
-  return safeTarget(tool, args);
+function normalizedReadTarget(tool: Tool, tc: ToolCall): string {
+  if (!PATH_READ_TOOLS.has(tc.name)) return `query:${tc.id}`;
+  return safeTarget(tool, tc.arguments)
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/\/+/g, "/")
+    .replace(/^\.\//, "");
+}
+
+/** Only explicitly audited, read-only calls may overlap. */
+export function isParallelizableBatch(registry: ToolRegistry, toolCalls: ToolCall[]): boolean {
+  const resources = new Set<string>();
+  for (const tc of toolCalls) {
+    const tool = registry.get(tc.name);
+    if (!tool || tool.risk !== "read_only" || !PARALLEL_READ_TOOLS.has(tc.name)) return false;
+    const resource = normalizedReadTarget(tool, tc);
+    if (resources.has(resource)) return false;
+    resources.add(resource);
+  }
+  return true;
 }
 
 /**
- * A batch can run concurrently when nothing in it races:
- * - all read-only (plus delegate / todo / scratchpad / plan), or
- * - writes that each target a distinct file (reads may mix in).
- * Two edits to the same path, shell, delete, and user prompts stay sequential.
+ * Split a model-emitted batch into deterministic execution waves. Consecutive,
+ * independent reads/searches overlap; every mutation, shell, prompt and unknown
+ * tool is an ordering barrier. Returned call order is always the model's order.
  */
-export function isParallelizableBatch(registry: ToolRegistry, toolCalls: ToolCall[]): boolean {
-  const writePaths = new Set<string>();
-  for (const tc of toolCalls) {
-    const t = registry.get(tc.name);
-    if (!t) return false;
-    if (t.risk === "read_only" || PARALLEL_META_TOOLS.has(tc.name)) continue;
-    if (!PARALLEL_WRITE_TOOLS.has(tc.name)) return false;
-    const path = writeTarget(t, tc.arguments);
-    if (writePaths.has(path)) return false;
-    writePaths.add(path);
+export function toolExecutionBatches(
+  registry: ToolRegistry,
+  toolCalls: ToolCall[],
+  enableParallelReads: boolean,
+): ToolCall[][] {
+  if (!enableParallelReads) return toolCalls.map((call) => [call]);
+  const batches: ToolCall[][] = [];
+  let pending: ToolCall[] = [];
+  const flush = () => {
+    if (pending.length > 0) batches.push(pending);
+    pending = [];
+  };
+  for (const call of toolCalls) {
+    const candidate = [...pending, call];
+    if (
+      candidate.length <= MAX_PARALLEL_READS &&
+      isParallelizableBatch(registry, candidate)
+    ) {
+      pending = candidate;
+      continue;
+    }
+    flush();
+    if (isParallelizableBatch(registry, [call])) pending = [call];
+    else batches.push([call]);
   }
-  return true;
+  flush();
+  return batches;
 }
 
 interface ApprovalDeps {

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ToolContext } from "@ninjacode/tools";
+import type { DiagnosticEntry, ToolContext } from "@ninjacode/tools";
 import { collectDiagnostics, formatDiagnostics } from "@ninjacode/tools";
 import { nodeProcessRunner } from "./nodePorts.js";
 import type { ProcessRunner } from "./ports.js";
@@ -38,6 +38,20 @@ export async function loadVerifyConfig(agentDir: string): Promise<VerifyConfig> 
 export interface VerificationResult {
   ok: boolean;
   messages: string[];
+  diagnostics: {
+    checked: boolean;
+    entries: DiagnosticEntry[];
+  };
+  commands: VerificationCommandResult[];
+  /** True when no deterministic local signal was available. */
+  ambiguous: boolean;
+}
+
+export interface VerificationCommandResult {
+  command: string;
+  exitCode: number;
+  passed: boolean;
+  output: string;
 }
 
 export interface RunVerificationOptions {
@@ -52,10 +66,14 @@ export async function runVerification(
 ): Promise<VerificationResult> {
   const runner = opts.processRunner ?? nodeProcessRunner;
   const messages: string[] = [];
+  const commands: VerificationCommandResult[] = [];
+  const shouldCheckDiagnostics =
+    config.requireCleanDiagnostics !== false && modifiedPaths.length > 0;
+  let diagnostics: DiagnosticEntry[] = [];
 
-  if (config.requireCleanDiagnostics !== false && modifiedPaths.length > 0) {
-    const diags = await collectDiagnostics(ctx, modifiedPaths);
-    const errors = diags.filter((d) => d.severity === "error");
+  if (shouldCheckDiagnostics) {
+    diagnostics = await collectDiagnostics(ctx, modifiedPaths);
+    const errors = diagnostics.filter((d) => d.severity === "error");
     if (errors.length > 0) {
       messages.push(
         `Diagnostics found ${errors.length} error(s) in modified files:\n${formatDiagnostics(errors)}`,
@@ -76,11 +94,26 @@ export async function runVerification(
         mode: ctx.sandboxMode ?? "workspace-write",
       },
     });
+    const output = condenseVerifyOutput(result.stdout, result.stderr);
+    commands.push({
+      command: trimmed,
+      exitCode: result.code,
+      passed: result.code === 0,
+      output,
+    });
     if (result.code !== 0) {
-      const output = condenseVerifyOutput(result.stdout, result.stderr);
       messages.push(`Verify command failed (exit ${result.code}): ${trimmed}\n${output}`);
     }
   }
 
-  return { ok: messages.length === 0, messages };
+  return {
+    ok: messages.length === 0,
+    messages,
+    diagnostics: {
+      checked: shouldCheckDiagnostics,
+      entries: diagnostics,
+    },
+    commands,
+    ambiguous: !shouldCheckDiagnostics && commands.length === 0,
+  };
 }

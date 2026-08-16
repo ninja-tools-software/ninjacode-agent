@@ -34,7 +34,7 @@ describe("CodebaseIndex.build + search", () => {
     const index = new CodebaseIndex(dir);
     await index.build();
 
-    const hits = index.search("authenticate user token");
+    const hits = await index.search("authenticate user token");
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]?.path).toBe("src/authService.ts");
   });
@@ -49,9 +49,11 @@ describe("CodebaseIndex.build + search", () => {
     const index = new CodebaseIndex(dir);
     await index.build();
 
-    const hits = index.search("WidgetRenderer");
+    const hits = await index.search("WidgetRenderer");
     expect(hits[0]?.path).toBe("src/widget.ts");
     expect(hits[0]?.symbols).toContain("WidgetRenderer");
+    expect(hits[0]?.symbol).toBe("WidgetRenderer");
+    expect(hits[0]?.startLine).toBe(1);
   });
 
   it("respects .gitignore and skips default ignore directories", async () => {
@@ -64,7 +66,7 @@ describe("CodebaseIndex.build + search", () => {
     const index = new CodebaseIndex(dir);
     await index.build();
 
-    const hits = index.search("zzzsecretvalue987");
+    const hits = await index.search("zzzsecretvalue987");
     expect(hits).toHaveLength(0);
     expect(index.listFiles().some((f) => f.path.startsWith("ignored-dir"))).toBe(false);
     expect(index.listFiles().some((f) => f.path === "secret.ts")).toBe(false);
@@ -76,15 +78,15 @@ describe("CodebaseIndex.build + search", () => {
     await write("src/a.ts", "export const alpha = 1;\n");
     const index = new CodebaseIndex(dir);
     await index.build();
-    expect(index.search("alpha")).toHaveLength(1);
+    await expect(index.search("alpha")).resolves.toHaveLength(1);
 
     await write("src/b.ts", "export function betaHandler() {}\n");
     await index.refreshFile("src/b.ts");
-    expect(index.search("betaHandler")[0]?.path).toBe("src/b.ts");
+    expect((await index.search("betaHandler"))[0]?.path).toBe("src/b.ts");
 
     await fs.rm(path.join(dir, "src/a.ts"));
-    index.removeFile("src/a.ts");
-    expect(index.search("alpha")).toHaveLength(0);
+    await index.removeFile("src/a.ts");
+    await expect(index.search("alpha")).resolves.toHaveLength(0);
   });
 
   it("semanticSearch is a safe no-op without an embedding provider", async () => {
@@ -115,5 +117,25 @@ describe("CodebaseIndex.build + search", () => {
     expect(index.hasSemanticLayer).toBe(true);
     const hits = await index.semanticSearch("alpha");
     expect(hits.length).toBeGreaterThan(0);
+  });
+
+  it("builds lazily, persists locally, and invalidates changed mtimes", async () => {
+    await write("src/lazy.ts", "export function alphaBeacon() { return 1; }\n");
+    const cachePath = path.join(dir, ".cache", "index.json");
+    const first = new CodebaseIndex(dir, { cachePath, rescanIntervalMs: 0 });
+    expect(first.isBuilt).toBe(false);
+    expect((await first.search("alphaBeacon"))[0]?.path).toBe("src/lazy.ts");
+    expect(first.isBuilt).toBe(true);
+    await expect(fs.stat(cachePath)).resolves.toBeDefined();
+
+    const restored = new CodebaseIndex(dir, { cachePath, rescanIntervalMs: 0 });
+    expect(restored.isBuilt).toBe(false);
+    expect((await restored.search("alphaBeacon"))[0]?.path).toBe("src/lazy.ts");
+
+    await write("src/lazy.ts", "export function omegaWidget() { return 2; }\n");
+    const future = new Date(Date.now() + 2_000);
+    await fs.utimes(path.join(dir, "src/lazy.ts"), future, future);
+    expect((await restored.search("omegaWidget"))[0]?.symbol).toBe("omegaWidget");
+    await expect(restored.search("alphaBeacon")).resolves.toHaveLength(0);
   });
 });

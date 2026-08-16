@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { applyHunks, applyPatchTool, unifiedDiff } from "./patch.js";
+import {
+  AmbiguousEdit,
+  applyHunks,
+  applyPatchTool,
+  parseUnifiedDiff,
+  StalePatch,
+  unifiedDiff,
+} from "./patch.js";
 
 describe("unifiedDiff", () => {
   it("produces a diff", () => {
@@ -10,6 +17,8 @@ describe("unifiedDiff", () => {
     expect(d).toContain("--- a/a.ts");
     expect(d).toContain("-b");
     expect(d).toContain("+c");
+    const [file] = parseUnifiedDiff(d);
+    expect(applyHunks("a\nb\n", file!.hunks)).toBe("a\nc\n");
   });
 });
 
@@ -41,7 +50,7 @@ describe("apply_patch", () => {
   it("rejects exact ambiguous context instead of editing the first match", () => {
     expect(() =>
       applyHunks("same\nmiddle\nsame\n", [{ lines: ["-same", "+changed"] }]),
-    ).toThrow(/ambiguous/u);
+    ).toThrow(AmbiguousEdit);
   });
 
   it("rejects whitespace-normalized ambiguous context", () => {
@@ -49,7 +58,7 @@ describe("apply_patch", () => {
       applyHunks("alpha  beta\nmiddle\nalpha\tbeta\n", [
         { lines: ["-alpha beta", "+changed"] },
       ]),
-    ).toThrow(/ambiguous/u);
+    ).toThrow(AmbiguousEdit);
   });
 
   it("rejects stale context with a typed invalid-args error", () => {
@@ -57,7 +66,8 @@ describe("apply_patch", () => {
       applyHunks("current\n", [{ lines: ["-stale", "+changed"] }]);
       expect.fail("expected stale patch to fail");
     } catch (error) {
-      expect(error).toMatchObject({ code: "invalid_args" });
+      expect(error).toBeInstanceOf(StalePatch);
+      expect(error).toMatchObject({ code: "stale_patch" });
     }
   });
 
@@ -99,11 +109,39 @@ describe("apply_patch", () => {
           { workspaceRoot: dir, agentDir: path.join(dir, ".ninjacode") },
           { patch },
         ),
-      ).rejects.toMatchObject({ code: "invalid_args" });
+      ).rejects.toMatchObject({ code: "stale_patch" });
       await expect(fs.readFile(path.join(dir, "first.txt"), "utf8")).resolves.toBe("before\n");
       await expect(fs.readFile(path.join(dir, "second.txt"), "utf8")).resolves.toBe("current\n");
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
+  });
+
+  it("uses hunk offsets to safely disambiguate repeated blocks", () => {
+    const content = "same\nmiddle\nsame\n";
+    const result = applyHunks(content, [
+      {
+        oldStart: 3,
+        oldCount: 1,
+        newStart: 3,
+        newCount: 1,
+        lines: ["-same", "+changed"],
+      },
+    ]);
+    expect(result).toBe("same\nmiddle\nchanged\n");
+  });
+
+  it("rejects adversarial hunk count mismatches before applying", () => {
+    expect(() =>
+      applyHunks("alpha\n", [
+        {
+          oldStart: 1,
+          oldCount: 2,
+          newStart: 1,
+          newCount: 1,
+          lines: ["-alpha", "+beta"],
+        },
+      ]),
+    ).toThrow(StalePatch);
   });
 });

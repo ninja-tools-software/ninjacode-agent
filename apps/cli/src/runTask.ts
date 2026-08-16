@@ -11,11 +11,18 @@ import {
   type AgentOutcome,
   type ApprovalMode,
   type AgentMode,
+  type PerformanceOptions,
 } from "@ninjacode/core";
-import { createProvider, type ProviderKind } from "@ninjacode/providers";
+import {
+  createProvider,
+  type ProviderKind,
+  type ReasoningEffort,
+} from "@ninjacode/providers";
 import {
   setAskUserHandler,
   setUserActionHandler,
+  CodebaseIndex,
+  listGitChangedFiles,
   type SandboxMode,
   type ToolRegistry,
 } from "@ninjacode/tools";
@@ -23,7 +30,11 @@ import { consumeLastGatewayError, handleAgentEvent, promptApproval } from "./cli
 import { gatewayExitCode } from "./gatewayErrorLines.js";
 import { setupAskUserHandlers } from "./cliUserHandlers.js";
 import { t } from "./i18n.js";
-import { writeBenchmarkTelemetry } from "./benchmarkTelemetry.js";
+import {
+  writeBenchmarkTelemetry,
+  writeBenchmarkTelemetryStart,
+  type BenchmarkTelemetryConfig,
+} from "./benchmarkTelemetry.js";
 
 function providerApiKeyEnv(provider: string | undefined): string | undefined {
   if (!provider) return undefined;
@@ -65,6 +76,40 @@ function parseSandboxMode(flags: Record<string, string | boolean>): SandboxMode 
   return mode;
 }
 
+function performanceAblationFromEnv(): {
+  performance?: PerformanceOptions;
+  enablePromptCache?: boolean;
+} {
+  const name = process.env.NINJACODE_PERF_ABLATION;
+  if (!name || name === "optimized") return {};
+  const allEnabled: PerformanceOptions = {
+    parallelToolReads: true,
+    asyncSessionPersistence: true,
+    minimalVolatileContext: true,
+  };
+  if (name === "control") {
+    return {
+      performance: {
+        parallelToolReads: false,
+        asyncSessionPersistence: false,
+        minimalVolatileContext: false,
+      },
+      enablePromptCache: false,
+    };
+  }
+  if (name === "no-parallel-reads") {
+    return { performance: { ...allEnabled, parallelToolReads: false } };
+  }
+  if (name === "no-async-persistence") {
+    return { performance: { ...allEnabled, asyncSessionPersistence: false } };
+  }
+  if (name === "no-provider-cache") return { enablePromptCache: false };
+  if (name === "no-context-deltas") {
+    return { performance: { ...allEnabled, minimalVolatileContext: false } };
+  }
+  throw new Error(`Unknown NINJACODE_PERF_ABLATION: ${name}`);
+}
+
 export function isWorkspaceTrusted(flags: Readonly<Record<string, string | boolean>>): boolean {
   return flags["trust-workspace"] === true;
 }
@@ -92,12 +137,25 @@ async function registerWorkspaceMcp(
   for (const tool of mcpTools) tools.register(tool);
 }
 
-async function writeTelemetrySafely(agent: Agent, outcome: AgentOutcome): Promise<void> {
+async function writeTelemetrySafely(
+  agent: Agent,
+  outcome: AgentOutcome,
+  config: BenchmarkTelemetryConfig,
+): Promise<void> {
   try {
-    await writeBenchmarkTelemetry(agent, outcome);
+    await writeBenchmarkTelemetry(agent, outcome, undefined, config);
   } catch (error) {
     console.error(`Benchmark telemetry unavailable: ${(error as Error).message}`);
   }
+}
+
+function parseReasoningEffort(flags: Record<string, string | boolean>): ReasoningEffort | undefined {
+  const effort = flags["reasoning-effort"];
+  if (effort === undefined) return undefined;
+  if (effort !== "low" && effort !== "medium" && effort !== "high") {
+    throw new Error(`Invalid --reasoning-effort value: ${String(effort)}`);
+  }
+  return effort;
 }
 
 export async function runTask(flags: Record<string, string | boolean>, task: string): Promise<void> {
@@ -105,6 +163,19 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
   const kind = (flags.provider as ProviderKind) ?? detectProvider();
   const apiKey = resolveApiKey(flags);
   const workspaceTrusted = isWorkspaceTrusted(flags);
+  const reasoningEffort = parseReasoningEffort(flags);
+  const runTimeoutMs = Number(flags["run-timeout-ms"]) || DEFAULT_RUN_TIMEOUT_MS;
+  const telemetryConfig: BenchmarkTelemetryConfig = {
+    provider: kind,
+    model: flags.model as string | undefined,
+    reasoningEffort,
+    runTimeoutMs,
+  };
+  try {
+    await writeBenchmarkTelemetryStart(telemetryConfig);
+  } catch (error) {
+    console.error(`Benchmark telemetry unavailable: ${(error as Error).message}`);
+  }
 
   if (kind !== "mock" && kind !== "echo" && !apiKey) {
     console.error(t("cli.missingApiKey"));
@@ -121,6 +192,7 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
   const mode = parseMode(flags);
   const approvalMode = (flags.approval as ApprovalMode) ?? (flags.yes ? "autonomous" : "balanced");
   const sandboxMode = parseSandboxMode(flags);
+  const codebaseIndex = new CodebaseIndex(workspace);
   if (!workspaceTrusted) console.error(t("cli.workspaceUntrusted"));
   const runtime = await buildAgentRuntime({
     workspaceRoot: workspace,
@@ -133,8 +205,12 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
     agent: {
       mode,
       model: flags.model as string | undefined,
+      reasoningEffort,
       sandboxMode,
-      runTimeoutMs: Number(flags["run-timeout-ms"]) || DEFAULT_RUN_TIMEOUT_MS,
+      runTimeoutMs,
+      codebaseIndex,
+      activeFilesProvider: () => listGitChangedFiles(workspace),
+      ...performanceAblationFromEnv(),
       enableCheckpoints: !flags["no-checkpoints"],
       enableWorkspaceHooks: workspaceTrusted,
       onEvent: handleAgentEvent,
@@ -151,7 +227,7 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
     t("cli.runHeader", { provider: provider.name, mode, workspace }),
   );
   const outcome = await agent.run(task);
-  await writeTelemetrySafely(agent, outcome);
+  await writeTelemetrySafely(agent, outcome, telemetryConfig);
   console.log("\n");
   if (!outcome.completed) {
     const gateway = consumeLastGatewayError();

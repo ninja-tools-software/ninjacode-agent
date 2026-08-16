@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "dataset": "terminal-bench/terminal-bench-2-1",
+  "model": "xai/grok-4.6",
+  "reasoningEffort": "high",
+  "harborVersion": "0.21.0",
+  "node": {
+    "minimumMajor": 20,
+    "preferredVersion": "22.17.1"
+  },
+  "timeouts": {
+    "cliRunMs": 840000,
+    "agentMultiplier": 1,
+    "verifierMultiplier": 1
+  },
+  "gates": {
+    "minimumTelemetryCoverage": 0.95,
+    "maximumInfrastructureErrorRate": 0.05
+  },
+  "profiles": {
+    "smoke": {
+      "expectedTasks": 1,
+      "attempts": 1,
+      "publishable": false
+    },
+    "subset": {
+      "expectedTasks": 20,
+      "attempts": 3,
+      "publishable": false
+    },
+    "full": {
+      "expectedTasks": 89,
+      "attempts": 1,
+      "publishable": false
+    },
+    "publish": {
+      "expectedTasks": 89,
+      "attempts": 3,
+      "publishable": true
+    }
+  },
+  "subset": [
+    { "name": "terminal-bench/schemelike-metacircular-eval", "stratum": "software" },
+    { "name": "terminal-bench/build-pov-ray", "stratum": "build" },
+    { "name": "terminal-bench/caffe-cifar-10", "stratum": "machine-learning" },
+    { "name": "terminal-bench/circuit-fibsqrt", "stratum": "algorithms" },
+    { "name": "terminal-bench/cobol-modernization", "stratum": "software" },
+    { "name": "terminal-bench/dna-assembly", "stratum": "data-science" },
+    { "name": "terminal-bench/extract-elf", "stratum": "systems" },
+    { "name": "terminal-bench/filter-js-from-html", "stratum": "data-processing" },
+    { "name": "terminal-bench/gpt2-codegolf", "stratum": "machine-learning" },
+    { "name": "terminal-bench/kv-store-grpc", "stratum": "software" },
+    { "name": "terminal-bench/log-summary-date-ranges", "stratum": "data-processing" },
+    { "name": "terminal-bench/mcmc-sampling-stan", "stratum": "data-science" },
+    { "name": "terminal-bench/model-extraction-relu-logits", "stratum": "machine-learning" },
+    { "name": "terminal-bench/openssl-selfsigned-cert", "stratum": "systems" },
+    { "name": "terminal-bench/path-tracing", "stratum": "algorithms" },
+    { "name": "terminal-bench/pypi-server", "stratum": "software" },
+    { "name": "terminal-bench/qemu-alpine-ssh", "stratum": "systems" },
+    { "name": "terminal-bench/regex-chess", "stratum": "algorithms" },
+    { "name": "terminal-bench/regex-log", "stratum": "data-processing" },
+    { "name": "terminal-bench/write-compressor", "stratum": "build" }
+  ]
+}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import shlex
 from pathlib import Path
@@ -23,6 +24,10 @@ REQUIRED_MANIFEST_KEYS = (
     "bundleSha256",
     "cliVersion",
     "gitCommit",
+    "harborVersion",
+    "model",
+    "reasoningEffort",
+    "cliRunTimeoutMs",
     "minimumNodeMajor",
     "preferredNodeVersion",
     "schemaVersion",
@@ -79,6 +84,10 @@ def load_bundle_manifest(bundle: Path) -> tuple[Path, dict[str, Any]]:
     missing = [key for key in REQUIRED_MANIFEST_KEYS if key not in manifest]
     if missing:
         raise RuntimeError(f"NinjaCode Harbor manifest misses: {', '.join(missing)}")
+    if manifest["schemaVersion"] != 2:
+        raise RuntimeError(
+            f"Unsupported NinjaCode Harbor manifest schema: {manifest['schemaVersion']}"
+        )
     actual_hash = hashlib.sha256(bundle.read_bytes()).hexdigest()
     if manifest["bundleSha256"] != actual_hash:
         raise RuntimeError(
@@ -206,6 +215,12 @@ class NinjaCodeAgent(BaseInstalledAgent):
         context: AgentContext,
     ) -> None:
         provider, model = parse_harbor_model(self.model_name)
+        expected_model = str(self._manifest.get("model") or "")
+        if self.model_name and expected_model and self.model_name != expected_model:
+            raise RuntimeError(
+                f"Harbor model {self.model_name!r} does not match pinned manifest "
+                f"model {expected_model!r}"
+            )
         cmd = [
             "node",
             REMOTE_BUNDLE,
@@ -217,6 +232,10 @@ class NinjaCodeAgent(BaseInstalledAgent):
             "--no-checkpoints",
             "--lang",
             "en",
+            "--reasoning-effort",
+            str(self._manifest["reasoningEffort"]),
+            "--run-timeout-ms",
+            str(self._manifest["cliRunTimeoutMs"]),
         ]
         if provider:
             cmd.extend(["--provider", provider])
@@ -237,6 +256,9 @@ class NinjaCodeAgent(BaseInstalledAgent):
                 "key for `-m provider/model`) in the same shell as Harbor."
             )
         env["NINJACODE_BENCH_TELEMETRY_FILE"] = REMOTE_TELEMETRY
+        ablation = (getattr(self, "_manifest", {}).get("ablation") or {}).get("name")
+        if ablation:
+            env["NINJACODE_PERF_ABLATION"] = str(ablation)
         try:
             await self.exec_as_agent(environment, command=command, env=env)
         finally:
@@ -250,7 +272,8 @@ class NinjaCodeAgent(BaseInstalledAgent):
         )
         metadata = {
             "ninjacode_manifest": getattr(self, "_manifest", {}),
-            "telemetry_available": result.return_code == 0,
+            "telemetry_available": False,
+            "telemetry_complete": False,
         }
         if result.return_code != 0:
             context.metadata = {**(context.metadata or {}), **metadata}
@@ -265,12 +288,25 @@ class NinjaCodeAgent(BaseInstalledAgent):
             metadata["telemetry_error"] = "unsupported_schema"
             context.metadata = {**(context.metadata or {}), **metadata}
             return
+        metric_names = (
+            "inputTokens",
+            "cacheReadTokens",
+            "cacheWriteTokens",
+            "outputTokens",
+            "estimatedCostUsd",
+            "turns",
+            "toolCalls",
+            "toolErrors",
+        )
         try:
-            input_tokens = int(telemetry.get("inputTokens") or 0)
-            cache_tokens = int(telemetry.get("cacheReadTokens") or 0)
-            output_tokens = int(telemetry.get("outputTokens") or 0)
-            cost = float(telemetry.get("estimatedCostUsd") or 0)
-        except (TypeError, ValueError):
+            metrics = {name: float(telemetry[name]) for name in metric_names}
+            if any(not math.isfinite(value) or value < 0 for value in metrics.values()):
+                raise ValueError("metrics must be finite and non-negative")
+            input_tokens = int(metrics["inputTokens"])
+            cache_tokens = int(metrics["cacheReadTokens"])
+            output_tokens = int(metrics["outputTokens"])
+            cost = metrics["estimatedCostUsd"]
+        except (KeyError, TypeError, ValueError):
             metadata["telemetry_error"] = "invalid_metrics"
             context.metadata = {**(context.metadata or {}), **metadata}
             return
@@ -280,13 +316,20 @@ class NinjaCodeAgent(BaseInstalledAgent):
         context.cost_usd = cost if cost > 0 else None
         metadata.update(
             {
-                "cache_write_tokens": int(telemetry.get("cacheWriteTokens") or 0),
+                "telemetry_available": True,
+                "telemetry_complete": bool(telemetry.get("telemetryComplete", True)),
+                "telemetry_status": telemetry.get("status", "completed"),
+                "failure_kind": (
+                    "agent_exit" if telemetry.get("status") == "agent_exit" else None
+                ),
+                "cache_write_tokens": int(metrics["cacheWriteTokens"]),
                 "completed": bool(telemetry.get("completed")),
                 "session_id": telemetry.get("sessionId"),
-                "tool_calls": int(telemetry.get("toolCalls") or 0),
-                "tool_errors": int(telemetry.get("toolErrors") or 0),
+                "tool_calls": int(metrics["toolCalls"]),
+                "tool_errors": int(metrics["toolErrors"]),
                 "tool_histogram": telemetry.get("toolHistogram") or {},
-                "turns": int(telemetry.get("turns") or 0),
+                "turns": int(metrics["turns"]),
+                "benchmark_config": telemetry.get("config") or {},
             }
         )
         context.metadata = {**(context.metadata or {}), **metadata}

@@ -18,7 +18,7 @@ import {
   type GatewayErrorInfo,
   type ProviderKind,
 } from "@ninjacode/providers";
-import type { SandboxMode } from "@ninjacode/tools";
+import { CodebaseIndex, listGitChangedFiles, type SandboxMode } from "@ninjacode/tools";
 import { t } from "./i18n.js";
 import type { Session } from "./sessionStore.js";
 import { notify } from "./rpcTransport.js";
@@ -200,6 +200,7 @@ export async function createAgentFor(
   assertDebugModeUnsupported(process.env.NINJACODE_MODE);
   const yolo = process.env.NINJACODE_YOLO === "1";
   const sandboxMode = configuredSandboxMode();
+  const codebaseIndex = new CodebaseIndex(cwd);
 
   const runtime = await buildAgentRuntime({
     workspaceRoot: cwd,
@@ -230,6 +231,8 @@ export async function createAgentFor(
       mode: "agent",
       sandboxMode,
       runTimeoutMs: Number(process.env.NINJACODE_RUN_TIMEOUT_MS) || DEFAULT_RUN_TIMEOUT_MS,
+      codebaseIndex,
+      activeFilesProvider: () => listGitChangedFiles(cwd),
       sessionId,
       enableCheckpoints: true,
       onEvent: createAgentEventHandler(sessionId),

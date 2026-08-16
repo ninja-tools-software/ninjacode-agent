@@ -4,13 +4,17 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { benchRoot, cliBundlePath, repoRoot } from "./paths.js";
+import {
+  loadBenchmarkTruthConfig,
+  type BenchmarkTruthConfig,
+  type HarborProfileName,
+} from "./config.js";
+import { ablationComponents, resolveAblationVariant } from "../ablations.js";
 
 const execFileAsync = promisify(execFile);
 
-export const HARBOR_ADAPTER_VERSION = "1.0.0";
-export const HARBOR_MANIFEST_SCHEMA_VERSION = 1;
-const MINIMUM_NODE_MAJOR = 20;
-const PREFERRED_NODE_VERSION = "22.17.1";
+export const HARBOR_ADAPTER_VERSION = "1.1.0";
+export const HARBOR_MANIFEST_SCHEMA_VERSION = 2;
 
 interface HarborBundleManifest {
   schemaVersion: number;
@@ -21,6 +25,22 @@ interface HarborBundleManifest {
   bundleBytes: number;
   minimumNodeMajor: number;
   preferredNodeVersion: string;
+  harborVersion: string;
+  dataset: string;
+  model: string;
+  reasoningEffort: string;
+  cliRunTimeoutMs: number;
+  agentTimeoutMultiplier: number;
+  verifierTimeoutMultiplier: number;
+  profile: HarborProfileName;
+  expectedTasks: number;
+  attempts: number;
+  publishable: boolean;
+  ablation: {
+    name: string;
+    disabled: string[];
+    components: Record<string, boolean>;
+  };
 }
 
 export function harborManifestPath(): string {
@@ -49,7 +69,18 @@ async function cliVersion(): Promise<string> {
 
 export async function buildHarborBundleManifest(
   bundlePath = cliBundlePath(),
+  options: {
+    config?: BenchmarkTruthConfig;
+    profile?: HarborProfileName;
+    model?: string;
+  } = {},
 ): Promise<HarborBundleManifest> {
+  const config = options.config ?? (await loadBenchmarkTruthConfig());
+  const profile = options.profile ?? "smoke";
+  const profileConfig = config.profiles[profile];
+  const ablation = resolveAblationVariant(
+    process.env.NINJACODE_PERF_ABLATION ?? "optimized",
+  );
   const bundle = await readFile(bundlePath);
   return {
     schemaVersion: HARBOR_MANIFEST_SCHEMA_VERSION,
@@ -58,16 +89,37 @@ export async function buildHarborBundleManifest(
     gitCommit: await resolveGitCommit(),
     bundleSha256: createHash("sha256").update(bundle).digest("hex"),
     bundleBytes: bundle.byteLength,
-    minimumNodeMajor: MINIMUM_NODE_MAJOR,
-    preferredNodeVersion: PREFERRED_NODE_VERSION,
+    minimumNodeMajor: config.node.minimumMajor,
+    preferredNodeVersion: config.node.preferredVersion,
+    harborVersion: config.harborVersion,
+    dataset: config.dataset,
+    model: options.model ?? config.model,
+    reasoningEffort: config.reasoningEffort,
+    cliRunTimeoutMs: config.timeouts.cliRunMs,
+    agentTimeoutMultiplier: config.timeouts.agentMultiplier,
+    verifierTimeoutMultiplier: config.timeouts.verifierMultiplier,
+    profile,
+    expectedTasks: profileConfig.expectedTasks,
+    attempts: profileConfig.attempts,
+    publishable: profileConfig.publishable,
+    ablation: {
+      name: ablation.name,
+      disabled: ablation.disabled,
+      components: ablationComponents(ablation),
+    },
   };
 }
 
 export async function writeHarborBundleManifest(
   bundlePath = cliBundlePath(),
   outputPath = harborManifestPath(),
+  options: {
+    config?: BenchmarkTruthConfig;
+    profile?: HarborProfileName;
+    model?: string;
+  } = {},
 ): Promise<HarborBundleManifest> {
-  const manifest = await buildHarborBundleManifest(bundlePath);
+  const manifest = await buildHarborBundleManifest(bundlePath, options);
   await writeFile(outputPath, `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;
 }

@@ -20,6 +20,8 @@ describe("classifyToolFailure", () => {
       ["permission", "PermissionDenied"],
       ["timeout", "Timeout"],
       ["aborted", "UserAborted"],
+      ["stale_patch", "StalePatch"],
+      ["ambiguous_edit", "AmbiguousEdit"],
     ];
     for (const [code, category] of cases) {
       expect(classifyToolFailure("run_shell", new ToolError("x", code)).category).toBe(category);

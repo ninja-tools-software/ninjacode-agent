@@ -12,6 +12,7 @@ import type {
 } from "@ninjacode/providers";
 import { Agent } from "./agent.js";
 import { PermissionEngine, defaultPermissionPolicy } from "./permissions.js";
+import { isVolatileContextMessage } from "./volatileContext.js";
 
 interface Script {
   text: string;
@@ -50,7 +51,7 @@ function systemOf(req: CompletionRequest): string {
 }
 
 function volatileMessages(req: CompletionRequest): Message[] {
-  return req.messages.filter((m) => m.content.startsWith("[Workspace state]"));
+  return req.messages.filter(isVolatileContextMessage);
 }
 
 async function runWithScratchpadWrite(scripts: Script[]): Promise<RecordingProvider> {

@@ -1,8 +1,20 @@
 import type { RunReport, TaskResult } from "./types.js";
-import { summarize } from "./report.js";
+import {
+  buildTrajectoryPairs,
+  computeTrialStatistics,
+  summarize,
+  type ConfidenceInterval,
+} from "./report.js";
+import { isInfrastructureFailure } from "./verdict.js";
+
+interface Percentiles {
+  p50: number;
+  p95: number;
+}
 
 interface MetricTotals {
   passRate: number;
+  correctionPassRate: number;
   passed: number;
   total: number;
   inputTokens: number;
@@ -16,6 +28,22 @@ interface MetricTotals {
   toolErrors: number;
   estimatedCostUsd: number;
   wallTimeMs: number;
+  telemetryCoverage: number;
+  infrastructureErrorRate: number;
+  trajectoryCoverage: number;
+  timeToFirstEditMs: Percentiles | undefined;
+  wallTimeDistributionMs: Percentiles;
+  readOnlyTurns: number;
+  rereads: number;
+  errorCategories: Record<string, number>;
+  compactions: number;
+  verifications: number;
+  delegations: number;
+  costPerSuccessUsd: number | undefined;
+  passAt3: number | undefined;
+  passPow3: number | undefined;
+  interTrialVariance: number | undefined;
+  confidence95: ConfidenceInterval;
 }
 
 interface TaskDelta {
@@ -47,9 +75,27 @@ interface CompareResult {
     toolErrors: number;
     estimatedCostUsd: number;
     wallTimeMs: number;
+    timeToFirstEditP50Ms: number | undefined;
+    timeToFirstEditP95Ms: number | undefined;
+    wallTimeP50Ms: number;
+    wallTimeP95Ms: number;
+    readOnlyTurns: number;
+    rereads: number;
+    compactions: number;
+    verifications: number;
+    delegations: number;
+    costPerSuccessUsd: number | undefined;
+    passAt3: number | undefined;
+    passPow3: number | undefined;
+    interTrialVariance: number | undefined;
   };
   perTask: TaskDelta[];
   coverage: ComparisonCoverage;
+  ablation: {
+    baseline?: string;
+    after?: string;
+    changedComponents: string[];
+  };
 }
 
 export interface CompareThresholds {
@@ -57,8 +103,16 @@ export interface CompareThresholds {
   maxPassRateDrop?: number;
   maxCostIncreasePercent?: number;
   maxWallTimeIncreasePercent?: number;
+  maxP95LatencyIncreasePercent?: number;
   maxToolErrorsIncrease?: number;
+  minTelemetryCoverage?: number;
+  maxInfrastructureErrorRate?: number;
+  minPassAt3?: number;
+  minPassPow3?: number;
+  maxInterTrialVariance?: number;
+  minConfidenceLowerBound?: number;
   requireComparable?: boolean;
+  requireSingleAblation?: boolean;
 }
 
 interface GateEvaluation {
@@ -70,14 +124,63 @@ function sumMetric(results: TaskResult[], key: keyof TaskResult["metrics"]): num
   return results.reduce((acc, r) => acc + (Number(r.metrics[key]) || 0), 0);
 }
 
+function numericMetrics(
+  results: TaskResult[],
+  key: keyof TaskResult["metrics"],
+): number[] {
+  return results
+    .map((result) => result.metrics[key])
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+}
+
+function distribution(values: number[]): Percentiles {
+  if (!values.length) return { p50: 0, p95: 0 };
+  const sorted = [...values].sort((a, b) => a - b);
+  return { p50: quantile(sorted, 0.5), p95: quantile(sorted, 0.95) };
+}
+
+function quantile(sorted: number[], percentile: number): number {
+  const index = (sorted.length - 1) * percentile;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower] ?? 0;
+  const weight = index - lower;
+  return (sorted[lower] ?? 0) * (1 - weight) + (sorted[upper] ?? 0) * weight;
+}
+
+function aggregateErrorCategories(results: TaskResult[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const result of results) {
+    for (const [category, count] of Object.entries(result.metrics.errorCategories ?? {})) {
+      counts[category] = (counts[category] ?? 0) + count;
+    }
+  }
+  return counts;
+}
+
+function optionalDifference(
+  baseline: number | undefined,
+  after: number | undefined,
+): number | undefined {
+  return baseline === undefined || after === undefined ? undefined : after - baseline;
+}
+
 export function totals(report: RunReport): MetricTotals {
   const results = report.results;
   const passed = results.filter((r) => r.passed).length;
+  const infrastructureErrors = results.filter((result) =>
+    isInfrastructureFailure(result.failureKind),
+  ).length;
+  const evaluable = results.length - infrastructureErrors;
   const inputTokens = sumMetric(results, "inputTokens");
   const cacheReadTokens = sumMetric(results, "cacheReadTokens");
   const denom = cacheReadTokens + inputTokens;
+  const trialStatistics = computeTrialStatistics(results);
+  const firstEditTimes = numericMetrics(results, "timeToFirstEditMs");
+  const totalCost = sumMetric(results, "estimatedCostUsd");
   return {
     passRate: results.length ? passed / results.length : 0,
+    correctionPassRate: evaluable ? passed / evaluable : 0,
     passed,
     total: results.length,
     inputTokens,
@@ -88,8 +191,31 @@ export function totals(report: RunReport): MetricTotals {
     turns: sumMetric(results, "turns"),
     toolCalls: sumMetric(results, "toolCalls"),
     toolErrors: sumMetric(results, "toolErrors"),
-    estimatedCostUsd: sumMetric(results, "estimatedCostUsd"),
+    estimatedCostUsd: totalCost,
     wallTimeMs: sumMetric(results, "wallTimeMs"),
+    telemetryCoverage: results.length
+      ? results.filter((result) => result.metrics.telemetryAvailable === true).length /
+        results.length
+      : 0,
+    infrastructureErrorRate: results.length
+      ? infrastructureErrors / results.length
+      : 0,
+    trajectoryCoverage: results.length
+      ? results.filter((result) => result.metrics.trajectoryAvailable === true).length / results.length
+      : 0,
+    timeToFirstEditMs: firstEditTimes.length ? distribution(firstEditTimes) : undefined,
+    wallTimeDistributionMs: distribution(results.map((result) => result.metrics.wallTimeMs)),
+    readOnlyTurns: sumMetric(results, "readOnlyTurns"),
+    rereads: sumMetric(results, "rereads"),
+    errorCategories: aggregateErrorCategories(results),
+    compactions: sumMetric(results, "compactions"),
+    verifications: sumMetric(results, "verifications"),
+    delegations: sumMetric(results, "delegations"),
+    costPerSuccessUsd: passed > 0 ? totalCost / passed : undefined,
+    passAt3: trialStatistics.passAt3,
+    passPow3: trialStatistics.passPow3,
+    interTrialVariance: trialStatistics.interTrialVariance,
+    confidence95: trialStatistics.confidence95,
   };
 }
 
@@ -178,10 +304,37 @@ export function compareReports(baseline: RunReport, after: RunReport): CompareRe
       toolErrors: a.toolErrors - b.toolErrors,
       estimatedCostUsd: a.estimatedCostUsd - b.estimatedCostUsd,
       wallTimeMs: a.wallTimeMs - b.wallTimeMs,
+      timeToFirstEditP50Ms: optionalDifference(b.timeToFirstEditMs?.p50, a.timeToFirstEditMs?.p50),
+      timeToFirstEditP95Ms: optionalDifference(b.timeToFirstEditMs?.p95, a.timeToFirstEditMs?.p95),
+      wallTimeP50Ms: a.wallTimeDistributionMs.p50 - b.wallTimeDistributionMs.p50,
+      wallTimeP95Ms: a.wallTimeDistributionMs.p95 - b.wallTimeDistributionMs.p95,
+      readOnlyTurns: a.readOnlyTurns - b.readOnlyTurns,
+      rereads: a.rereads - b.rereads,
+      compactions: a.compactions - b.compactions,
+      verifications: a.verifications - b.verifications,
+      delegations: a.delegations - b.delegations,
+      costPerSuccessUsd: optionalDifference(b.costPerSuccessUsd, a.costPerSuccessUsd),
+      passAt3: optionalDifference(b.passAt3, a.passAt3),
+      passPow3: optionalDifference(b.passPow3, a.passPow3),
+      interTrialVariance: optionalDifference(b.interTrialVariance, a.interTrialVariance),
     },
     perTask,
     coverage: comparisonCoverage(baseline, after),
+    ablation: {
+      baseline: baseline.manifest?.ablation?.name,
+      after: after.manifest?.ablation?.name,
+      changedComponents: changedAblationComponents(baseline, after),
+    },
   };
+}
+
+function changedAblationComponents(baseline: RunReport, after: RunReport): string[] {
+  const before = baseline.manifest?.ablation?.components;
+  const current = after.manifest?.ablation?.components;
+  if (!before || !current) return [];
+  return [...new Set([...Object.keys(before), ...Object.keys(current)])]
+    .filter((component) => before[component] !== current[component])
+    .sort();
 }
 
 function percentIncrease(after: number, baseline: number): number {
@@ -205,6 +358,64 @@ export function evaluateCompareGates(
     failures.push(
       `pass rate ${(comparison.after.passRate * 100).toFixed(1)}% is below ` +
         `${(thresholds.minPassRate * 100).toFixed(1)}%`,
+    );
+  }
+  if (thresholds.minPassAt3 !== undefined) {
+    if (comparison.after.passAt3 === undefined) {
+      failures.push("pass@3 is unavailable (three trials per task are required)");
+    } else if (comparison.after.passAt3 < thresholds.minPassAt3) {
+      failures.push(
+        `pass@3 ${(comparison.after.passAt3 * 100).toFixed(1)}% is below ` +
+          `${(thresholds.minPassAt3 * 100).toFixed(1)}%`,
+      );
+    }
+  }
+  if (thresholds.minPassPow3 !== undefined) {
+    if (comparison.after.passPow3 === undefined) {
+      failures.push("pass^3 is unavailable (three trials per task are required)");
+    } else if (comparison.after.passPow3 < thresholds.minPassPow3) {
+      failures.push(
+        `pass^3 ${(comparison.after.passPow3 * 100).toFixed(1)}% is below ` +
+          `${(thresholds.minPassPow3 * 100).toFixed(1)}%`,
+      );
+    }
+  }
+  if (thresholds.maxInterTrialVariance !== undefined) {
+    if (comparison.after.interTrialVariance === undefined) {
+      failures.push("inter-trial variance is unavailable (multiple trials are required)");
+    } else if (comparison.after.interTrialVariance > thresholds.maxInterTrialVariance) {
+      failures.push(
+        `inter-trial variance ${comparison.after.interTrialVariance.toFixed(4)} exceeds ` +
+          thresholds.maxInterTrialVariance.toFixed(4),
+      );
+    }
+  }
+  if (
+    thresholds.minConfidenceLowerBound !== undefined &&
+    comparison.after.confidence95.lower < thresholds.minConfidenceLowerBound
+  ) {
+    failures.push(
+      `95% confidence lower bound ${(comparison.after.confidence95.lower * 100).toFixed(1)}% is below ` +
+        `${(thresholds.minConfidenceLowerBound * 100).toFixed(1)}%`,
+    );
+  }
+  if (
+    thresholds.minTelemetryCoverage !== undefined &&
+    comparison.after.telemetryCoverage < thresholds.minTelemetryCoverage
+  ) {
+    failures.push(
+      `telemetry coverage ${(comparison.after.telemetryCoverage * 100).toFixed(1)}% is below ` +
+        `${(thresholds.minTelemetryCoverage * 100).toFixed(1)}%`,
+    );
+  }
+  if (
+    thresholds.maxInfrastructureErrorRate !== undefined &&
+    comparison.after.infrastructureErrorRate >
+      thresholds.maxInfrastructureErrorRate
+  ) {
+    failures.push(
+      `infrastructure error rate ${(comparison.after.infrastructureErrorRate * 100).toFixed(1)}% exceeds ` +
+        `${(thresholds.maxInfrastructureErrorRate * 100).toFixed(1)}%`,
     );
   }
   if (
@@ -239,6 +450,28 @@ export function evaluateCompareGates(
         `(limit ${thresholds.maxWallTimeIncreasePercent.toFixed(1)}%)`,
     );
   }
+  const p95Increase = percentIncrease(
+    comparison.after.wallTimeDistributionMs.p95,
+    comparison.baseline.wallTimeDistributionMs.p95,
+  );
+  if (
+    thresholds.maxP95LatencyIncreasePercent !== undefined &&
+    p95Increase > thresholds.maxP95LatencyIncreasePercent
+  ) {
+    failures.push(
+      `p95 latency increased ${p95Increase.toFixed(1)}% ` +
+        `(limit ${thresholds.maxP95LatencyIncreasePercent.toFixed(1)}%)`,
+    );
+  }
+  if (
+    thresholds.requireSingleAblation &&
+    comparison.ablation.changedComponents.length !== 1
+  ) {
+    failures.push(
+      `expected exactly one changed ablation component; found ` +
+        `${comparison.ablation.changedComponents.length}`,
+    );
+  }
   if (
     thresholds.maxToolErrorsIncrease !== undefined &&
     comparison.deltas.toolErrors > thresholds.maxToolErrorsIncrease
@@ -253,6 +486,45 @@ export function evaluateCompareGates(
 
 function fmtPct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
+}
+
+function fmtOptionalPct(value: number | undefined): string {
+  return value === undefined ? "—" : fmtPct(value);
+}
+
+function fmtOptionalRateDelta(value: number | undefined): string {
+  return value === undefined ? "—" : fmtDelta(value * 100, "%");
+}
+
+function fmtOptionalNumber(value: number | undefined, digits: number): string {
+  if (value === undefined) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(digits)}`;
+}
+
+function fmtConfidence(value: ConfidenceInterval): string {
+  return `${fmtPct(value.lower)}–${fmtPct(value.upper)}`;
+}
+
+function fmtDistribution(value: Percentiles | undefined): string {
+  return value ? `${(value.p50 / 1000).toFixed(1)}s / ${(value.p95 / 1000).toFixed(1)}s` : "—";
+}
+
+function fmtOptionalMilliseconds(value: number | undefined): string {
+  return value === undefined ? "—" : fmtDelta(value / 1000, "s");
+}
+
+function fmtOptionalCost(value: number | undefined): string {
+  return value === undefined ? "—" : `$${value.toFixed(4)}`;
+}
+
+function fmtOptionalCostDelta(value: number | undefined): string {
+  return value === undefined ? "—" : fmtDelta(value, "$");
+}
+
+function fmtCategories(categories: Record<string, number>): string {
+  const entries = Object.entries(categories).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return entries.length ? entries.map(([category, count]) => `${category}: ${count}`).join(", ") : "—";
 }
 
 function fmtDelta(n: number, unit = ""): string {
@@ -305,6 +577,20 @@ function appendAgentSummary(lines: string[], baseline: RunReport, after: RunRepo
   lines.push("");
 }
 
+function appendPairComparison(lines: string[], baseline: RunReport, after: RunReport): void {
+  const baselinePairs = buildTrajectoryPairs(baseline);
+  const afterPairs = buildTrajectoryPairs(after);
+  lines.push("## Success/failure trajectory pairs", "");
+  lines.push(`- Baseline: ${baselinePairs.length} paired task/model contrast(s)`);
+  lines.push(`- After: ${afterPairs.length} paired task/model contrast(s)`);
+  const actionable = afterPairs
+    .filter((pair) => pair.insights.length)
+    .slice(0, 10)
+    .map((pair) => `${pair.model}/${pair.taskId}: ${pair.insights.join("; ")}`);
+  if (actionable.length) lines.push(...actionable.map((line) => `- ${line}`));
+  lines.push("");
+}
+
 export function compareToMarkdown(baseline: RunReport, after: RunReport): string {
   const c = compareReports(baseline, after);
   const lines: string[] = [];
@@ -312,6 +598,13 @@ export function compareToMarkdown(baseline: RunReport, after: RunReport): string
   lines.push("");
   lines.push(`- Baseline: ${baseline.startedAt}${baseline.gitCommit ? ` (\`${baseline.gitCommit}\`)` : ""}`);
   lines.push(`- After: ${after.startedAt}${after.gitCommit ? ` (\`${after.gitCommit}\`)` : ""}`);
+  if (c.ablation.baseline || c.ablation.after) {
+    lines.push(
+      `- Ablation: ${c.ablation.baseline ?? "unspecified"} → ` +
+        `${c.ablation.after ?? "unspecified"}; changed: ` +
+        `${c.ablation.changedComponents.join(", ") || "none"}`,
+    );
+  }
   appendCoverageWarning(lines, c.coverage);
   lines.push("");
   lines.push("## Overall");
@@ -322,6 +615,39 @@ export function compareToMarkdown(baseline: RunReport, after: RunReport): string
     `| Pass rate | ${fmtPct(c.baseline.passRate)} (${c.baseline.passed}/${c.baseline.total}) | ` +
       `${fmtPct(c.after.passRate)} (${c.after.passed}/${c.after.total}) | ` +
       `${arrow(c.deltas.passRate)} ${fmtDelta(c.deltas.passRate * 100, "%")} |`,
+  );
+  lines.push(
+    `| Correction pass rate | ${fmtPct(c.baseline.correctionPassRate)} | ` +
+      `${fmtPct(c.after.correctionPassRate)} | — |`,
+  );
+  lines.push(
+    `| pass@3 | ${fmtOptionalPct(c.baseline.passAt3)} | ${fmtOptionalPct(c.after.passAt3)} | ` +
+      `${fmtOptionalRateDelta(c.deltas.passAt3)} |`,
+  );
+  lines.push(
+    `| pass^3 | ${fmtOptionalPct(c.baseline.passPow3)} | ${fmtOptionalPct(c.after.passPow3)} | ` +
+      `${fmtOptionalRateDelta(c.deltas.passPow3)} |`,
+  );
+  lines.push(
+    `| Inter-trial variance | ${fmtOptionalNumber(c.baseline.interTrialVariance, 4)} | ` +
+      `${fmtOptionalNumber(c.after.interTrialVariance, 4)} | ` +
+      `${fmtOptionalNumber(c.deltas.interTrialVariance, 4)} |`,
+  );
+  lines.push(
+    `| Pass rate 95% CI | ${fmtConfidence(c.baseline.confidence95)} | ` +
+      `${fmtConfidence(c.after.confidence95)} | — |`,
+  );
+  lines.push(
+    `| Telemetry coverage | ${fmtPct(c.baseline.telemetryCoverage)} | ` +
+      `${fmtPct(c.after.telemetryCoverage)} | — |`,
+  );
+  lines.push(
+    `| Trajectory coverage | ${fmtPct(c.baseline.trajectoryCoverage)} | ` +
+      `${fmtPct(c.after.trajectoryCoverage)} | — |`,
+  );
+  lines.push(
+    `| Infrastructure errors | ${fmtPct(c.baseline.infrastructureErrorRate)} | ` +
+      `${fmtPct(c.after.infrastructureErrorRate)} | — |`,
   );
   lines.push(
     `| Input tokens | ${c.baseline.inputTokens} | ${c.after.inputTokens} | ${arrow(-c.deltas.inputTokens)} ${fmtDelta(c.deltas.inputTokens)} |`,
@@ -338,10 +664,39 @@ export function compareToMarkdown(baseline: RunReport, after: RunReport): string
   lines.push(`| Cache read rate | ${bCache} | ${aCache} | ${dCache} |`);
   lines.push(`| Turns | ${c.baseline.turns} | ${c.after.turns} | ${fmtDelta(c.deltas.turns)} |`);
   lines.push(
+    `| First edit p50/p95 | ${fmtDistribution(c.baseline.timeToFirstEditMs)} | ` +
+      `${fmtDistribution(c.after.timeToFirstEditMs)} | ` +
+      `${fmtOptionalMilliseconds(c.deltas.timeToFirstEditP50Ms)} / ` +
+      `${fmtOptionalMilliseconds(c.deltas.timeToFirstEditP95Ms)} |`,
+  );
+  lines.push(
+    `| Wall time p50/p95 | ${fmtDistribution(c.baseline.wallTimeDistributionMs)} | ` +
+      `${fmtDistribution(c.after.wallTimeDistributionMs)} | ` +
+      `${fmtDelta(c.deltas.wallTimeP50Ms / 1000, "s")} / ${fmtDelta(c.deltas.wallTimeP95Ms / 1000, "s")} |`,
+  );
+  lines.push(
+    `| Read-only turns / rereads | ${c.baseline.readOnlyTurns} / ${c.baseline.rereads} | ` +
+      `${c.after.readOnlyTurns} / ${c.after.rereads} | ` +
+      `${fmtDelta(c.deltas.readOnlyTurns)} / ${fmtDelta(c.deltas.rereads)} |`,
+  );
+  lines.push(
+    `| Compactions / verifications / delegations | ${c.baseline.compactions} / ${c.baseline.verifications} / ${c.baseline.delegations} | ` +
+      `${c.after.compactions} / ${c.after.verifications} / ${c.after.delegations} | ` +
+      `${fmtDelta(c.deltas.compactions)} / ${fmtDelta(c.deltas.verifications)} / ${fmtDelta(c.deltas.delegations)} |`,
+  );
+  lines.push(
     `| Tool errors | ${c.baseline.toolErrors} | ${c.after.toolErrors} | ${arrow(-c.deltas.toolErrors)} ${fmtDelta(c.deltas.toolErrors)} |`,
   );
   lines.push(
     `| Cost | $${c.baseline.estimatedCostUsd.toFixed(4)} | $${c.after.estimatedCostUsd.toFixed(4)} | ${arrow(-c.deltas.estimatedCostUsd)} ${fmtDelta(c.deltas.estimatedCostUsd, "$")} |`,
+  );
+  lines.push(
+    `| Cost per success | ${fmtOptionalCost(c.baseline.costPerSuccessUsd)} | ` +
+      `${fmtOptionalCost(c.after.costPerSuccessUsd)} | ${fmtOptionalCostDelta(c.deltas.costPerSuccessUsd)} |`,
+  );
+  lines.push(
+    `| Error categories | ${fmtCategories(c.baseline.errorCategories)} | ` +
+      `${fmtCategories(c.after.errorCategories)} | — |`,
   );
   lines.push(
     `| Wall time (sum) | ${(c.baseline.wallTimeMs / 1000).toFixed(1)}s | ${(c.after.wallTimeMs / 1000).toFixed(1)}s | ${fmtDelta(c.deltas.wallTimeMs / 1000, "s")} |`,
@@ -358,6 +713,7 @@ export function compareToMarkdown(baseline: RunReport, after: RunReport): string
     );
   }
   lines.push("");
+  appendPairComparison(lines, baseline, after);
   appendAgentSummary(lines, baseline, after);
   return lines.join("\n");
 }

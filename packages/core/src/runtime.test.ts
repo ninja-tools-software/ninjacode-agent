@@ -71,16 +71,17 @@ describe("buildAgentRuntime", () => {
 });
 
 describe("isParallelizableBatch", () => {
-  it("allows mixing reads with todo_write and distinct-file edits", async () => {
+  it("allows only audited independent reads and searches", async () => {
     const { createDefaultToolRegistry } = await import("@ninjacode/tools");
-    const { isParallelizableBatch } = await import("./toolPipelineHelpers.js");
+    const { isParallelizableBatch, toolExecutionBatches } =
+      await import("./toolPipelineHelpers.js");
     const tools = createDefaultToolRegistry();
 
     expect(
       isParallelizableBatch(tools, [
         { id: "1", name: "read_file", arguments: { path: "a.ts" } },
-        { id: "2", name: "todo_write", arguments: { todos: [] } },
-        { id: "3", name: "grep", arguments: { pattern: "x" } },
+        { id: "2", name: "read_file", arguments: { path: "b.ts" } },
+        { id: "3", name: "grep", arguments: { pattern: "x", path: "src" } },
       ]),
     ).toBe(true);
 
@@ -89,20 +90,24 @@ describe("isParallelizableBatch", () => {
         { id: "1", name: "edit_file", arguments: { path: "a.ts", old_string: "a", new_string: "b" } },
         { id: "2", name: "edit_file", arguments: { path: "b.ts", old_string: "a", new_string: "b" } },
       ]),
-    ).toBe(true);
-
-    expect(
-      isParallelizableBatch(tools, [
-        { id: "1", name: "edit_file", arguments: { path: "a.ts", old_string: "a", new_string: "b" } },
-        { id: "2", name: "edit_file", arguments: { path: "a.ts", old_string: "c", new_string: "d" } },
-      ]),
     ).toBe(false);
 
     expect(
       isParallelizableBatch(tools, [
-        { id: "1", name: "read_file", arguments: { path: "a.ts" } },
-        { id: "2", name: "run_shell", arguments: { command: "ls" } },
+        { id: "1", name: "read_file", arguments: { path: "./a.ts" } },
+        { id: "2", name: "read_file", arguments: { path: "a.ts" } },
       ]),
     ).toBe(false);
+
+    const calls = [
+      { id: "1", name: "read_file", arguments: { path: "a.ts" } },
+      { id: "2", name: "grep", arguments: { pattern: "x" } },
+      { id: "3", name: "run_shell", arguments: { command: "ls" } },
+      { id: "4", name: "read_file", arguments: { path: "b.ts" } },
+      { id: "5", name: "read_file", arguments: { path: "c.ts" } },
+    ];
+    expect(toolExecutionBatches(tools, calls, true).map((batch) => batch.map((call) => call.id)))
+      .toEqual([["1", "2"], ["3"], ["4", "5"]]);
+    expect(toolExecutionBatches(tools, calls, false)).toHaveLength(calls.length);
   });
 });

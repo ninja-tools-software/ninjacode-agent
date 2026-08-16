@@ -12,6 +12,16 @@ on:
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
+    inputs:
+      benchmark_profile:
+        description: "Plan or execute a benchmark profile"
+        type: choice
+        default: none
+        options: [none, quick, smoke, subset, full, publish]
+      execute_live:
+        description: "Actually execute the selected live profile"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,7 +39,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.17.1
           cache: pnpm
 
       - name: Install
@@ -61,7 +71,11 @@ jobs:
           path: runs/harness/
 
   bench-live:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.benchmark_profile == 'quick' &&
+       inputs.execute_live)
     runs-on: ubuntu-latest
     env:
       BENCH_MIN_PASS_RATE: ${{ vars.BENCH_MIN_PASS_RATE || '0' }}
@@ -69,6 +83,8 @@ jobs:
       BENCH_MAX_COST_INCREASE_PCT: ${{ vars.BENCH_MAX_COST_INCREASE_PCT || '25' }}
       BENCH_MAX_WALL_TIME_INCREASE_PCT: ${{ vars.BENCH_MAX_WALL_TIME_INCREASE_PCT || '30' }}
       BENCH_MAX_TOOL_ERRORS_INCREASE: ${{ vars.BENCH_MAX_TOOL_ERRORS_INCREASE || '0' }}
+      BENCH_MIN_TELEMETRY_COVERAGE: ${{ vars.BENCH_MIN_TELEMETRY_COVERAGE || '0.95' }}
+      BENCH_MAX_INFRA_ERROR_RATE: ${{ vars.BENCH_MAX_INFRA_ERROR_RATE || '0.05' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -76,7 +92,7 @@ jobs:
           version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.17.1
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -133,5 +149,51 @@ jobs:
           path: |
             runs/confirm/
             runs/compare.md
+          if-no-files-found: warn
+          retention-days: 90
+
+  harbor-profile:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      contains(fromJSON('["smoke","subset","full","publish"]'), inputs.benchmark_profile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.17.1
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Print pinned no-cost plan
+        run: pnpm "bench:harbor:plan:${{ inputs.benchmark_profile }}"
+      - name: Require explicit live credentials
+        if: inputs.execute_live
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+        run: test -n "$XAI_API_KEY"
+      - name: Install pinned Harbor
+        if: inputs.execute_live
+        run: pipx install harbor==0.21.0
+      - name: Execute selected Harbor profile
+        if: inputs.execute_live
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+        run: pnpm "bench:harbor:${{ inputs.benchmark_profile }}"
+      - name: Audit Harbor result
+        if: inputs.execute_live
+        run: >-
+          node apps/bench/dist/index.js harbor audit
+          "runs/harbor/${{ inputs.benchmark_profile }}"
+          --profile "${{ inputs.benchmark_profile }}"
+          --output "runs/harbor/${{ inputs.benchmark_profile }}/truth.md"
+      - name: Upload Harbor truth artifact
+        if: always() && inputs.execute_live
+        uses: actions/upload-artifact@v4
+        with:
+          name: "ninjabench-harbor-${{ inputs.benchmark_profile }}"
+          path: "runs/harbor/${{ inputs.benchmark_profile }}/"
           if-no-files-found: warn
           retention-days: 90

@@ -453,7 +453,9 @@ describe("lossless compaction pipeline", () => {
         role: "tool",
         name: "read_file",
         toolCallId: `read_${i}`,
-        content: `output ${i} `.repeat(100),
+        content:
+          `output ${i} `.repeat(100) +
+          `\n[archived as artifact ${String(i).padStart(64, "0")}]`,
       },
     ]).flat();
   }

@@ -6,6 +6,7 @@ import type {
   StreamSink,
   ToolSpec,
 } from "@ninjacode/providers";
+import path from "node:path";
 import { gatewayErrorInfo } from "@ninjacode/providers";
 import { toolOutputLimit, truncateToolOutput } from "./context.js";
 import { buildContextView } from "./contextViewBuilder.js";
@@ -15,7 +16,11 @@ import {
   recordTokenCalibration,
   tokenCalibrationMultiplier,
 } from "./contextEstimate.js";
-import { buildVolatileContextMessage, volatileContextChanged } from "./volatileContext.js";
+import {
+  buildVolatileContextDelta,
+  buildVolatileContextMessage,
+  volatileContextChanged,
+} from "./volatileContext.js";
 import type { AgentTurnDeps } from "./agentTurnTypes.js";
 import { startSpan } from "./telemetry.js";
 import { isRetryableLlmError, isRetryWrappedProvider } from "./reliability.js";
@@ -84,8 +89,11 @@ export async function syncVolatileContext(deps: AgentTurnDeps): Promise<void> {
   const next = { scratchpad: await deps.readScratchpad(), plan: await deps.readActivePlan() };
   if (!volatileContextChanged(state.volatileContext, next)) return;
 
+  const previous = state.volatileContext;
   state.volatileContext = next;
-  const message = buildVolatileContextMessage(next);
+  const message = deps.minimalVolatileContext
+    ? buildVolatileContextDelta(previous, next)
+    : buildVolatileContextMessage(next);
   if (message) state.history.push(message);
 }
 
@@ -102,7 +110,7 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
   const { messages: compacted, changed } = await buildContextView({
     history: state.history,
     workspaceRoot: deps.workspaceRoot,
-    activeFiles: activeFilesForContext(deps),
+    activeFiles: await activeFilesForContext(deps),
     pinnedTask: deps.pinnedTask,
     provider: deps.provider,
     model: deps.utilityModel ?? deps.model,
@@ -145,14 +153,22 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
   return [{ role: "system", content: state.system }, ...compacted];
 }
 
-function activeFilesForContext(deps: AgentTurnDeps): string[] {
-  const files = new Set(deps.modifiedFiles);
+export async function activeFilesForContext(deps: AgentTurnDeps): Promise<string[]> {
+  const files = new Set<string>();
   const add = (value: unknown): void => {
-    if (typeof value === "string" && value.trim()) files.add(value);
+    if (typeof value === "string") {
+      const normalized = normalizeActiveFile(deps.workspaceRoot, value);
+      if (normalized) files.add(normalized);
+    }
     if (Array.isArray(value)) {
-      for (const item of value) if (typeof item === "string" && item.trim()) files.add(item);
+      for (const item of value) add(item);
     }
   };
+  add([...deps.modifiedFiles]);
+  for (const message of deps.state.history) {
+    if (message.role !== "user") continue;
+    add(mentionedPaths(message.content));
+  }
   for (const turn of deps.state.turns) {
     for (const invocation of turn.toolInvocations) {
       add(invocation.toolCall.arguments.path);
@@ -161,7 +177,48 @@ function activeFilesForContext(deps: AgentTurnDeps): string[] {
       add(invocation.meta?.paths);
     }
   }
+  try {
+    add(await deps.activeFilesProvider?.());
+  } catch {
+    // Host context is advisory; a closed editor or non-git folder is harmless.
+  }
   return [...files];
+}
+
+function mentionedPaths(content: string): string[] {
+  const paths: string[] = [];
+  const pattern =
+    /(?:@|`)([^`\s]+)|(?:^|\s|\(|"|'|\[)((?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9_-]+)/gmu;
+  for (const match of content.matchAll(pattern)) {
+    const value = match[1] ?? match[2];
+    if (value) paths.push(value);
+  }
+  return paths;
+}
+
+function normalizeActiveFile(workspaceRoot: string, value: string): string | undefined {
+  let candidate = value
+    .trim()
+    .replace(/^file:\/\//u, "")
+    .replace(/[),.;'"\]}]+$/u, "")
+    .replace(/:\d+(?::\d+)?(?:-\d+)?$/u, "");
+  if (!candidate) return undefined;
+  if (path.isAbsolute(candidate)) {
+    const relative = path.relative(workspaceRoot, candidate);
+    if (relative === ".." || relative.startsWith(`..${path.sep}`)) return undefined;
+    candidate = relative;
+  }
+  candidate = candidate.replace(/^\.\//u, "").replace(/\\/g, "/");
+  if (
+    !candidate ||
+    candidate === ".." ||
+    candidate.startsWith("../") ||
+    candidate.includes("\0") ||
+    !candidate.includes(".")
+  ) {
+    return undefined;
+  }
+  return candidate;
 }
 
 async function enforceContextBudget(

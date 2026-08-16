@@ -40,6 +40,13 @@ describe("Harbor bundle manifest", () => {
       bundleBytes: 6,
       minimumNodeMajor: 20,
       preferredNodeVersion: "22.17.1",
+      harborVersion: "0.21.0",
+      model: "xai/grok-4.6",
+      reasoningEffort: "high",
+      cliRunTimeoutMs: 840000,
+      profile: "smoke",
+      expectedTasks: 1,
+      attempts: 1,
     });
     expect(manifest.bundleSha256).toMatch(/^[a-f0-9]{64}$/);
   });

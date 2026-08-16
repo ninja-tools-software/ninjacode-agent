@@ -1,6 +1,13 @@
 import type { Completion, Message } from "@ninjacode/providers";
 import { annotateListDir, annotateReadFile } from "./toolAnnotations.js";
 import type { AgentTurnDeps } from "./agentTurnTypes.js";
+import {
+  enterVerificationPhase,
+  recordVerificationFailure,
+  type PhaseTransition,
+} from "./phasePolicy.js";
+import type { IndependentVerifierVerdict } from "./agentSupport.js";
+import type { VerificationResult } from "./verify.js";
 
 type AgentTurnOutcome =
   | { kind: "continue" }
@@ -75,12 +82,29 @@ async function handleVerificationFailure(
   messages: string[],
 ): Promise<AgentTurnOutcome> {
   const { state } = deps;
+  if (state.phasePolicy) {
+    const decision = recordVerificationFailure(
+      state.phasePolicy,
+      deps.turn + 1,
+      "completion_verification_failed",
+    );
+    await emitPhaseTransition(deps, decision.transition);
+    if (!decision.retry) {
+      return failAfterAdaptiveVerification(deps, completion, decision.terminalFailure!);
+    }
+  } else if (state.verificationRetries >= 2) {
+    return failAfterAdaptiveVerification(
+      deps,
+      completion,
+      "Verification failed again after two correction-verification cycles.",
+    );
+  }
   state.verificationRetries += 1;
   state.history.push({ role: "assistant", content: completion.text });
   state.history.push({
     role: "user",
     content:
-      `[System] Verification failed before completion (attempt ${state.verificationRetries}/3):\n` +
+      `[System] Verification failed before completion (correction cycle ${state.verificationRetries}/2):\n` +
       `${messages.join("\n\n")}\n\nFix the issues and verify before finishing.`,
   });
   await deps.emit("status", { text: "Completion blocked — verification failed" });
@@ -88,20 +112,23 @@ async function handleVerificationFailure(
   return { kind: "continue" };
 }
 
-async function handleSubAgentReview(
-  deps: AgentTurnDeps,
-  completion: Completion,
-  review: string,
-): Promise<AgentTurnOutcome> {
-  const { state } = deps;
-  state.verificationRetries += 1;
-  state.history.push({ role: "assistant", content: completion.text });
-  state.history.push({
-    role: "user",
-    content: `[Verification sub-agent] ${review}\n\nAddress these findings before finishing.`,
+function emptyLocalVerification(): VerificationResult {
+  return {
+    ok: true,
+    messages: [],
+    diagnostics: { checked: false, entries: [] },
+    commands: [],
+    ambiguous: true,
+  };
+}
+
+function verdictMessages(verdict: IndependentVerifierVerdict): string[] {
+  const issues = verdict.issues.map((issue) => {
+    const evidence = issue.evidence.length > 0 ? ` Evidence: ${issue.evidence.join("; ")}` : "";
+    return `[${issue.severity}] ${issue.summary}${evidence}`;
   });
-  await deps.persist();
-  return { kind: "continue" };
+  const missingTests = verdict.missingTests.map((test) => `Missing test: ${test}`);
+  return [...issues, ...missingTests];
 }
 
 async function finalizeCompletion(
@@ -146,27 +173,89 @@ export async function handleCompletionWithoutTools(
     return handleMaxTokensTruncation(deps, completion);
   }
 
+  if (state.phasePolicy) {
+    await emitPhaseTransition(
+      deps,
+      enterVerificationPhase(state.phasePolicy, deps.turn + 1, "completion"),
+    );
+  }
+
   const stopHooks = await deps.runHooks("Stop", {});
   const blocked = stopHooks.find((r) => r.blocked);
   if (blocked && state.stopHookRetries < 3) {
     return handleStopHookBlock(deps, completion, blocked);
   }
 
-  if (deps.enableCompletionVerification && deps.modifiedFiles.size > 0) {
-    const verification = await deps.runCompletionVerification(deps.verifyConfig);
-    if (!verification.ok && state.verificationRetries < 3) {
-      return handleVerificationFailure(deps, completion, verification.messages);
-    }
-  }
-
-  if (deps.enableVerificationSubAgent && deps.modifiedFiles.size > 0) {
-    const review = await deps.runVerificationSubAgent(completion.text);
-    if (review && state.verificationRetries < 2) {
-      return handleSubAgentReview(deps, completion, review);
+  if (deps.modifiedFiles.size > 0) {
+    const startedAt = Date.now();
+    await deps.emit("verification_start", {
+      mode: deps.verificationMode,
+      cycle: state.verificationRetries,
+      modifiedFileCount: deps.modifiedFiles.size,
+    });
+    const verification = deps.enableCompletionVerification
+      ? await deps.runCompletionVerification(deps.verifyConfig)
+      : emptyLocalVerification();
+    const independent = deps.enableVerificationSubAgent
+      ? await deps.runVerificationSubAgent(verification)
+      : undefined;
+    const verdict = independent?.verdict;
+    const messages = [
+      ...verification.messages,
+      ...(verdict && !verdict.lgtm ? verdictMessages(verdict) : []),
+    ];
+    await deps.emit("verification_end", {
+      mode: deps.verificationMode,
+      cycle: state.verificationRetries,
+      localOk: verification.ok,
+      localAmbiguous: verification.ambiguous,
+      verifierInvoked: independent?.invoked ?? false,
+      trigger: independent?.trigger,
+      verifierCostUsd: independent?.costUsd,
+      lgtm: verdict?.lgtm,
+      confidence: verdict?.confidence,
+      durationMs: Date.now() - startedAt,
+      success: messages.length === 0,
+    });
+    if (messages.length > 0) {
+      return handleVerificationFailure(deps, completion, messages);
     }
   }
 
   return finalizeCompletion(deps, completion);
+}
+
+async function failAfterAdaptiveVerification(
+  deps: AgentTurnDeps,
+  completion: Completion,
+  message: string,
+): Promise<AgentTurnOutcome> {
+  deps.state.history.push({ role: "assistant", content: completion.text });
+  await deps.emit("error", {
+    message,
+    category: "verification_recovery_exhausted",
+  });
+  await deps.persist();
+  await deps.setState("failed");
+  return { kind: "failed", message };
+}
+
+async function emitPhaseTransition(
+  deps: AgentTurnDeps,
+  transition: PhaseTransition | undefined,
+): Promise<void> {
+  const policy = deps.state.phasePolicy;
+  if (!policy || !transition) return;
+  await deps.emit("phase_change", {
+    from: transition.from,
+    phase: transition.to,
+    turn: transition.turn,
+    reason: transition.reason,
+    complexity: policy.complexity,
+    explorationBudget: policy.explorationBudget,
+    mutationCount: policy.mutationCount,
+    recoveryCycles: policy.recoveryCycles,
+  });
 }
 
 /** Recent calls examined for repetition — roughly the last few turns. */

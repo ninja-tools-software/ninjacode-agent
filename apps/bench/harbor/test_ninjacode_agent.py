@@ -65,10 +65,14 @@ class HarborAdapterTests(unittest.TestCase):
             bundle.write_bytes(b"bundle")
             digest = __import__("hashlib").sha256(b"bundle").hexdigest()
             manifest = {
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "adapterVersion": "1.0.0",
                 "cliVersion": "0.1.0",
                 "gitCommit": "abc",
+                "harborVersion": "0.21.0",
+                "model": "xai/grok-4.6",
+                "reasoningEffort": "high",
+                "cliRunTimeoutMs": 840000,
                 "bundleSha256": digest,
                 "minimumNodeMajor": 20,
                 "preferredNodeVersion": "22.17.1",
@@ -91,6 +95,8 @@ class HarborAdapterTests(unittest.TestCase):
     def test_maps_cli_telemetry_to_harbor_context(self) -> None:
         telemetry = {
             "schemaVersion": 1,
+            "status": "completed",
+            "telemetryComplete": True,
             "completed": True,
             "sessionId": "session-1",
             "inputTokens": 100,
@@ -123,6 +129,19 @@ class HarborAdapterTests(unittest.TestCase):
         self.assertEqual(context.n_output_tokens, 50)
         self.assertEqual(context.metadata["tool_errors"], 1)
         self.assertTrue(context.metadata["telemetry_available"])
+        self.assertTrue(context.metadata["telemetry_complete"])
+
+    def test_invalid_telemetry_is_never_marked_available(self) -> None:
+        class Environment:
+            async def exec(self, **_kwargs):
+                return SimpleNamespace(return_code=0, stdout="{invalid")
+
+        context = SimpleNamespace(metadata=None)
+        agent = object.__new__(ADAPTER.NinjaCodeAgent)
+        agent._manifest = {}
+        asyncio.run(agent._collect_telemetry(Environment(), context))
+        self.assertFalse(context.metadata["telemetry_available"])
+        self.assertEqual(context.metadata["telemetry_error"], "invalid_json")
 
 
 if __name__ == "__main__":

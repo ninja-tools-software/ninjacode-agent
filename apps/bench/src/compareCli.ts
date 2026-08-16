@@ -16,7 +16,14 @@ const VALUE_FLAGS = new Set([
   "--max-pass-rate-drop",
   "--max-cost-increase-pct",
   "--max-wall-time-increase-pct",
+  "--max-p95-latency-increase-pct",
   "--max-tool-errors-increase",
+  "--min-telemetry-coverage",
+  "--max-infra-error-rate",
+  "--min-pass-at-3",
+  "--min-pass-pow-3",
+  "--max-inter-trial-variance",
+  "--min-confidence-lower-bound",
 ]);
 
 function getFlag(args: string[], name: string): string | undefined {
@@ -121,12 +128,54 @@ export function thresholdsFromArgs(args: string[]): CompareThresholds {
       "max-wall-time-increase-pct",
       { min: 0 },
     ),
+    maxP95LatencyIncreasePercent: parseNumber(
+      flagOrEnv(
+        args,
+        "max-p95-latency-increase-pct",
+        "BENCH_MAX_P95_LATENCY_INCREASE_PCT",
+      ),
+      "max-p95-latency-increase-pct",
+      { min: 0 },
+    ),
     maxToolErrorsIncrease: parseNumber(
       flagOrEnv(args, "max-tool-errors-increase", "BENCH_MAX_TOOL_ERRORS_INCREASE"),
       "max-tool-errors-increase",
       { min: 0 },
     ),
+    minTelemetryCoverage:
+      parseNumber(
+        flagOrEnv(args, "min-telemetry-coverage", "BENCH_MIN_TELEMETRY_COVERAGE"),
+        "min-telemetry-coverage",
+        { min: 0, max: 1 },
+      ) ?? 0.95,
+    maxInfrastructureErrorRate:
+      parseNumber(
+        flagOrEnv(args, "max-infra-error-rate", "BENCH_MAX_INFRA_ERROR_RATE"),
+        "max-infra-error-rate",
+        { min: 0, max: 1 },
+      ) ?? 0.05,
+    minPassAt3: parseNumber(
+      flagOrEnv(args, "min-pass-at-3", "BENCH_MIN_PASS_AT_3"),
+      "min-pass-at-3",
+      { min: 0, max: 1 },
+    ),
+    minPassPow3: parseNumber(
+      flagOrEnv(args, "min-pass-pow-3", "BENCH_MIN_PASS_POW_3"),
+      "min-pass-pow-3",
+      { min: 0, max: 1 },
+    ),
+    maxInterTrialVariance: parseNumber(
+      flagOrEnv(args, "max-inter-trial-variance", "BENCH_MAX_INTER_TRIAL_VARIANCE"),
+      "max-inter-trial-variance",
+      { min: 0 },
+    ),
+    minConfidenceLowerBound: parseNumber(
+      flagOrEnv(args, "min-confidence-lower-bound", "BENCH_MIN_CONFIDENCE_LOWER_BOUND"),
+      "min-confidence-lower-bound",
+      { min: 0, max: 1 },
+    ),
     requireComparable: !args.includes("--allow-incompatible"),
+    requireSingleAblation: args.includes("--require-single-ablation"),
   };
 }
 

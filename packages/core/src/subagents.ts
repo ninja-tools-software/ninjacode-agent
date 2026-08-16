@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { LlmProvider } from "@ninjacode/providers";
+import type { LlmProvider, TokenUsage } from "@ninjacode/providers";
 import type { SandboxMode, Tool, ToolRegistry } from "@ninjacode/tools";
 import { createDefaultToolRegistry } from "@ninjacode/tools";
 import type { AgentFactory } from "./agentFactory.js";
@@ -51,6 +51,7 @@ export interface SubAgentResult {
   artifacts: SubAgentArtifact[];
   changedFiles: string[];
   tests: SubAgentTestResult[];
+  usage: TokenUsage;
 }
 
 const ROLE_PROMPTS: Record<SubAgentRole, string> = {
@@ -134,7 +135,7 @@ function toolsForChild(options: RunSubAgentOptions, role: SubAgentRole, mode: Ag
     includeNetwork: role === "research" || role === "verifier",
     includeDebug: false,
   }).forMode(mode);
-  if (options.toolAllowlist?.length) {
+  if (options.toolAllowlist) {
     const allow = new Set(options.toolAllowlist);
     tools = tools.filter((tool) => allow.has(tool.name));
   } else if (role === "research" || role === "verifier") {
@@ -175,6 +176,15 @@ function collectResult(
     passed: !invocation.error,
     output: invocation.output.slice(0, 2000),
   }));
+  const usage = (outcome.turns ?? []).reduce<TokenUsage>(
+    (total, turn) => ({
+      inputTokens: total.inputTokens + turn.usage.inputTokens,
+      outputTokens: total.outputTokens + turn.usage.outputTokens,
+      cacheReadTokens: (total.cacheReadTokens ?? 0) + (turn.usage.cacheReadTokens ?? 0),
+      cacheWriteTokens: (total.cacheWriteTokens ?? 0) + (turn.usage.cacheWriteTokens ?? 0),
+    }),
+    { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+  );
   return {
     summary: outcome.answer,
     completed: outcome.completed,
@@ -183,6 +193,7 @@ function collectResult(
     artifacts,
     changedFiles: [...changedFiles],
     tests,
+    usage,
   };
 }
 
