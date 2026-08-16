@@ -19,7 +19,7 @@ The NinjaCode gateway (Hono + Drizzle + Postgres + Stripe) lives in a **separate
 ## Commands
 
 ```bash
-pnpm install                 # pnpm 9.15.9, Node >= 20
+pnpm install                 # pnpm 9.15.9, Node >= 24
 pnpm build                   # turbo run build (build before test/typecheck: they depend on ^build)
 pnpm test                    # vitest across all packages
 pnpm --filter @ninjacode/core test          # single package

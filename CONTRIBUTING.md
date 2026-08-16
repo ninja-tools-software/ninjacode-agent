@@ -3,7 +3,7 @@
 ## Development setup
 
 ```bash
-# Requires Node 20+
+# Requires Node 24+
 npx pnpm install
 npx pnpm build
 npx pnpm test

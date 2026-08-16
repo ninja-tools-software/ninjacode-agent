@@ -79,8 +79,8 @@ class HarborAdapterTests(unittest.TestCase):
                 "reasoningEffort": "high",
                 "cliRunTimeoutMs": 840000,
                 "bundleSha256": digest,
-                "minimumNodeMajor": 20,
-                "preferredNodeVersion": "22.17.1",
+                "minimumNodeMajor": 24,
+                "preferredNodeVersion": "24.19.0",
             }
             bundle.with_name("ninjacode.harbor-manifest.json").write_text(
                 json.dumps(manifest)
@@ -92,9 +92,9 @@ class HarborAdapterTests(unittest.TestCase):
                 ADAPTER.load_bundle_manifest(bundle)
 
     def test_node_fallback_is_fully_pinned(self) -> None:
-        snippet = ADAPTER.pinned_node_install_snippet("22.17.1")
+        snippet = ADAPTER.pinned_node_install_snippet("24.19.0")
         self.assertIn("nvm/v0.40.2/install.sh", snippet)
-        self.assertIn("nvm install 22.17.1", snippet)
+        self.assertIn("nvm install 24.19.0", snippet)
         self.assertIn("curl --fail", snippet)
 
     def test_maps_cli_telemetry_to_harbor_context(self) -> None:

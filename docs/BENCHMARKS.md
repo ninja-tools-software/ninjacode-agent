@@ -108,7 +108,7 @@ modèle ou un bundle qui ne correspond pas au manifeste.
 L'installation vérifie l'espace **dans le conteneur d'essai** (minimum 512 MiB).
 Elle réutilise Node quand l'image fournit une version compatible, tente ensuite le
 paquet système, et n'utilise le téléchargement nvm qu'en dernier recours. Ce fallback
-épingle nvm 0.40.2 et Node 22.17.1. La version Node réellement utilisée est incluse
+épingle nvm 0.40.2 et Node 24.19.0. La version Node réellement utilisée est incluse
 dans la version Harbor de l'agent.
 
 Quand la CLI termine, l'adaptateur remplit `AgentContext` avec les tokens d'entrée,

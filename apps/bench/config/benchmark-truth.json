@@ -5,8 +5,8 @@
   "reasoningEffort": "high",
   "harborVersion": "0.21.0",
   "node": {
-    "minimumMajor": 20,
-    "preferredVersion": "22.17.1"
+    "minimumMajor": 24,
+    "preferredVersion": "24.19.0"
   },
   "timeouts": {
     "cliRunMs": 840000,

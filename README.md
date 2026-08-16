@@ -52,7 +52,7 @@ Dependency direction is one-way: apps depend on `core`, `core` depends on `tools
 
 ## Prerequisites
 
-- **Node.js** >= 20
+- **Node.js** >= 24
 - **pnpm** 9 (`corepack enable && corepack prepare pnpm@9.15.9 --activate`)
 - **Git**
 - VS Code >= 1.105 for the extension (or a compatible fork)

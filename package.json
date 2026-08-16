@@ -5,7 +5,7 @@
   "description": "Open source agentic coding agent for VS Code and multi-IDE via ACP",
   "license": "GPL-2.0-only",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "build": "turbo run build",

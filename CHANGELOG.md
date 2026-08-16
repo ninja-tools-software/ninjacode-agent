@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Require Node.js 24. `undici` 8 needs `markAsUncloneable`, which Node 20 does not provide.
+
 ## [0.2.0] - 2026-08-02
 
 ### Added

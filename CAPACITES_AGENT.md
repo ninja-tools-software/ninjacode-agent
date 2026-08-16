@@ -52,7 +52,7 @@
 | **Providers de contexte** | Registre unique côté hôte (`apps/vscode/src/chat/context/*`) partagé par le menu `+`, `@`, le drag & drop et les commandes « Add to Chat » — ajouter une source = ajouter un fichier |
 | **CodebaseIndex** | Index local pour `search_codebase` (lexical + sémantique optionnel) |
 | **DiagnosticsProvider** | Intégration des diagnostics IDE (VS Code `languages.getDiagnostics`) pour `read_lints` et la vérification pre-complétion |
-| **Base de code** | TypeScript strict, tests Vitest, CI GitHub Actions (Node 20 & 22) |
+| **Base de code** | TypeScript strict, tests Vitest, CI GitHub Actions (Node 24) |
 | **Backend (optionnel)** | Serveur Hono + Drizzle ORM/Postgres + Stripe — proxy API sans markup, crédits, ledger |
 
 ---

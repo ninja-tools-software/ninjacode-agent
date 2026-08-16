@@ -15,7 +15,7 @@ function truthConfig(
     model: "xai/grok-4.6",
     reasoningEffort: "high",
     harborVersion: "0.21.0",
-    node: { minimumMajor: 20, preferredVersion: "22.17.1" },
+    node: { minimumMajor: 24, preferredVersion: "24.19.0" },
     timeouts: { cliRunMs: 840000, agentMultiplier: 1, verifierMultiplier: 1 },
     gates: { minimumTelemetryCoverage: 0.95, maximumInfrastructureErrorRate: 0.05 },
     profiles: {

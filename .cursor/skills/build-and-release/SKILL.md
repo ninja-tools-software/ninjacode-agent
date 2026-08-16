@@ -88,7 +88,7 @@ pnpm check:clean-tree
 pnpm --filter ninjacode package
 ```
 
-The build no longer mutates versions. `pnpm depcruise` needs Node >= 22 even though the repo supports Node 20; on Node 20 it refuses to run and CI covers it instead.
+The build no longer mutates versions. The repo requires Node >= 24.
 
 Check the versions after every build: `node -p "require('./package.json').version"`.
 

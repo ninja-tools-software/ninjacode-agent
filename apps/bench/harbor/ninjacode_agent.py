@@ -123,7 +123,7 @@ def parse_available_kib(df_output: str) -> int:
 
 
 def pinned_node_install_snippet(version: str) -> str:
-    """Install a fully pinned Node release only when the image lacks Node >= 20."""
+    """Install a fully pinned Node release only when the image lacks Node >= 24."""
     return (
         "curl --fail --show-error --silent --location "
         "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh "
