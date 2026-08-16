@@ -87,7 +87,7 @@ pnpm bench:harbor:plan:full
 pnpm bench:harbor:plan:publish
 
 # Exécutions live explicites (jamais sur une pull request)
-pnpm bench:harbor:smoke    # 1 tâche × 1, instrumentation, job-name unique
+pnpm bench:harbor:smoke    # path-tracing × 1, canary hard ~10 min, pas un score TB 2.1
 pnpm bench:harbor:subset   # subset stratifié stable 20 × 3
 pnpm bench:harbor:full     # TB2.1 complet 89 × 1
 pnpm bench:harbor:publish  # TB2.1 complet 89 × 3, publication uniquement
@@ -120,8 +120,10 @@ reste disponible dans `n_cache_tokens`. La CLI écrit d'abord une enveloppe atom
 qu'après validation du schéma et de toutes les métriques ; un JSON invalide ou
 incomplet ne devient jamais une suite de zéros inventés.
 
-Un smoke (`pnpm bench:harbor:smoke`) génère un `--job-name` unique
-(`smoke-<timestamp>`). Relancer le **même** nom dans le même `-o` reprend le job
+Un smoke (`pnpm bench:harbor:smoke`) épingle `terminal-bench/path-tracing` via
+`--include-task-name` (tâche Hard déjà réussie, ~10 min) et génère un
+`--job-name` unique (`smoke-<timestamp>`). Ce n'est pas la première tâche du
+dataset. Relancer le **même** nom dans le même `-o` reprend le job
 Harbor précédent : les essais déjà notés sont conservés, les essais incomplets
 peuvent être relancés, et un `config.json` incompatible fait échouer la reprise.
 Pour un smoke neuf, laisser le wrapper choisir le nom, ou passer explicitement
@@ -136,8 +138,8 @@ que `telemetry_complete=true`. La trajectoire redacted est copiée dans
 ne contient que le résumé (tours, time-to-first-edit, tours lecture seule,
 histogramme d'outils, `stopReason`).
 
-Un smoke (`-l 1`) et OpenThoughts-TBLite ne sont pas des scores Terminal-Bench 2.1.
-Ne pas les présenter comme comparables au leaderboard.
+Un smoke (`path-tracing` × 1) et OpenThoughts-TBLite ne sont pas des scores
+Terminal-Bench 2.1. Ne pas les présenter comme comparables au leaderboard.
 
 ## Taxonomie et dénominateurs
 

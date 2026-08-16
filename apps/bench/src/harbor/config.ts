@@ -4,6 +4,11 @@ import { benchRoot } from "./paths.js";
 
 export type HarborProfileName = "smoke" | "subset" | "full" | "publish";
 
+export interface HarborPinnedTask {
+  name: string;
+  stratum: string;
+}
+
 export interface BenchmarkTruthConfig {
   schemaVersion: 1;
   dataset: string;
@@ -24,7 +29,36 @@ export interface BenchmarkTruthConfig {
     HarborProfileName,
     { expectedTasks: number; attempts: number; publishable: boolean }
   >;
-  subset: Array<{ name: string; stratum: string }>;
+  smoke: HarborPinnedTask[];
+  subset: HarborPinnedTask[];
+}
+
+export function pinnedTasksForProfile(
+  config: BenchmarkTruthConfig,
+  profile: HarborProfileName,
+): HarborPinnedTask[] {
+  if (profile === "smoke") return config.smoke;
+  if (profile === "subset") return config.subset;
+  return [];
+}
+
+export function assertBenchmarkTruthConfig(
+  parsed: BenchmarkTruthConfig,
+  configPath: string,
+): BenchmarkTruthConfig {
+  if (
+    parsed.schemaVersion !== 1 ||
+    !parsed.dataset ||
+    !parsed.model ||
+    !parsed.harborVersion ||
+    !Array.isArray(parsed.smoke) ||
+    !Array.isArray(parsed.subset) ||
+    parsed.smoke.length !== parsed.profiles.smoke.expectedTasks ||
+    parsed.subset.length !== parsed.profiles.subset.expectedTasks
+  ) {
+    throw new Error(`Invalid benchmark truth config: ${configPath}`);
+  }
+  return parsed;
 }
 
 function benchmarkTruthConfigPath(): string {
@@ -32,17 +66,7 @@ function benchmarkTruthConfigPath(): string {
 }
 
 export async function loadBenchmarkTruthConfig(): Promise<BenchmarkTruthConfig> {
-  const parsed = JSON.parse(
-    await fs.readFile(benchmarkTruthConfigPath(), "utf8"),
-  ) as BenchmarkTruthConfig;
-  if (
-    parsed.schemaVersion !== 1 ||
-    !parsed.dataset ||
-    !parsed.model ||
-    !parsed.harborVersion ||
-    parsed.subset.length !== parsed.profiles.subset.expectedTasks
-  ) {
-    throw new Error(`Invalid benchmark truth config: ${benchmarkTruthConfigPath()}`);
-  }
-  return parsed;
+  const configPath = benchmarkTruthConfigPath();
+  const parsed = JSON.parse(await fs.readFile(configPath, "utf8")) as BenchmarkTruthConfig;
+  return assertBenchmarkTruthConfig(parsed, configPath);
 }

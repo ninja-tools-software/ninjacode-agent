@@ -12,6 +12,7 @@ import {
 import { harborManifestPath, writeHarborBundleManifest } from "./manifest.js";
 import {
   loadBenchmarkTruthConfig,
+  pinnedTasksForProfile,
   type BenchmarkTruthConfig,
   type HarborProfileName,
 } from "./config.js";
@@ -163,7 +164,7 @@ async function cmdRun(args: string[]): Promise<void> {
   await runHarbor(["run", ...harborArgs, ...ninjacodeAgentArgs()]);
 }
 
-function profileHarborArgs(
+export function profileHarborArgs(
   config: BenchmarkTruthConfig,
   profile: HarborProfileName,
   extraArgs: string[],
@@ -184,10 +185,8 @@ function profileHarborArgs(
     "--verifier-timeout-multiplier",
     String(config.timeouts.verifierMultiplier),
   ];
-  if (profile === "subset") {
-    for (const task of config.subset) {
-      args.push("--include-task-name", task.name);
-    }
+  for (const task of pinnedTasksForProfile(config, profile)) {
+    args.push("--include-task-name", task.name);
   }
   return [...args, ...extraArgs, ...ninjacodeAgentArgs()];
 }
@@ -275,7 +274,7 @@ function printHarborHelp(): void {
       "",
       "  ninjabench harbor oracle [harbor args]   Verify Harbor + Docker (1 oracle task)",
       "  ninjabench harbor plan PROFILE           Print a pinned command without running it",
-      "  ninjabench harbor smoke [harbor args]    Instrumented pinned smoke (1×1, unique job name)",
+      "  ninjabench harbor smoke [harbor args]    Pinned path-tracing canary (1×1, unique job name)",
       "  ninjabench harbor subset [harbor args]   Stratified pinned subset (20×3)",
       "  ninjabench harbor full [harbor args]     Pinned full baseline (89×1)",
       "  ninjabench harbor publish [harbor args]  Pinned publication run (89×3)",
@@ -284,7 +283,7 @@ function printHarborHelp(): void {
       "",
       "Defaults:",
       `  -d ${DEFAULT_DATASET}`,
-      "  oracle/smoke add -l 1 unless you pass -l / --limit",
+      "  oracle defaults to -l 1; smoke pins terminal-bench/path-tracing",
       "",
       "Examples:",
       "  ninjabench harbor oracle",

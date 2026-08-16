@@ -39,6 +39,9 @@
       "publishable": true
     }
   },
+  "smoke": [
+    { "name": "terminal-bench/path-tracing", "stratum": "algorithms" }
+  ],
   "subset": [
     { "name": "terminal-bench/schemelike-metacircular-eval", "stratum": "software" },
     { "name": "terminal-bench/build-pov-ray", "stratum": "build" },

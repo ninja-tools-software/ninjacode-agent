@@ -22,7 +22,7 @@ There is **no official lite subset** whose score compares to the
 | Command | What it measures | Comparable? |
 |---|---|---|
 | `ninjabench harbor oracle` | Harbor + Docker (1 oracle task) | No |
-| `ninjabench harbor smoke -m …` | 1 TB 2.1 task with NinjaCode | No |
+| `ninjabench harbor smoke` | Pinned `path-tracing` canary (1×1, hard, ~10 min) | No |
 | `ninjabench harbor run -d openthoughts-tblite -m …` | [OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite) (faster, correlates with TB2) | No — scores run higher than TB 2.1 |
 | `ninjabench harbor run -m …` | **Terminal-Bench 2.1** (89 tasks) | Yes |
 
@@ -46,7 +46,7 @@ ninjabench harbor oracle
 pnpm --filter @ninjacode/cli bundle
 pnpm --filter @ninjacode/bench build
 
-# Smoke: one TB 2.1 task (cheap, not a leaderboard score)
+# Smoke: pinned path-tracing canary (hard, ~10 min, not a leaderboard score)
 export DEEPSEEK_API_KEY=…
 node apps/bench/dist/index.js harbor smoke -m deepseek/deepseek-chat
 
@@ -72,7 +72,7 @@ container disk preflight, telemetry fields and publication checklist.
 
 - Scores measure the **product** (NinjaCode harness + model), not the model alone.
 - Pin `-m` explicitly. Changing the CLI flags or prompt invalidates comparisons.
-- `oracle` / `smoke` default to `-l 1`. Drop that only when you intend a full run.
+- `oracle` defaults to `-l 1`. `smoke` pins `terminal-bench/path-tracing` (not the first dataset task).
 - Daytona (`--env daytona`) is optional later; local Docker is the default.
 
 # SWE-bench Lite integration
