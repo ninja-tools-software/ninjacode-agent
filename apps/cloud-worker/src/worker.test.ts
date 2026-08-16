@@ -26,9 +26,10 @@ async function setup(executor: AgentJobExecutor, options?: { delayWorkspaceMs?: 
     policy,
     workspaces: delayWorkspaceMs
       ? {
-          create: async (job) => {
-            await new Promise((resolve) => setTimeout(resolve, delayWorkspaceMs));
-            return provisioner.create(job);
+          create: async (job, signal) => {
+            await delay(delayWorkspaceMs, signal);
+            signal?.throwIfAborted();
+            return provisioner.create(job, signal);
           },
         }
       : provisioner,
@@ -38,9 +39,30 @@ async function setup(executor: AgentJobExecutor, options?: { delayWorkspaceMs?: 
   return { root, queue, worker };
 }
 
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(signal.reason instanceof Error ? signal.reason : new Error("aborted"));
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason instanceof Error ? signal.reason : new Error("aborted"));
+      },
+      { once: true },
+    );
+  });
+}
+
 afterEach(async () => {
   vi.restoreAllMocks();
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  await Promise.all(
+    roots
+      .splice(0)
+      .map((root) => rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })),
+  );
 });
 
 describe("CloudWorker", () => {
@@ -95,6 +117,7 @@ describe("CloudWorker", () => {
     });
 
     await worker.runOnce();
+    expect(executor.execute).not.toHaveBeenCalled();
     expect((await queue.get("timeout"))?.status).toBe("timed_out");
   });
 

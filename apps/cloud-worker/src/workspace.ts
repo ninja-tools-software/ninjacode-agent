@@ -8,15 +8,17 @@ export interface EphemeralWorkspace {
 }
 
 export interface WorkspaceProvisioner {
-  create(job: CloudJobV1): Promise<EphemeralWorkspace>;
+  create(job: CloudJobV1, signal?: AbortSignal): Promise<EphemeralWorkspace>;
 }
 
 export class TempWorkspaceProvisioner implements WorkspaceProvisioner {
   constructor(private readonly root: string) {}
 
-  async create(job: CloudJobV1): Promise<EphemeralWorkspace> {
+  async create(job: CloudJobV1, signal?: AbortSignal): Promise<EphemeralWorkspace> {
+    signal?.throwIfAborted();
     if (job.workspace.kind !== "empty") throw new Error("unsupported workspace kind");
     await mkdir(this.root, { recursive: true });
+    signal?.throwIfAborted();
     const workspaceRoot = await mkdtemp(path.join(this.root, `${job.id}-`));
     return {
       root: workspaceRoot,

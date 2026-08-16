@@ -97,31 +97,46 @@ export class CloudWorker {
 
     try {
       const policy = this.options.policy.resolve(job);
-      const result = await Promise.race([
-        (async () => {
-          await this.options.queue.markRunning(job.id, claimed.lease.token);
-          workspace = await this.options.workspaces.create(job);
-          return this.options.executor.execute({
-            job,
-            attempt: claimed.record.attempt,
-            workspaceRoot: workspace.root,
-            policy,
-            signal: controller.signal,
-          });
-        })(),
-        timeoutPromise,
-      ]);
-      if (!workspace) throw new Error("workspace was not provisioned");
-      const persisted = await this.options.artifacts.persist({
-        job,
-        attempt: claimed.record.attempt,
-        workspaceRoot: workspace.root,
-        policy,
-        result,
-      });
-      manifestPath = persisted.manifestPath;
-      if (!result.completed) throw new Error(result.answer || "agent did not complete");
-      await this.options.queue.succeed(job.id, claimed.lease.token, manifestPath);
+      const setup = (async () => {
+        await this.options.queue.markRunning(job.id, claimed.lease.token);
+        controller.signal.throwIfAborted();
+        workspace = await this.options.workspaces.create(job, controller.signal);
+        controller.signal.throwIfAborted();
+      })();
+      try {
+        const result = await Promise.race([
+          (async () => {
+            await setup;
+            if (!workspace) throw new Error("workspace was not provisioned");
+            return this.options.executor.execute({
+              job,
+              attempt: claimed.record.attempt,
+              workspaceRoot: workspace.root,
+              policy,
+              signal: controller.signal,
+            });
+          })(),
+          timeoutPromise,
+        ]);
+        if (timedOut) throw new JobTimeoutError(job.execution.timeoutMs);
+        if (!workspace) throw new Error("workspace was not provisioned");
+        const persisted = await this.options.artifacts.persist({
+          job,
+          attempt: claimed.record.attempt,
+          workspaceRoot: workspace.root,
+          policy,
+          result,
+        });
+        manifestPath = persisted.manifestPath;
+        if (!result.completed) throw new Error(result.answer || "agent did not complete");
+        if (timedOut) throw new JobTimeoutError(job.execution.timeoutMs);
+        await this.options.queue.succeed(job.id, claimed.lease.token, manifestPath);
+      } finally {
+        // Setup may still be creating the workspace after the timeout race settles.
+        // Wait for it so destroy() can run, and so tests can remove the parent dir.
+        await setup.catch(() => undefined);
+        await workspace?.destroy().catch(() => undefined);
+      }
     } catch (error) {
       const effectiveError = timedOut ? new JobTimeoutError(job.execution.timeoutMs) : error;
       const now = Date.now();
@@ -136,7 +151,6 @@ export class CloudWorker {
       clearInterval(heartbeat);
       clearTimeout(timeout);
       controller.abort();
-      await workspace?.destroy().catch(() => undefined);
     }
   }
 }
