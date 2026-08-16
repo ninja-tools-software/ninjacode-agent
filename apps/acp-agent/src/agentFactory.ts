@@ -9,6 +9,9 @@ import {
   DEFAULT_RUN_TIMEOUT_MS,
   loadMcpConfig,
   loadMcpTools,
+  type CheckpointFailure,
+  type ToolEndEventPayload,
+  type ToolStartEventPayload,
 } from "@ninjacode/core";
 import {
   createProvider,
@@ -61,7 +64,18 @@ function gatewayErrorText(info: GatewayErrorInfo): string {
   }
 }
 
-function createAgentEventHandler(sessionId: string) {
+function checkpointStageText(stage: CheckpointFailure["stage"]): string {
+  switch (stage) {
+    case "init":
+      return t("acp.checkpointStage.init");
+    case "create":
+      return t("acp.checkpointStage.create");
+    case "emit":
+      return t("acp.checkpointStage.emit");
+  }
+}
+
+export function createAgentEventHandler(sessionId: string) {
   return async (ev: { type: string; payload: unknown }) => {
     if (ev.type === "text_delta") {
       notify("session/update", {
@@ -72,22 +86,40 @@ function createAgentEventHandler(sessionId: string) {
         },
       });
     } else if (ev.type === "tool_start") {
+      const p = ev.payload as ToolStartEventPayload;
       notify("session/update", {
         sessionId,
         update: {
           sessionUpdate: "tool_call",
-          toolCallId: randomUUID(),
-          title: (ev.payload as { name: string }).name,
+          toolCallId: p.id,
+          title: p.name,
           status: "in_progress",
-          rawInput: (ev.payload as { arguments?: unknown }).arguments,
+          rawInput: p.arguments,
         },
       });
     } else if (ev.type === "tool_end") {
+      const p = ev.payload as ToolEndEventPayload;
       notify("session/update", {
         sessionId,
         update: {
           sessionUpdate: "tool_call_update",
-          status: (ev.payload as { error?: string }).error ? "failed" : "completed",
+          toolCallId: p.id,
+          status: p.error ? "failed" : "completed",
+        },
+      });
+    } else if (ev.type === "checkpoint_error") {
+      const p = ev.payload as CheckpointFailure;
+      notify("session/update", {
+        sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: {
+            type: "text",
+            text: `\n${t("acp.checkpointFailed", {
+              stage: checkpointStageText(p.stage),
+              message: p.message,
+            })}\n`,
+          },
         },
       });
     } else if (ev.type === "error") {

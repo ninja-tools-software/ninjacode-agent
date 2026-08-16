@@ -2,17 +2,31 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import shlex
 from pathlib import Path
+from typing import Any
 
 from harbor.agents.installed.base import BaseInstalledAgent, with_prompt_template
-from harbor.agents.installed.node_install import nvm_node_install_snippet
 from harbor.agents.model_connection import ModelConnectionSpec
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
 
 REMOTE_BUNDLE = "/installed-agent/ninjacode.cjs"
+REMOTE_MANIFEST = "/installed-agent/ninjacode-manifest.json"
+REMOTE_TELEMETRY = "/tmp/ninjacode-harbor-telemetry.json"
+MINIMUM_FREE_KIB = 512 * 1024
+REQUIRED_MANIFEST_KEYS = (
+    "adapterVersion",
+    "bundleSha256",
+    "cliVersion",
+    "gitCommit",
+    "minimumNodeMajor",
+    "preferredNodeVersion",
+    "schemaVersion",
+)
 
 API_KEY_ENVS = (
     "ANTHROPIC_API_KEY",
@@ -44,6 +58,59 @@ def resolve_cli_bundle() -> Path:
     return Path(__file__).resolve().parents[2] / "cli" / "dist" / "ninjacode.cjs"
 
 
+def resolve_bundle_manifest(bundle: Path) -> Path:
+    override = os.environ.get("NINJACODE_BUNDLE_MANIFEST")
+    if override:
+        return Path(override).expanduser().resolve()
+    return bundle.with_name("ninjacode.harbor-manifest.json")
+
+
+def load_bundle_manifest(bundle: Path) -> tuple[Path, dict[str, Any]]:
+    manifest_path = resolve_bundle_manifest(bundle)
+    if not manifest_path.is_file():
+        raise RuntimeError(
+            f"NinjaCode Harbor manifest not found at {manifest_path}. "
+            "Run `ninjabench harbor ...` to regenerate it."
+        )
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Invalid NinjaCode Harbor manifest: {exc}") from exc
+    missing = [key for key in REQUIRED_MANIFEST_KEYS if key not in manifest]
+    if missing:
+        raise RuntimeError(f"NinjaCode Harbor manifest misses: {', '.join(missing)}")
+    actual_hash = hashlib.sha256(bundle.read_bytes()).hexdigest()
+    if manifest["bundleSha256"] != actual_hash:
+        raise RuntimeError(
+            "NinjaCode CLI bundle does not match its manifest. "
+            "Run `ninjabench harbor ...` to regenerate both."
+        )
+    return manifest_path, manifest
+
+
+def parse_available_kib(df_output: str) -> int:
+    """Parse the Available column from POSIX `df -Pk` output."""
+    lines = [line.split() for line in df_output.splitlines() if line.strip()]
+    if len(lines) < 2 or len(lines[-1]) < 4:
+        raise RuntimeError(f"Could not parse container disk preflight: {df_output!r}")
+    try:
+        return int(lines[-1][3])
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid container disk availability: {lines[-1][3]!r}") from exc
+
+
+def pinned_node_install_snippet(version: str) -> str:
+    """Install a fully pinned Node release only when the image lacks Node >= 20."""
+    return (
+        "curl --fail --show-error --silent --location "
+        "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh "
+        "| env -u NODE_VERSION bash && "
+        'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && '
+        f"nvm install {shlex.quote(version)} && "
+        f"nvm alias default {shlex.quote(version)}"
+    )
+
+
 class NinjaCodeAgent(BaseInstalledAgent):
     MODEL_CONNECTION = ModelConnectionSpec(
         api_key_envs=API_KEY_ENVS,
@@ -57,7 +124,9 @@ class NinjaCodeAgent(BaseInstalledAgent):
     def get_version_command(self) -> str | None:
         return (
             "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
-            f"test -f {shlex.quote(REMOTE_BUNDLE)} && echo 0.1.0"
+            f"node -e \"const m=require('{REMOTE_MANIFEST}');"
+            "console.log('cli='+m.cliVersion+',adapter='+m.adapterVersion+"
+            "',commit='+m.gitCommit+',bundle='+m.bundleSha256+',node='+process.version)\""
         )
 
     async def install(self, environment: BaseEnvironment) -> None:
@@ -67,17 +136,67 @@ class NinjaCodeAgent(BaseInstalledAgent):
                 f"NinjaCode CLI bundle not found at {bundle}. "
                 "Run `pnpm --filter @ninjacode/cli bundle` first."
             )
-
-        await self.ensure_system_dependencies(environment, ("curl",))
+        manifest_path, manifest = load_bundle_manifest(bundle)
+        await self._preflight_container_disk(environment)
+        await environment.upload_file(bundle, REMOTE_BUNDLE)
+        await environment.upload_file(manifest_path, REMOTE_MANIFEST)
+        node_version = await self._ensure_node(environment, manifest)
+        owner = environment.default_user
+        targets = f"{shlex.quote(REMOTE_BUNDLE)} {shlex.quote(REMOTE_MANIFEST)}"
+        chown = f"chown {shlex.quote(str(owner))} {targets} && " if owner is not None else ""
+        await self.exec_as_root(environment, command=f"{chown}chmod 755 {REMOTE_BUNDLE}")
         await self.exec_as_agent(
             environment,
-            command=f"set -euo pipefail; {nvm_node_install_snippet()}",
+            command=(
+                "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
+                f"node -e \"const fs=require('fs'),c=require('crypto'),"
+                f"m=require('{REMOTE_MANIFEST}'),b=fs.readFileSync('{REMOTE_BUNDLE}');"
+                "if(c.createHash('sha256').update(b).digest('hex')!==m.bundleSha256)"
+                "throw Error('uploaded bundle checksum mismatch')\""
+            ),
         )
-        await environment.upload_file(bundle, REMOTE_BUNDLE)
-        quoted = shlex.quote(REMOTE_BUNDLE)
-        owner = environment.default_user
-        chown = f"chown {shlex.quote(str(owner))} {quoted} && " if owner is not None else ""
-        await self.exec_as_root(environment, command=f"{chown}chmod 755 {quoted}")
+        self._manifest = manifest
+        self._version = (
+            f"{manifest['cliVersion']}+{str(manifest['gitCommit'])[:12]}."
+            f"{str(manifest['bundleSha256'])[:12]}@node-{node_version}"
+        )
+
+    async def _preflight_container_disk(self, environment: BaseEnvironment) -> None:
+        result = await environment.exec(command="df -Pk /installed-agent", user="root")
+        if result.return_code != 0:
+            raise RuntimeError(f"Container disk preflight failed: {result.stderr}")
+        available_kib = parse_available_kib(result.stdout or "")
+        if available_kib < MINIMUM_FREE_KIB:
+            available_mib = available_kib // 1024
+            required_mib = MINIMUM_FREE_KIB // 1024
+            raise RuntimeError(
+                f"Trial container has {available_mib} MiB free; "
+                f"NinjaCode installation requires at least {required_mib} MiB."
+            )
+
+    async def _ensure_node(
+        self, environment: BaseEnvironment, manifest: dict[str, Any]
+    ) -> str:
+        minimum = int(manifest["minimumNodeMajor"])
+        check = f"node -e \"process.exit(+process.versions.node.split('.')[0]>={minimum}?0:1)\""
+        result = await environment.exec(command=check)
+        if result.return_code != 0:
+            await self.ensure_system_dependencies(environment, ("nodejs",))
+            result = await environment.exec(command=check)
+        if result.return_code != 0:
+            await self.ensure_system_dependencies(environment, ("curl",))
+            await self.exec_as_agent(
+                environment,
+                command=pinned_node_install_snippet(str(manifest["preferredNodeVersion"])),
+            )
+        version_result = await self.exec_as_agent(
+            environment,
+            command=(
+                "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
+                "node --version"
+            ),
+        )
+        return (version_result.stdout or "unknown").strip().removeprefix("v")
 
     @with_prompt_template
     async def run(
@@ -104,7 +223,10 @@ class NinjaCodeAgent(BaseInstalledAgent):
         if model:
             cmd.extend(["--model", model])
         command = (
-            "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; " + shlex.join(cmd)
+            "rm -f "
+            + shlex.quote(REMOTE_TELEMETRY)
+            + "; if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
+            + shlex.join(cmd)
         )
         # Harbor does not automatically copy host API keys into the trial
         # container. Pass them as exec env (never as CLI flags — those are logged).
@@ -114,7 +236,60 @@ class NinjaCodeAgent(BaseInstalledAgent):
                 "No provider API key on the host. Export XAI_API_KEY (or the "
                 "key for `-m provider/model`) in the same shell as Harbor."
             )
-        await self.exec_as_agent(environment, command=command, env=env)
+        env["NINJACODE_BENCH_TELEMETRY_FILE"] = REMOTE_TELEMETRY
+        try:
+            await self.exec_as_agent(environment, command=command, env=env)
+        finally:
+            await self._collect_telemetry(environment, context)
+
+    async def _collect_telemetry(
+        self, environment: BaseEnvironment, context: AgentContext
+    ) -> None:
+        result = await environment.exec(
+            command=f"test -s {REMOTE_TELEMETRY} && cat {REMOTE_TELEMETRY}"
+        )
+        metadata = {
+            "ninjacode_manifest": getattr(self, "_manifest", {}),
+            "telemetry_available": result.return_code == 0,
+        }
+        if result.return_code != 0:
+            context.metadata = {**(context.metadata or {}), **metadata}
+            return
+        try:
+            telemetry = json.loads(result.stdout or "")
+        except json.JSONDecodeError:
+            metadata["telemetry_error"] = "invalid_json"
+            context.metadata = {**(context.metadata or {}), **metadata}
+            return
+        if telemetry.get("schemaVersion") != 1:
+            metadata["telemetry_error"] = "unsupported_schema"
+            context.metadata = {**(context.metadata or {}), **metadata}
+            return
+        try:
+            input_tokens = int(telemetry.get("inputTokens") or 0)
+            cache_tokens = int(telemetry.get("cacheReadTokens") or 0)
+            output_tokens = int(telemetry.get("outputTokens") or 0)
+            cost = float(telemetry.get("estimatedCostUsd") or 0)
+        except (TypeError, ValueError):
+            metadata["telemetry_error"] = "invalid_metrics"
+            context.metadata = {**(context.metadata or {}), **metadata}
+            return
+        context.n_input_tokens = input_tokens + cache_tokens
+        context.n_cache_tokens = cache_tokens
+        context.n_output_tokens = output_tokens
+        context.cost_usd = cost if cost > 0 else None
+        metadata.update(
+            {
+                "cache_write_tokens": int(telemetry.get("cacheWriteTokens") or 0),
+                "completed": bool(telemetry.get("completed")),
+                "session_id": telemetry.get("sessionId"),
+                "tool_calls": int(telemetry.get("toolCalls") or 0),
+                "tool_errors": int(telemetry.get("toolErrors") or 0),
+                "tool_histogram": telemetry.get("toolHistogram") or {},
+                "turns": int(telemetry.get("turns") or 0),
+            }
+        )
+        context.metadata = {**(context.metadata or {}), **metadata}
 
     def _container_api_env(self) -> dict[str, str]:
         env: dict[str, str] = {}

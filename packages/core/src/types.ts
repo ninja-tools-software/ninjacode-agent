@@ -1,4 +1,5 @@
 import type { Message, TokenUsage, ToolCall } from "@ninjacode/providers";
+import type { ToolErrorCategory } from "./toolErrors.js";
 
 export type AgentMode = "agent" | "plan" | "ask" | "debug";
 
@@ -54,6 +55,27 @@ export interface TurnTrace {
   model?: string;
 }
 
+export interface ToolStartEventPayload {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  target: string;
+}
+
+export interface ToolEndEventPayload {
+  id: string;
+  name: string;
+  output?: string;
+  error?: string;
+  category?: ToolErrorCategory;
+  meta?: Record<string, unknown>;
+}
+
+export interface CheckpointFailure {
+  stage: "init" | "create" | "emit";
+  message: string;
+}
+
 export interface AgentEvent {
   type:
     | "thinking"
@@ -64,6 +86,7 @@ export interface AgentEvent {
     | "tool_end"
     | "approval_required"
     | "checkpoint"
+    | "checkpoint_error"
     | "done"
     | "error"
     | "status"
@@ -74,7 +97,10 @@ export interface AgentEvent {
     | "compaction"
     | "usage"
     | "agent_log"
-    | "hook_run";
+    | "hook_run"
+    | "subagent_start"
+    | "subagent_progress"
+    | "subagent_end";
   payload: unknown;
 }
 

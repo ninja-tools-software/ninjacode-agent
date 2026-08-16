@@ -18,17 +18,20 @@ export interface RetryOptions {
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 
+const RETRY_WRAPPED_PROVIDERS = new WeakSet<LlmProvider>();
+const MAX_PROVIDER_RETRIES = 5;
+
 /**
  * Wrap any LlmProvider with exponential backoff on 429 / 5xx / network errors.
  */
 export function withRetry(provider: LlmProvider, opts: RetryOptions = {}): LlmProvider {
-  const maxRetries = opts.maxRetries ?? 4;
-  const baseDelayMs = opts.baseDelayMs ?? 500;
-  const maxDelayMs = opts.maxDelayMs ?? 16_000;
+  const maxRetries = boundedInteger(opts.maxRetries, 4, 0, MAX_PROVIDER_RETRIES);
+  const baseDelayMs = boundedInteger(opts.baseDelayMs, 500, 0, 60_000);
+  const maxDelayMs = boundedInteger(opts.maxDelayMs, 16_000, baseDelayMs, 60_000);
   const clock = opts.clock ?? nodeClock;
   const sleepFn = opts.sleep ?? sleep;
 
-  return {
+  const wrapped: LlmProvider = {
     name: `${provider.name}+retry`,
     async complete(req: CompletionRequest): Promise<Completion> {
       return retry({
@@ -47,7 +50,7 @@ export function withRetry(provider: LlmProvider, opts: RetryOptions = {}): LlmPr
       let emitted = false;
       const guarded: StreamSink | undefined = sink
         ? async (event) => {
-            if (event.type === "text_delta" || event.type === "reasoning_delta") emitted = true;
+            emitted = true;
             await sink(event);
           }
         : undefined;
@@ -64,6 +67,18 @@ export function withRetry(provider: LlmProvider, opts: RetryOptions = {}): LlmPr
       });
     },
   };
+  RETRY_WRAPPED_PROVIDERS.add(wrapped);
+  return wrapped;
+}
+
+/** Outer turn retries must not stack on this wrapper's own bounded retry loop. */
+export function isRetryWrappedProvider(provider: LlmProvider): boolean {
+  return RETRY_WRAPPED_PROVIDERS.has(provider);
+}
+
+function boundedInteger(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(value)));
 }
 
 async function retry<T>(opts: {
@@ -79,14 +94,15 @@ async function retry<T>(opts: {
 }): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
-    if (opts.signal?.aborted) throw lastError ?? abortError(opts.signal);
+    if (opts.signal?.aborted) throw abortError(opts.signal);
     try {
       return await opts.fn();
     } catch (e) {
       lastError = e;
-      if (isAbortError(e) || opts.signal?.aborted) throw e;
+      if (isAbortError(e)) throw e;
+      if (opts.signal?.aborted) throw abortError(opts.signal);
       if (opts.canRetry?.() === false) throw e;
-      if (!isRetryable(e) || attempt === opts.maxRetries) throw e;
+      if (!isRetryableLlmError(e) || attempt === opts.maxRetries) throw e;
       const delay = Math.min(opts.maxDelayMs, opts.baseDelayMs * 2 ** attempt);
       const jitter = backoffJitter(opts.clock, attempt, delay);
       await opts.sleepFn(delay + jitter, opts.signal);
@@ -109,8 +125,8 @@ function abortError(signal: AbortSignal): Error {
   return new DOMException(signal.reason ? String(signal.reason) : "Aborted", "AbortError");
 }
 
-function isRetryable(e: unknown): boolean {
-  if (e instanceof GatewayError) return !isTerminalGatewayCode(e.code);
+export function isRetryableLlmError(e: unknown): boolean {
+  if (e instanceof GatewayError) return !e.partial && !isTerminalGatewayCode(e.code);
   if (e instanceof LlmError) {
     if (e.status === 429) return true;
     if (e.status && e.status >= 500) return true;
@@ -126,11 +142,11 @@ function isRetryable(e: unknown): boolean {
   );
 }
 
-/** Sleep that resolves early (without throwing) if the signal aborts mid-delay. */
+/** Abort-aware backoff; cancellation is surfaced as a typed AbortError. */
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (signal?.aborted) {
-      resolve();
+      reject(abortError(signal));
       return;
     }
     const timer = setTimeout(resolve, ms);
@@ -138,7 +154,7 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
       "abort",
       () => {
         clearTimeout(timer);
-        resolve();
+        reject(abortError(signal));
       },
       { once: true },
     );

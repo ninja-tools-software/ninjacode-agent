@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { compareReports, compareToMarkdown, totals } from "./compare.js";
+import {
+  compareReports,
+  compareToMarkdown,
+  evaluateCompareGates,
+  totals,
+} from "./compare.js";
 import type { RunReport, TaskResult } from "./types.js";
 
 function result(partial: Partial<TaskResult> & { taskId: string; passed: boolean }): TaskResult {
@@ -85,6 +90,95 @@ describe("compareReports", () => {
     expect(b?.delta).toBe(1);
     expect(b?.baselinePassRate).toBe(0);
     expect(b?.afterPassRate).toBe(1);
+  });
+
+  it("reports incompatible task coverage instead of inventing zero pass rates", () => {
+    const comparison = compareReports(
+      report([result({ taskId: "baseline-only", passed: true })]),
+      report([result({ taskId: "current-only", passed: true })]),
+    );
+    expect(comparison.coverage).toMatchObject({
+      comparable: false,
+      onlyBaseline: ["baseline-only"],
+      onlyAfter: ["current-only"],
+    });
+    expect(comparison.perTask).toEqual([]);
+  });
+
+  it("detects trial-count mismatches", () => {
+    const comparison = compareReports(
+      report([result({ taskId: "a", passed: true })]),
+      report([
+        result({ taskId: "a", passed: true }),
+        result({ taskId: "a", passed: true, trial: 2 }),
+      ]),
+    );
+    expect(comparison.coverage.trialCountMismatches).toEqual([
+      { taskId: "a", baseline: 1, after: 2 },
+    ]);
+  });
+
+  it("rejects a different agent even with matching task counts", () => {
+    const baseline = report([result({ taskId: "a", passed: true })]);
+    const current = {
+      ...report([result({ taskId: "a", passed: true, agentName: "competitor" })]),
+      agents: ["competitor"],
+    };
+    expect(compareReports(baseline, current).coverage.agentMismatch).toEqual({
+      baseline: ["ninjacode"],
+      after: ["competitor"],
+    });
+  });
+});
+
+describe("evaluateCompareGates", () => {
+  it("fails configured quality, cost, latency, and reliability regressions", () => {
+    const baseline = report([
+      result({ taskId: "a", passed: true }),
+      result({ taskId: "b", passed: true }),
+    ]);
+    const current = report([
+      result({
+        taskId: "a",
+        passed: false,
+        metrics: {
+          ...result({ taskId: "ignored", passed: false }).metrics,
+          wallTimeMs: 2000,
+          estimatedCostUsd: 0.02,
+          toolErrors: 3,
+        },
+      }),
+      result({
+        taskId: "b",
+        passed: true,
+        metrics: {
+          ...result({ taskId: "ignored", passed: true }).metrics,
+          wallTimeMs: 2000,
+          estimatedCostUsd: 0.02,
+          toolErrors: 3,
+        },
+      }),
+    ]);
+    const gate = evaluateCompareGates(compareReports(baseline, current), {
+      minPassRate: 0.75,
+      maxPassRateDrop: 0.1,
+      maxCostIncreasePercent: 10,
+      maxWallTimeIncreasePercent: 10,
+      maxToolErrorsIncrease: 0,
+    });
+    expect(gate.passed).toBe(false);
+    expect(gate.failures).toHaveLength(5);
+  });
+
+  it("passes an unchanged comparable report", () => {
+    const stable = report([result({ taskId: "a", passed: true })]);
+    expect(
+      evaluateCompareGates(compareReports(stable, stable), {
+        minPassRate: 1,
+        maxPassRateDrop: 0,
+        maxCostIncreasePercent: 0,
+      }),
+    ).toEqual({ passed: true, failures: [] });
   });
 });
 

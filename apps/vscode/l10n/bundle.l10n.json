@@ -1,1 +1,6 @@
-{}
+{
+  "Checkpoint {0} failed: {1}. The run will continue without this checkpoint.": "Checkpoint {0} failed: {1}. The run will continue without this checkpoint.",
+  "initialization": "initialization",
+  "creation": "creation",
+  "notification": "notification"
+}

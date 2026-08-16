@@ -38,6 +38,7 @@ module.exports = {
           "(^|/)(eslint|vitest|vite|drizzle)\\.config\\.[^/]+$",
           "(^|/)(index|extension|main)\\.tsx?$",
           "(^|/)(migrate|eval)\\.ts$",
+          "(^|/).+\\.(test|spec)\\.tsx?$",
         ],
       },
       to: {},

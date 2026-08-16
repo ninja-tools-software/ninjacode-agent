@@ -87,6 +87,7 @@ function turnContextDeps(
 
 function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType<typeof turnContextDeps>> {
   return {
+    workspaceRoot: host.workspaceRoot,
     provider: host.provider,
     maxTokens: host.maxTokens,
     maxTurns: host.maxTurns,

@@ -1,9 +1,18 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { LlmProvider, Message, ToolSpec } from "@ninjacode/providers";
-import { prepareTurnMessages } from "./agentTurnLlm.js";
+import { LlmError } from "@ninjacode/providers";
+import {
+  callLlmForTurn,
+  ContextBudgetError,
+  prepareTurnMessages,
+} from "./agentTurnLlm.js";
 import { estimateContextUsage } from "./contextEstimate.js";
 import { isCompactionMessage } from "./context.js";
 import type { AgentTurnDeps, AgentTurnMutableState } from "./agentTurnTypes.js";
+import { withRetry } from "./reliability.js";
 
 function bigHistory(n: number): Message[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -101,5 +110,159 @@ describe("prepareTurnMessages persists compaction", () => {
 
     expect(provider.completeCalls).toBe(1);
     expect(deps.state.history.filter(isCompactionMessage)).toHaveLength(1);
+  });
+
+  it("throws and emits a structured context budget error", async () => {
+    const deps = depsFor([], countingProvider());
+    deps.estimateUsage = () => ({
+      output: 20,
+      total: 110,
+      window: 120,
+      inputBudget: 100,
+      safetyMargin: 10,
+      system: 1,
+      tools: 0,
+      history: 89,
+      files: 0,
+    });
+
+    await expect(prepareTurnMessages(deps)).rejects.toBeInstanceOf(ContextBudgetError);
+    expect(deps.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({
+        code: "context_budget_exceeded",
+        retryable: false,
+        recoveryHint: expect.any(String),
+      }),
+    );
+  });
+
+  it("injects scoped rules for files read in earlier turns", async () => {
+    const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "nc-turn-rules-")));
+    try {
+      const rulesDir = path.join(root, ".ninjacode", "rules");
+      await fs.mkdir(rulesDir, { recursive: true });
+      await fs.writeFile(
+        path.join(rulesDir, "typescript.md"),
+        `---\nglobs: ["**/*.ts"]\n---\nUse strict TypeScript.`,
+      );
+      const deps = depsFor([{ role: "user", content: "Continue" }], countingProvider());
+      deps.workspaceRoot = root;
+      deps.state.turns.push({
+        turn: 0,
+        assistantText: "",
+        toolInvocations: [{
+          toolCall: { id: "read-1", name: "read_file", arguments: { path: "src/app.ts" } },
+          output: "file contents",
+          approved: true,
+          durationMs: 1,
+        }],
+        usage: { inputTokens: 1, outputTokens: 1 },
+      });
+
+      const messages = await prepareTurnMessages(deps);
+
+      expect(messages.map((message) => message.content).join("\n")).toContain(
+        "Use strict TypeScript.",
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+function executionProvider(
+  run: (
+    attempt: number,
+    sink: Parameters<LlmProvider["completeStreaming"]>[1],
+  ) => ReturnType<LlmProvider["completeStreaming"]>,
+): LlmProvider & { attempts: number } {
+  const provider = {
+    name: "execution",
+    attempts: 0,
+    async complete() {
+      throw new Error("unused");
+    },
+    async completeStreaming(
+      _request: Parameters<LlmProvider["completeStreaming"]>[0],
+      sink?: Parameters<LlmProvider["completeStreaming"]>[1],
+    ) {
+      provider.attempts += 1;
+      return run(provider.attempts, sink);
+    },
+  };
+  return provider;
+}
+
+const successCompletion = {
+  text: "ok",
+  toolCalls: [],
+  usage: { inputTokens: 1, outputTokens: 1 },
+  model: "mock",
+  stopReason: "end" as const,
+};
+
+describe("callLlmForTurn safe retry", () => {
+  it("retries one raw transient failure before any stream event", async () => {
+    const provider = executionProvider(async (attempt) => {
+      if (attempt === 1) throw new LlmError("temporary", 503, "test");
+      return successCompletion;
+    });
+    const deps = depsFor([], provider);
+
+    const result = await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    expect(result).toEqual({ completion: successCompletion });
+    expect(provider.attempts).toBe(2);
+  });
+
+  it("does not retry after any stream event reached the harness", async () => {
+    const provider = executionProvider(async (_attempt, sink) => {
+      await sink?.({ type: "text_delta", text: "partial" });
+      throw new LlmError("temporary", 503, "test");
+    });
+    const deps = depsFor([], provider);
+
+    const result = await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    expect(result).toMatchObject({ kind: "failed" });
+    expect(provider.attempts).toBe(1);
+    expect(deps.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ retryable: false, code: "llm_error" }),
+    );
+  });
+
+  it("does not stack a turn retry over the provider retry wrapper", async () => {
+    const raw = executionProvider(async () => {
+      throw new LlmError("temporary", 503, "test");
+    });
+    const provider = withRetry(raw, { maxRetries: 0, sleep: async () => undefined });
+    const deps = depsFor([], provider);
+
+    const result = await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    expect(result).toMatchObject({ kind: "failed" });
+    expect(raw.attempts).toBe(1);
+    expect(deps.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ retryable: false }),
+    );
+  });
+
+  it("marks a fully exhausted raw turn retry as non-retryable", async () => {
+    const provider = executionProvider(async () => {
+      throw new LlmError("temporary", 503, "test");
+    });
+    const deps = depsFor([], provider);
+
+    const result = await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    expect(result).toMatchObject({ kind: "failed" });
+    expect(provider.attempts).toBe(2);
+    expect(deps.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ code: "retry_exhausted", retryable: false }),
+    );
   });
 });

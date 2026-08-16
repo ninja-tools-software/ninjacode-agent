@@ -74,12 +74,28 @@ function quoteSeatbelt(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
+function canonicalSandboxPath(value: string): string {
+  try {
+    return fs.realpathSync.native(value);
+  } catch {
+    const parent = path.dirname(value);
+    try {
+      return path.join(fs.realpathSync.native(parent), path.basename(value));
+    } catch {
+      return path.resolve(value);
+    }
+  }
+}
+
 function seatbeltSubpath(operation: string, value: string): string {
-  return `(${operation} (subpath "${quoteSeatbelt(path.resolve(value))}"))`;
+  return `(${operation} (subpath "${quoteSeatbelt(canonicalSandboxPath(value))}"))`;
+}
+
+function sensitiveHomeRoots(env: NodeJS.ProcessEnv | undefined): string[] {
+  return [...new Set([os.homedir(), env?.HOME].filter((home): home is string => Boolean(home)))];
 }
 
 export function buildSeatbeltProfile(opts: SandboxCommandOptions): string {
-  const home = opts.env?.HOME ?? os.homedir();
   const lines = [
     "(version 1)",
     "(deny default)",
@@ -88,11 +104,14 @@ export function buildSeatbeltProfile(opts: SandboxCommandOptions): string {
     "(allow sysctl-read)",
     "(allow file-read*)",
   ];
-  for (const rel of SENSITIVE_HOME_DIRS) {
-    lines.push(seatbeltSubpath("deny file-read*", path.join(home, rel)));
+  for (const home of sensitiveHomeRoots(opts.env)) {
+    for (const rel of SENSITIVE_HOME_DIRS) {
+      lines.push(seatbeltSubpath("deny file-read*", path.join(home, rel)));
+    }
   }
   for (const name of [".env", ".env.local", ".env.production", ".npmrc", ".pypirc"]) {
-    lines.push(`(deny file-read* (literal "${quoteSeatbelt(path.join(opts.workspaceRoot, name))}"))`);
+    const sensitivePath = canonicalSandboxPath(path.join(opts.workspaceRoot, name));
+    lines.push(`(deny file-read* (literal "${quoteSeatbelt(sensitivePath)}"))`);
   }
   lines.push(seatbeltSubpath("allow file-write*", opts.agentDir));
   if (opts.mode === "workspace-write") {
@@ -136,8 +155,9 @@ export function buildBubblewrapArgs(opts: SandboxCommandOptions): string[] {
   if (!path.resolve(opts.agentDir).startsWith(`${path.resolve(opts.workspaceRoot)}${path.sep}`)) {
     args.push("--bind", opts.agentDir, opts.agentDir);
   }
-  const home = opts.env?.HOME ?? os.homedir();
-  for (const rel of SENSITIVE_HOME_DIRS) args.push(...maskPathArgs(path.join(home, rel)));
+  for (const home of sensitiveHomeRoots(opts.env)) {
+    for (const rel of SENSITIVE_HOME_DIRS) args.push(...maskPathArgs(path.join(home, rel)));
+  }
   for (const name of fs.readdirSync(opts.workspaceRoot).filter((entry) => entry.startsWith(".env"))) {
     args.push(...maskPathArgs(path.join(opts.workspaceRoot, name)));
   }

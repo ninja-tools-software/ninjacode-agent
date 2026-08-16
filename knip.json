@@ -21,7 +21,12 @@
       "project": ["src/**/*.ts"]
     },
     "apps/vscode": {
-      "entry": ["src/extension.ts", "src/**/*.test.ts", "webview/src/**/*.test.{ts,tsx}"],
+      "entry": [
+        "src/extension.ts",
+        "src/e2e/extensionHost.ts",
+        "src/**/*.test.ts",
+        "webview/src/**/*.test.{ts,tsx}"
+      ],
       "project": ["src/**/*.ts", "webview/src/**/*.{ts,tsx}"]
     }
   }

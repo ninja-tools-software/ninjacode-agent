@@ -1,7 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { LlmProvider } from "@ninjacode/providers";
-import { resolveInWorkspace, toWorkspaceRelative, ToolError, type Tool } from "@ninjacode/tools";
+import {
+  resolveInWorkspace,
+  toWorkspaceRelative,
+  ToolError,
+  type SandboxMode,
+  type Tool,
+} from "@ninjacode/tools";
 import { isAssetEnabled, loadAssetConfig } from "./assetRegistry.js";
 import {
   parseFrontmatter,
@@ -12,8 +18,10 @@ import {
 import { listFilesWithSuffix, readFileSafe } from "./fsScan.js";
 import { toSlug, toToolNameFragment } from "./slug.js";
 import type { AgentFactory } from "./agentFactory.js";
-import { runSubAgent } from "./subagents.js";
-import type { AgentEventHandler } from "./types.js";
+import type { SubAgentGovernanceOptions } from "./agentOptions.js";
+import type { PermissionPolicy } from "./permissions.js";
+import { runSubAgent, SubAgentOrchestrator } from "./subagents.js";
+import type { AgentEventHandler, ApprovalHandler } from "./types.js";
 
 /**
  * A named custom agent persona loaded from `.github/agents/*.agent.md`,
@@ -182,8 +190,13 @@ export function createCustomAgentHandoffTools(
     workspaceRoot: string;
     agentDir: string;
     onEvent?: AgentEventHandler;
+    onApproval?: ApprovalHandler;
+    sandboxMode?: SandboxMode;
+    permissionPolicy?: PermissionPolicy;
+    governance?: SubAgentGovernanceOptions;
   },
 ): Tool[] {
+  const orchestrator = new SubAgentOrchestrator(deps.governance);
   return agents.map((agent) => ({
     name: `agent_${toToolNameFragment(agent.name).toLowerCase()}`,
     description: `Hand off to the "${agent.name}" custom agent.${
@@ -223,10 +236,14 @@ export function createCustomAgentHandoffTools(
         toolAllowlist: agent.tools,
         role: "custom",
         systemPrompt: `You are acting as the "${agent.name}" custom agent.\n${agent.systemPrompt}`,
+        onApproval: deps.onApproval,
+        sandboxMode: deps.sandboxMode,
+        permissionPolicy: deps.permissionPolicy,
+        orchestrator,
       });
       return {
         output: result.summary,
-        meta: { agent: agent.name, completed: result.completed },
+        meta: { agent: agent.name, completed: result.completed, result },
       };
     },
   }));

@@ -42,7 +42,7 @@ describe("discoverRules", () => {
     await fs.mkdir(path.join(root, "packages", "api"), { recursive: true });
     await fs.writeFile(path.join(root, "packages", "api", "AGENTS.md"), "API-specific rules.");
 
-    const result = await discoverRules(root);
+    const result = await discoverRules(root, { activeFiles: ["packages/api/src/router.ts"] });
     expect(result.text).toContain("API-specific rules.");
     const diag = result.diagnostics.find((d) => d.path === path.join("packages", "api", "AGENTS.md"));
     expect(diag?.included).toBe(true);
@@ -82,7 +82,7 @@ describe("discoverRules", () => {
       `---\ndescription: TS conventions\nglobs: ["**/*.ts", "**/*.tsx"]\nalwaysApply: false\n---\nUse strict types.`,
     );
 
-    const result = await discoverRules(root);
+    const result = await discoverRules(root, { activeFiles: ["src/app.ts"] });
     expect(result.text).toContain("Use strict types.");
     const diag = result.diagnostics.find((d) => d.kind === "cursor-rule");
     expect(diag?.included).toBe(true);
@@ -110,7 +110,7 @@ describe("discoverRules", () => {
       `---\napplyTo: "**/*.py"\n---\nUse type hints everywhere.`,
     );
 
-    const result = await discoverRules(root);
+    const result = await discoverRules(root, { activeFiles: ["scripts/check.py"] });
     expect(result.text).toContain("Use type hints everywhere.");
     const diag = result.diagnostics.find((d) => d.kind === "copilot-instructions-scoped");
     expect(diag?.globs).toEqual(["**/*.py"]);
@@ -124,6 +124,27 @@ describe("discoverRules", () => {
 
     const result = await discoverRules(root);
     expect(result.text).toContain("Legacy rule content.");
+  });
+
+  it("excludes scoped rules without matching active files", async () => {
+    const root = await tmpWorkspace();
+    const dir = path.join(root, ".github", "instructions");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(
+      path.join(dir, "python.instructions.md"),
+      `---\napplyTo: "**/*.py"\n---\nPython only.`,
+    );
+
+    const noFiles = await discoverRules(root);
+    expect(noFiles.text).not.toContain("Python only.");
+    expect(noFiles.diagnostics[0]).toMatchObject({
+      included: false,
+      reason: "scope requires active files",
+    });
+
+    const mismatch = await discoverRules(root, { activeFiles: ["src/app.ts"] });
+    expect(mismatch.text).not.toContain("Python only.");
+    expect(mismatch.diagnostics[0]?.reason).toBe("scope does not match active files");
   });
 
   it("reports empty files as not included with a reason", async () => {
@@ -172,7 +193,7 @@ describe("writeRule / readRuleBody / deleteRule", () => {
     });
     expect(file).toBe(".ninjacode/rules/typescript-conventions.md");
 
-    const result = await discoverRules(root);
+    const result = await discoverRules(root, { activeFiles: ["src/lib/index.ts"] });
     expect(result.text).toContain("- Prefer named exports");
     const diag = result.diagnostics.find((d) => d.kind === "ninjacode-rules");
     expect(diag?.globs).toEqual(["src/**/*.ts"]);

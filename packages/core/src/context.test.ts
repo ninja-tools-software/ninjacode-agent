@@ -226,6 +226,79 @@ describe("canonical compaction summary", () => {
     }
   });
 
+  it("recovers structured decisions and archive references across compactions", async () => {
+    const artifactId = "a".repeat(64);
+    const complete = vi
+      .fn<LlmProvider["complete"]>()
+      .mockResolvedValueOnce({
+        text: [
+          "## Objective\nShip the parser fix",
+          "## Constraints\n- Keep compatibility",
+          "## Decisions\n- Use a streaming parser",
+          "## Files\n- src/parser.ts",
+          "## Tests\n- pnpm test parser",
+          "## Errors\nNone",
+          "## Next action\nImplement parser",
+          "## Recovery\nNone",
+        ].join("\n"),
+        toolCalls: [],
+        usage: { inputTokens: 100, outputTokens: 40 },
+        model: "utility",
+        stopReason: "end",
+      })
+      .mockResolvedValueOnce({
+        text: [
+          "## Objective\nShip the parser fix",
+          "## Constraints\nNone",
+          "## Decisions\n- Add recovery coverage",
+          "## Files\n- src/parser.test.ts",
+          "## Tests\nNone",
+          "## Errors\n- flaky fixture",
+          "## Next action\nRun typecheck",
+          "## Recovery\nNone",
+        ].join("\n"),
+        toolCalls: [],
+        usage: { inputTokens: 100, outputTokens: 40 },
+        model: "utility",
+        stopReason: "end",
+      });
+    const provider = { name: "test", complete, completeStreaming: vi.fn() } satisfies LlmProvider;
+    let history: Message[] = [
+      { role: "user", content: `Inspect archived artifact ${artifactId}` },
+      ...Array.from({ length: 90 }, (_, i): Message => ({
+        role: i % 2 === 0 ? "assistant" : "user",
+        content: `first cycle ${i}`,
+      })),
+    ];
+
+    history = (
+      await compactHistory({
+        history,
+        provider,
+        pinnedTask: "Ship the parser fix",
+        recoveryReferences: { history: "session-events.ndjson" },
+      })
+    ).messages;
+    history.push(
+      ...Array.from({ length: 90 }, (_, i): Message => ({
+        role: i % 2 === 0 ? "user" : "assistant",
+        content: `second cycle ${i}`,
+      })),
+    );
+    history = (await compactHistory({ history, provider, pinnedTask: "Ship the parser fix" }))
+      .messages;
+    const checkpoint = history.find(isCompactionMessage)?.content ?? "";
+
+    expect(checkpoint).toContain("## Objective");
+    expect(checkpoint).toContain("Use a streaming parser");
+    expect(checkpoint).toContain("Add recovery coverage");
+    expect(checkpoint).toContain("session-events.ndjson");
+    expect(checkpoint).toContain(artifactId);
+    expect(checkpoint).toContain("## Errors");
+    expect(checkpoint).toContain("## Next action");
+    expect(history.filter(isCompactionMessage)).toHaveLength(1);
+  });
+
   it("sends the actual beginning, middle and end of the compacted segment to the model", async () => {
     const complete = vi.fn(async (_request: Parameters<LlmProvider["complete"]>[0]) => ({
       text: [
@@ -395,10 +468,10 @@ describe("lossless compaction pipeline", () => {
   });
 
   it("masks old observations once the context is under pressure, sparing the recent ones", async () => {
-    const history = readTurns(30);
+    const history = readTurns(15);
 
     // A window this small puts the token estimate over the soft threshold.
-    const result = await compactHistory({ history, contextWindow: 6_000 });
+    const result = await compactHistory({ history, contextWindow: 5_000 });
 
     expect(result.messages.some((message) => message.content.includes("output masked"))).toBe(true);
     expect(result.messages.at(-1)?.content).toBe(history.at(-1)?.content);
@@ -409,13 +482,23 @@ describe("lossless compaction pipeline", () => {
     const provider = { complete: vi.fn(), completeStreaming: vi.fn(), name: "unused" };
 
     await compactHistory({
-      history: readTurns(30),
-      contextWindow: 6_000,
+      history: readTurns(15),
+      contextWindow: 5_000,
       provider: provider as unknown as LlmProvider,
     });
 
     expect(provider.completeStreaming).not.toHaveBeenCalled();
     expect(provider.complete).not.toHaveBeenCalled();
+  });
+
+  it("keeps complete tool-call chains through repeated compactions", async () => {
+    let history = shellTurns(50);
+    history = (await compactHistory({ history })).messages;
+    history.push(...shellTurns(50));
+    history = (await compactHistory({ history })).messages;
+
+    expect(history.filter(isCompactionMessage)).toHaveLength(1);
+    expect(isValidToolChain(history)).toBe(true);
   });
 
   it("keeps contradictory constraints visible to the compressor", async () => {

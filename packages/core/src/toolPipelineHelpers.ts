@@ -269,17 +269,6 @@ export function preflightToolCall(
     };
   }
 
-  if (tc.arguments._truncated === true) {
-    return {
-      toolCall: tc,
-      output:
-        `Tool call ${tc.name} had truncated JSON arguments (output token limit reached). Retry with a smaller payload — e.g. split a large write_file into edit_file steps or write the file in parts.`,
-      approved: false,
-      durationMs: Date.now() - started,
-      error: "truncated_tool_args",
-    };
-  }
-
   return null;
 }
 

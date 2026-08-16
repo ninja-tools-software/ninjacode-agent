@@ -8,7 +8,7 @@ import { redact, truncateForLog } from "./agentLogs.js";
 import type { AgentTaskInput } from "./agentOptions.js";
 import type { ContextUsageBreakdown } from "./contextEstimate.js";
 import type { SkillDefinition } from "./skills.js";
-import type { AgentMode } from "./types.js";
+import type { AgentMode, CheckpointFailure } from "./types.js";
 
 export async function previewAgentContextUsage(opts: {
   workspaceRoot: string;
@@ -49,6 +49,18 @@ export async function compactAgentSession(opts: {
   return { compacted: result.compacted, usage: result.usage };
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function reportCheckpointFailure(
+  emit: (failure: CheckpointFailure) => Promise<void>,
+  stage: CheckpointFailure["stage"],
+  error: unknown,
+): Promise<void> {
+  await emit({ stage, message: errorMessage(error) }).catch(() => undefined);
+}
+
 export async function prepareAgentRun(opts: {
   agentDir: string;
   enableCheckpoints: boolean;
@@ -60,18 +72,35 @@ export async function prepareAgentRun(opts: {
   sessionId: string;
   task: AgentTaskInput;
   emitCheckpoint: (cp: { id: string }) => Promise<void>;
+  emitCheckpointFailure: (failure: CheckpointFailure) => Promise<void>;
 }): Promise<{ requestSeq: number; pendingCheckpointId?: string }> {
   await fs.mkdir(opts.agentDir, { recursive: true });
-  if (!opts.enableCheckpoints) return { requestSeq: opts.requestsLength + 1 };
-
-  await opts.checkpoints.init().catch(() => undefined);
   const requestSeq = opts.requestsLength + 1;
+  if (!opts.enableCheckpoints) return { requestSeq };
+
+  try {
+    await opts.checkpoints.init();
+  } catch (error) {
+    await reportCheckpointFailure(opts.emitCheckpointFailure, "init", error);
+    return { requestSeq };
+  }
   const preview = opts.task.text.replace(/\s+/g, " ").trim().slice(0, 60);
-  const cp = await opts.checkpoints
-    .create(`request-${requestSeq}${preview ? `: ${preview}` : ""}`, { sessionId: opts.sessionId })
-    .catch(() => null);
+  let cp: { id: string } | null;
+  try {
+    cp = await opts.checkpoints.create(
+      `request-${requestSeq}${preview ? `: ${preview}` : ""}`,
+      { sessionId: opts.sessionId },
+    );
+  } catch (error) {
+    await reportCheckpointFailure(opts.emitCheckpointFailure, "create", error);
+    return { requestSeq };
+  }
   if (!cp) return { requestSeq };
-  await opts.emitCheckpoint(cp);
+  try {
+    await opts.emitCheckpoint(cp);
+  } catch (error) {
+    await reportCheckpointFailure(opts.emitCheckpointFailure, "emit", error);
+  }
   return { requestSeq, pendingCheckpointId: cp.id };
 }
 

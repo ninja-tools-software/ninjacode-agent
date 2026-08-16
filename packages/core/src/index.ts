@@ -1,5 +1,5 @@
 export { Agent, createSubAgent } from "./agent.js";
-export type { AgentOptions, AgentTaskInput } from "./agent.js";
+export type { AgentOptions, AgentTaskInput, SubAgentGovernanceOptions } from "./agent.js";
 
 export { buildAgentRuntime } from "./runtime.js";
 export type { AgentRuntime, BuildAgentRuntimeOptions } from "./runtime.js";
@@ -13,8 +13,64 @@ export type { ApprovalMode, PermissionCall, PermissionDecision, PermissionPolicy
 export type { ContextViewOptions } from "./contextViewBuilder.js";
 export type { PutArtifactOptions } from "./sessionArtifacts.js";
 export { DEFAULT_RUN_TIMEOUT_MS } from "./agentOptions.js";
-export { startSpan, configureTelemetry } from "./telemetry.js";
-export type { TelemetryExporter, TelemetrySpan } from "./telemetry.js";
+export {
+  configureTelemetry,
+  createTelemetryContext,
+  currentTelemetryContext,
+  extractTelemetryContext,
+  flushTelemetry,
+  injectTelemetryHeaders,
+  redactTelemetryAttributes,
+  runWithTelemetryContext,
+  shutdownTelemetry,
+  startSpan,
+} from "./telemetry.js";
+export type {
+  CreateTelemetryContextOptions,
+  StartSpanOptions,
+  TelemetryAttributes,
+  TelemetryAttributeValue,
+  TelemetryContext,
+  TelemetryExporter,
+  TelemetryRecord,
+  TelemetryRedactor,
+  TelemetryScope,
+  TelemetrySpan,
+} from "./telemetry.js";
+export { OtlpHttpExporter, toOtlpPayload } from "./otlpHttpExporter.js";
+export type {
+  OtlpFetch,
+  OtlpFetchResponse,
+  OtlpHttpExporterOptions,
+} from "./otlpHttpExporter.js";
+export {
+  compareTrajectories,
+  createTrajectory,
+  createTrajectoryEvent,
+  deserializeTrajectory,
+  replayTrajectory,
+  serializeTrajectory,
+  TRAJECTORY_SCHEMA_VERSION,
+} from "./trajectory.js";
+export type {
+  Trajectory,
+  TrajectoryComparison,
+  TrajectoryEvent,
+  TrajectoryEventType,
+  TrajectoryOutcome,
+  TrajectoryReplay,
+} from "./trajectory.js";
+export {
+  configureLearningMetrics,
+  flushLearningMetrics,
+  recordLearningFeedback,
+} from "./learningMetrics.js";
+export type {
+  LearningDecision,
+  LearningFeedback,
+  LearningFeedbackInput,
+  LearningMetricsSink,
+} from "./learningMetrics.js";
 export {
   createOAuthAuthPort,
   createDeviceOAuthHost,
@@ -60,14 +116,37 @@ export type { AssetKind, WorkspaceAssetConfig } from "./assetRegistry.js";
 
 export {
   runSubAgent,
+  runSubAgents,
   createDelegateTool,
   modelForSubAgentRole,
   ROLE_MODEL_TIER,
+  DEFAULT_SUBAGENT_GOVERNANCE,
+  resolveSubAgentGovernance,
+  SubAgentOrchestrator,
 } from "./subagents.js";
-export type { SubAgentRole, SubAgentResult, SubAgentModelTier } from "./subagents.js";
+export type {
+  ResolvedSubAgentGovernance,
+  RunSubAgentOptions,
+  SubAgentArtifact,
+  SubAgentEvidence,
+  SubAgentModelTier,
+  SubAgentResult,
+  SubAgentRole,
+  SubAgentTestResult,
+} from "./subagents.js";
 
 export { filterToolsForEditFormat, preferredEditFormat } from "./editTools.js";
 export type { EditFormat } from "./editTools.js";
+export {
+  filterToolsForHarnessProfile,
+  resolveHarnessProfile,
+} from "./harnessProfiles.js";
+export type {
+  HarnessProfile,
+  HarnessProfileVersion,
+  ResolveHarnessProfileInput,
+  VerificationPolicy,
+} from "./harnessProfiles.js";
 
 export { classifyToolFailure } from "./toolErrors.js";
 export type { ToolErrorCategory, ClassifiedToolError } from "./toolErrors.js";
@@ -207,6 +286,9 @@ export type {
   SessionConfig,
   RequestCheckpoint,
   ToolInvocation,
+  ToolStartEventPayload,
+  ToolEndEventPayload,
+  CheckpointFailure,
   TurnTrace,
   AgentEvent,
   AgentEventHandler,

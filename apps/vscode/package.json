@@ -649,8 +649,10 @@
     "build:deps": "pnpm --filter @ninjacode/core --filter @ninjacode/providers --filter @ninjacode/tools run build",
     "dev": "node esbuild.mjs --watch",
     "test": "vitest run --passWithNoTests",
+    "build:test:e2e": "node esbuild.e2e.mjs",
+    "test:e2e": "pnpm run build && pnpm run build:test:e2e && node run-e2e.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p webview/tsconfig.json --noEmit",
-    "clean": "rm -rf dist *.vsix",
+    "clean": "rm -rf dist dist-e2e *.vsix",
     "version:bump": "node scripts/bump-version.mjs",
     "package": "pnpm run build && npx @vscode/vsce package --no-dependencies"
   },

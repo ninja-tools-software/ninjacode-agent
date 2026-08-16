@@ -3,7 +3,11 @@ import type { Message, ToolSpec } from "@ninjacode/providers";
 import type { ToolRegistry } from "@ninjacode/tools";
 import { discoverRules } from "./rules.js";
 import { loadVerifyConfig, type VerifyConfig } from "./verify.js";
-import { filterToolsForEditFormat, preferredEditFormat } from "./editTools.js";
+import { filterToolsForEditFormat } from "./editTools.js";
+import {
+  filterToolsForHarnessProfile,
+  resolveHarnessProfile,
+} from "./harnessProfiles.js";
 import {
   buildUserMessageContent,
   dropOrphanUserMessage,
@@ -96,8 +100,12 @@ export async function prepareRunLoop(input: RunLoopSetupInput): Promise<RunLoopS
     });
   }
 
-  const editFormat = preferredEditFormat(input.providerName, input.model);
-  const modeTools = filterToolsForEditFormat(input.tools.forMode(input.mode), editFormat);
+  const profile = resolveHarnessProfile({
+    providerKind: input.providerName,
+    modelId: input.model,
+  });
+  const profiledTools = filterToolsForHarnessProfile(input.tools.forMode(input.mode), profile);
+  const modeTools = filterToolsForEditFormat(profiledTools, profile.editFormat);
   const toolSpecs = modeTools.specs();
   const toolPipeline = input.createToolPipeline();
 

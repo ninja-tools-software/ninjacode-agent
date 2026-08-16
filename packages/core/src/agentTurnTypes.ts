@@ -31,6 +31,7 @@ export interface AgentTurnDeps {
   turn: number;
   signal: AbortSignal;
   state: AgentTurnMutableState;
+  workspaceRoot: string;
   toolSpecs: ToolSpec[];
   modeTools: ToolRegistry;
   verifyConfig: VerifyConfig;

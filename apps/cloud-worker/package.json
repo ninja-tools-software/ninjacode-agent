@@ -1,0 +1,29 @@
+{
+  "name": "@ninjacode/cloud-worker",
+  "version": "0.1.0",
+  "description": "Durable asynchronous worker foundation for NinjaCode agents",
+  "license": "GPL-2.0-only",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ninjacode-cloud-worker": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ninjacode/core": "workspace:*",
+    "@ninjacode/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
+  }
+}

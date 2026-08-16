@@ -1,28 +1,11 @@
-import type { ProviderKind } from "@ninjacode/providers";
-import { findModelAnywhere } from "@ninjacode/providers";
 import type { ToolRegistry } from "@ninjacode/tools";
+import { resolveHarnessProfile, type EditFormat } from "./harnessProfiles.js";
 
-export type EditFormat = "string_replace" | "patch";
+export type { EditFormat } from "./harnessProfiles.js";
 
-/** Infer preferred edit format from provider/model training (Cursor pattern). */
+/** Resolve the edit format from the versioned harness profile. */
 export function preferredEditFormat(providerKind?: string, modelId?: string): EditFormat {
-  const model = modelId ? findModelAnywhere(modelId) : undefined;
-  if (model?.editFormat) return model.editFormat;
-
-  const kind = providerKind?.replace(/\+retry$/, "") as ProviderKind | undefined;
-  switch (kind) {
-    case "anthropic":
-      return "string_replace";
-    case "openai":
-    case "deepseek":
-    case "openrouter":
-    case "gateway":
-    case "mammouth":
-    case "openai-compatible":
-      return "patch";
-    default:
-      return "string_replace";
-  }
+  return resolveHarnessProfile({ providerKind, modelId }).editFormat;
 }
 
 /**

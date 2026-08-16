@@ -1,5 +1,6 @@
 import type {
   Completion,
+  CompletionRequest,
   ContentPart,
   Message,
   StreamSink,
@@ -17,11 +18,32 @@ import {
 import { buildVolatileContextMessage, volatileContextChanged } from "./volatileContext.js";
 import type { AgentTurnDeps } from "./agentTurnTypes.js";
 import { startSpan } from "./telemetry.js";
+import { isRetryableLlmError, isRetryWrappedProvider } from "./reliability.js";
 
 type AgentTurnOutcome =
   | { kind: "continue" }
   | { kind: "failed"; message: string }
   | { kind: "stopped"; message: string };
+
+export class ContextBudgetError extends Error {
+  readonly code = "context_budget_exceeded";
+  readonly retryable = false;
+  readonly blame = "harness";
+  readonly recoveryHint = "Reduce or compact context before starting another LLM turn.";
+
+  constructor(
+    readonly estimatedTokens: number,
+    readonly inputBudget: number,
+    readonly reservedOutputTokens: number,
+    readonly safetyMarginTokens: number,
+  ) {
+    super(
+      `Context input budget exceeded (~${estimatedTokens}/${inputBudget} tokens after reserving ` +
+        `${reservedOutputTokens} output + ${safetyMarginTokens} safety).`,
+    );
+    this.name = "ContextBudgetError";
+  }
+}
 
 export async function checkTurnPreconditions(deps: AgentTurnDeps): Promise<AgentTurnOutcome | null> {
   if (deps.signal.aborted) {
@@ -79,6 +101,8 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
 
   const { messages: compacted, changed } = await buildContextView({
     history: state.history,
+    workspaceRoot: deps.workspaceRoot,
+    activeFiles: activeFilesForContext(deps),
     pinnedTask: deps.pinnedTask,
     provider: deps.provider,
     model: deps.utilityModel ?? deps.model,
@@ -116,13 +140,49 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
 
   const usage = deps.estimateUsage(state.system, compacted, deps.toolSpecs);
   await deps.emit("context_usage", usage);
+  await enforceContextBudget(deps, usage);
 
+  return [{ role: "system", content: state.system }, ...compacted];
+}
+
+function activeFilesForContext(deps: AgentTurnDeps): string[] {
+  const files = new Set(deps.modifiedFiles);
+  const add = (value: unknown): void => {
+    if (typeof value === "string" && value.trim()) files.add(value);
+    if (Array.isArray(value)) {
+      for (const item of value) if (typeof item === "string" && item.trim()) files.add(item);
+    }
+  };
+  for (const turn of deps.state.turns) {
+    for (const invocation of turn.toolInvocations) {
+      add(invocation.toolCall.arguments.path);
+      add(invocation.toolCall.arguments.paths);
+      add(invocation.meta?.path);
+      add(invocation.meta?.paths);
+    }
+  }
+  return [...files];
+}
+
+async function enforceContextBudget(
+  deps: AgentTurnDeps,
+  usage: ReturnType<AgentTurnDeps["estimateUsage"]>,
+): Promise<void> {
   if (usage.inputBudget > 0 && usage.total > usage.inputBudget) {
-    const message =
-      `Context input budget exceeded (~${usage.total}/${usage.inputBudget} tokens after reserving ` +
-      `${usage.output} output + ${usage.safetyMargin} safety).`;
-    await deps.emit("error", { message });
-    throw new Error(message);
+    const error = new ContextBudgetError(
+      usage.total,
+      usage.inputBudget,
+      usage.output,
+      usage.safetyMargin,
+    );
+    await deps.emit("error", {
+      message: error.message,
+      code: error.code,
+      retryable: error.retryable,
+      blame: error.blame,
+      recoveryHint: error.recoveryHint,
+    });
+    throw error;
   }
 
   if (usage.inputBudget > 0 && usage.total > Math.floor(usage.inputBudget * 0.85)) {
@@ -130,12 +190,11 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
       text: `Context input budget nearly full (~${usage.total}/${usage.inputBudget} tokens). Compacting or finishing soon.`,
     });
   }
-
-  return [{ role: "system", content: state.system }, ...compacted];
 }
 
-function createStreamSink(deps: AgentTurnDeps): StreamSink {
+function createStreamSink(deps: AgentTurnDeps, onEmission?: () => void): StreamSink {
   return async (event) => {
+    onEmission?.();
     if (event.type === "text_delta") {
       await deps.emit("text_delta", { text: event.text });
     } else if (event.type === "reasoning_delta") {
@@ -158,12 +217,9 @@ export async function callLlmForTurn(
   toolSpecs: ToolSpec[],
 ): Promise<{ completion: Completion } | AgentTurnOutcome> {
   const { turn } = deps;
-  const sink = createStreamSink(deps);
-
-  deps.logAgentEvent(
-    "llm_call",
-    `turn ${turn + 1}: ${deps.provider.name} model=${deps.model ?? "default"} messages=${messages.length}`,
-  );
+  let emitted = false;
+  const sink = createStreamSink(deps, () => (emitted = true));
+  logLlmCall(deps, messages.length);
 
   try {
     const system = messages[0]?.role === "system" ? messages[0].content : "";
@@ -179,57 +235,24 @@ export async function callLlmForTurn(
       provider: deps.provider.name,
       model: deps.model,
     });
-    const completion = await deps.provider.completeStreaming(
-      {
-        messages,
-        tools: toolSpecs,
-        maxTokens: deps.maxTokens,
-        model: deps.model,
-        cacheSystemPrompt: deps.enablePromptCache,
-        reasoningEffort: deps.reasoningEffort,
-        thinkingBudgetTokens: deps.thinkingBudgetTokens,
-        signal: deps.signal,
-      },
+    const request: CompletionRequest = {
+      messages,
+      tools: toolSpecs,
+      maxTokens: deps.maxTokens,
+      model: deps.model,
+      cacheSystemPrompt: deps.enablePromptCache,
+      reasoningEffort: deps.reasoningEffort,
+      thinkingBudgetTokens: deps.thinkingBudgetTokens,
+      signal: deps.signal,
+    };
+    const completion = await completeTurnSafely({
+      provider: deps.provider,
+      request,
       sink,
-    );
-    const resolvedModel = completion.resolvedModel ?? completion.model ?? deps.model;
-    const actualInput =
-      completion.usage.inputTokens +
-      (completion.usage.cacheReadTokens ?? 0) +
-      (completion.usage.cacheWriteTokens ?? 0);
-    recordTokenCalibration(
-      resolvedModel,
-      estimated.total / tokenCalibrationMultiplier(deps.model),
-      actualInput,
-    );
-    deps.trackUsage(completion.usage, { model: resolvedModel });
-    await deps.emit("usage", {
-      turn: turn + 1,
-      usage: completion.usage,
-      model: resolvedModel,
+      signal: deps.signal,
+      hasEmitted: () => emitted,
     });
-    if (completion.resolvedModel) {
-      deps.logAgentEvent(
-        "llm_call",
-        `turn ${turn + 1}: Auto routed to model=${completion.resolvedModel}`,
-      );
-    }
-    deps.logAgentEvent(
-      "llm_response",
-      `turn ${turn + 1}: in=${completion.usage.inputTokens} out=${completion.usage.outputTokens} tools=${completion.toolCalls?.length ?? 0}`,
-      completion.text,
-    );
-    if (completion.usage.cacheReadTokens || completion.usage.cacheWriteTokens) {
-      deps.logAgentEvent(
-        "cache",
-        `turn ${turn + 1}: cacheRead=${completion.usage.cacheReadTokens ?? 0} cacheWrite=${completion.usage.cacheWriteTokens ?? 0}`,
-      );
-    }
-    llmSpan.end({
-      inputTokens: completion.usage.inputTokens,
-      outputTokens: completion.usage.outputTokens,
-      tools: completion.toolCalls?.length ?? 0,
-    });
+    await recordCompletedTurn(deps, completion, estimated, llmSpan);
     return { completion };
   } catch (e) {
     startSpan("llm", { turn: turn + 1, failed: true }).end();
@@ -239,13 +262,135 @@ export async function callLlmForTurn(
       await deps.setState("stopped");
       return { kind: "stopped", message: "Aborted by user." };
     }
-    const msg = (e as Error).message;
+    const structured = classifyLlmError(e, emitted);
+    const msg = structured.message;
     deps.logAgentEvent("error", `turn ${turn + 1}: LLM error`, msg);
-    await deps.emit("error", { message: msg, gateway: gatewayErrorInfo(e) });
+    await deps.emit("error", { ...structured, gateway: gatewayErrorInfo(e) });
     await deps.persist();
     await deps.setState("failed");
     return { kind: "failed", message: `LLM error: ${msg}` };
   }
+}
+
+function logLlmCall(deps: AgentTurnDeps, messageCount: number): void {
+  deps.logAgentEvent(
+    "llm_call",
+    `turn ${deps.turn + 1}: ${deps.provider.name} model=${deps.model ?? "default"} messages=${messageCount}`,
+  );
+}
+
+async function recordCompletedTurn(
+  deps: AgentTurnDeps,
+  completion: Completion,
+  estimated: ReturnType<typeof estimateContextUsage>,
+  llmSpan: ReturnType<typeof startSpan>,
+): Promise<void> {
+  const resolvedModel = completion.resolvedModel ?? completion.model ?? deps.model;
+  const actualInput =
+    completion.usage.inputTokens +
+    (completion.usage.cacheReadTokens ?? 0) +
+    (completion.usage.cacheWriteTokens ?? 0);
+  recordTokenCalibration(
+    resolvedModel,
+    estimated.total / tokenCalibrationMultiplier(deps.model),
+    actualInput,
+  );
+  deps.trackUsage(completion.usage, { model: resolvedModel });
+  await deps.emit("usage", {
+    turn: deps.turn + 1,
+    usage: completion.usage,
+    model: resolvedModel,
+  });
+  if (completion.resolvedModel) {
+    deps.logAgentEvent(
+      "llm_call",
+      `turn ${deps.turn + 1}: Auto routed to model=${completion.resolvedModel}`,
+    );
+  }
+  deps.logAgentEvent(
+    "llm_response",
+    `turn ${deps.turn + 1}: in=${completion.usage.inputTokens} out=${completion.usage.outputTokens} tools=${completion.toolCalls?.length ?? 0}`,
+    completion.text,
+  );
+  if (completion.usage.cacheReadTokens || completion.usage.cacheWriteTokens) {
+    deps.logAgentEvent(
+      "cache",
+      `turn ${deps.turn + 1}: cacheRead=${completion.usage.cacheReadTokens ?? 0} cacheWrite=${completion.usage.cacheWriteTokens ?? 0}`,
+    );
+  }
+  llmSpan.end({
+    inputTokens: completion.usage.inputTokens,
+    outputTokens: completion.usage.outputTokens,
+    tools: completion.toolCalls?.length ?? 0,
+  });
+}
+
+interface SafeTurnCall {
+  provider: AgentTurnDeps["provider"];
+  request: CompletionRequest;
+  sink: StreamSink;
+  signal: AbortSignal;
+  hasEmitted: () => boolean;
+}
+
+async function completeTurnSafely(opts: SafeTurnCall): Promise<Completion> {
+  const maxAttempts = isRetryWrappedProvider(opts.provider) ? 1 : 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (opts.signal.aborted) throw abortError(opts.signal);
+    try {
+      return await opts.provider.completeStreaming(opts.request, opts.sink);
+    } catch (error) {
+      const safe =
+        !opts.hasEmitted() &&
+        !opts.signal.aborted &&
+        isRetryableLlmError(error) &&
+        attempt < maxAttempts;
+      if (!safe) throw error;
+      await retryDelay(100, opts.signal);
+    }
+  }
+  throw new Error("LLM turn retry budget exhausted");
+}
+
+function classifyLlmError(
+  error: unknown,
+  emitted: boolean,
+): {
+  message: string;
+  code: string;
+  retryable: boolean;
+  blame: "provider" | "user";
+  recoveryHint: string;
+} {
+  const message = error instanceof Error ? error.message : String(error);
+  const aborted = error instanceof Error && error.name === "AbortError";
+  const retryExhausted = !aborted && !emitted && isRetryableLlmError(error);
+  return {
+    message,
+    code: aborted ? "aborted" : retryExhausted ? "retry_exhausted" : "llm_error",
+    retryable: false,
+    blame: aborted ? "user" : "provider",
+    recoveryHint: "Do not automatically replay this turn; inspect the provider error.",
+  };
+}
+
+function retryDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(abortError(signal));
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(abortError(signal));
+      },
+      { once: true },
+    );
+  });
+}
+
+function abortError(signal: AbortSignal): DOMException {
+  return new DOMException(signal.reason ? String(signal.reason) : "Aborted", "AbortError");
 }
 
 /** Build user message content, respecting model vision support. */

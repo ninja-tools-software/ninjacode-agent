@@ -5,10 +5,17 @@ on:
     paths:
       - "packages/**"
       - "apps/bench/**"
+      - "apps/cli/src/benchmarkTelemetry*"
+      - "apps/cli/src/runTask.ts"
       - ".github/workflows/bench.yml"
+      - "docs/BENCHMARKS.md"
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   bench-harness:
@@ -31,6 +38,18 @@ jobs:
       - name: Build deps
         run: pnpm --filter @ninjacode/bench... build
 
+      - name: Unit tests
+        run: pnpm --filter @ninjacode/bench test && pnpm --filter @ninjacode/cli test
+
+      - name: Harbor adapter tests
+        run: python3 -m unittest discover -s apps/bench/harbor -p "test_*.py"
+
+      - name: Typecheck
+        run: pnpm --filter @ninjacode/bench typecheck && pnpm --filter @ninjacode/cli typecheck
+
+      - name: Lint benchmark scope
+        run: pnpm exec eslint apps/bench/src apps/cli/src/benchmarkTelemetry.ts apps/cli/src/benchmarkTelemetry.test.ts apps/cli/src/runTask.ts
+
       - name: Run harness suite (deterministic mock scripts)
         run: pnpm bench:harness
 
@@ -44,6 +63,12 @@ jobs:
   bench-live:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      BENCH_MIN_PASS_RATE: ${{ vars.BENCH_MIN_PASS_RATE || '0' }}
+      BENCH_MAX_PASS_RATE_DROP: ${{ vars.BENCH_MAX_PASS_RATE_DROP || '0.05' }}
+      BENCH_MAX_COST_INCREASE_PCT: ${{ vars.BENCH_MAX_COST_INCREASE_PCT || '25' }}
+      BENCH_MAX_WALL_TIME_INCREASE_PCT: ${{ vars.BENCH_MAX_WALL_TIME_INCREASE_PCT || '30' }}
+      BENCH_MAX_TOOL_ERRORS_INCREASE: ${{ vars.BENCH_MAX_TOOL_ERRORS_INCREASE || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -55,6 +80,19 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Download last successful live baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p runs
+          for run_id in $(gh run list --workflow bench.yml --branch "$GITHUB_REF_NAME" --status success --limit 10 --json databaseId --jq '.[].databaseId'); do
+            if gh run download "$run_id" --name ninjabench-live-report --dir runs/baseline; then
+              echo "Downloaded baseline from workflow run $run_id"
+              exit 0
+            fi
+            rm -rf runs/baseline
+          done
+          echo "No previous live baseline artifact found"
       - name: Require live key on scheduled runs
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -76,12 +114,24 @@ jobs:
           pnpm bench:confirm -- --provider anthropic
         id: live
       - name: Compare to last valid baseline
-        if: steps.live.outputs.skipped != 'true' && env.ANTHROPIC_API_KEY != ''
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        if: steps.live.outputs.skipped != 'true'
         run: |
           if [ -d runs/baseline ]; then
-            node apps/bench/dist/index.js compare --current runs/confirm --baseline runs/baseline
+            node apps/bench/dist/index.js compare \
+              --current runs/confirm \
+              --baseline runs/baseline \
+              --output runs/compare.md
           else
             echo "No baseline directory yet; publishing this run as the first comparable artifact"
           fi
+
+      - name: Upload live report and gate output
+        if: always() && steps.live.outputs.skipped != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ninjabench-live-report
+          path: |
+            runs/confirm/
+            runs/compare.md
+          if-no-files-found: warn
+          retention-days: 90

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { resolveInWorkspace, toWorkspaceRelative, ToolError } from "@ninjacode/tools";
+import { matchGlob, resolveInWorkspace, toWorkspaceRelative, ToolError } from "@ninjacode/tools";
 import type { AgentMode } from "./types.js";
 import { isAssetEnabled, loadAssetConfig } from "./assetRegistry.js";
 import {
@@ -43,6 +43,16 @@ export interface RuleDiscoveryResult {
   diagnostics: RuleDiagnostic[];
 }
 
+interface RuleDiscoveryOptions {
+  /**
+   * Workspace-relative active or touched files. Scoped rules are excluded when
+   * this set is absent, because applying an unrelated rule is less safe.
+   */
+  activeFiles?: readonly string[];
+  /** Return only matching scoped rules for volatile message injection. */
+  scopedOnly?: boolean;
+}
+
 function section(kind: RuleSourceKind, rel: string, body: string, globs?: string[]): string {
   const scope = globs?.length ? ` (scope: ${globs.join(", ")})` : "";
   return `# Rule [${kind}] ${rel}${scope}\n${body.trim()}`;
@@ -56,17 +66,20 @@ function section(kind: RuleSourceKind, rel: string, body: string, globs?: string
  *  - .github/copilot-instructions.md
  *  - .github/instructions/*.instructions.md, honoring frontmatter `applyTo`
  *
- * Rules whose frontmatter declares a glob scope are still included in the
- * system prompt (we don't know the "current file" at prompt-build time) but
- * are annotated with their scope so the model — and the returned diagnostics
- * — know they're conditionally relevant rather than global.
+ * Scoped rules are included only when at least one supplied active/touched file
+ * matches. With no file set, only global rules are returned.
  */
-export async function discoverRules(workspaceRoot: string): Promise<RuleDiscoveryResult> {
+export async function discoverRules(
+  workspaceRoot: string,
+  options: RuleDiscoveryOptions = {},
+): Promise<RuleDiscoveryResult> {
   const config = await loadAssetConfig(workspaceRoot);
   const ctx: RuleLoadContext = {
     workspaceRoot,
     diagnostics: [],
     sections: [],
+    activeFiles: options.activeFiles?.map(normalizeRulePath).filter(Boolean),
+    scopedOnly: options.scopedOnly ?? false,
     // Rules turned off in the settings UI stay listed as diagnostics but are
     // dropped from the prompt text.
     isDisabled: (rel) => !isAssetEnabled(config, "rule", normalizeRulePath(rel)),
@@ -85,6 +98,8 @@ interface RuleLoadContext {
   workspaceRoot: string;
   diagnostics: RuleDiagnostic[];
   sections: string[];
+  activeFiles?: string[];
+  scopedOnly: boolean;
   isDisabled(rel: string): boolean;
 }
 
@@ -100,8 +115,47 @@ function skipIfDisabled(ctx: RuleLoadContext, kind: RuleSourceKind, rel: string)
   return true;
 }
 
+function addRule(
+  ctx: RuleLoadContext,
+  rule: {
+    kind: RuleSourceKind;
+    rel: string;
+    content: string;
+    globs?: string[];
+    reason?: string;
+  },
+): void {
+  const normalizedGlobs = rule.globs?.map(normalizeRulePath).filter(Boolean);
+  const skipReason = rule.reason ?? scopeSkipReason(ctx, normalizedGlobs);
+  if (skipReason) {
+    ctx.diagnostics.push({
+      kind: rule.kind,
+      path: rule.rel,
+      included: false,
+      reason: skipReason,
+      globs: normalizedGlobs,
+    });
+    return;
+  }
+  ctx.sections.push(section(rule.kind, rule.rel, rule.content, normalizedGlobs));
+  ctx.diagnostics.push({
+    kind: rule.kind,
+    path: rule.rel,
+    included: true,
+    globs: normalizedGlobs,
+    chars: rule.content.trim().length,
+  });
+}
+
+function scopeSkipReason(ctx: RuleLoadContext, globs?: string[]): string | undefined {
+  if (!globs?.length) return ctx.scopedOnly ? "unscoped rule excluded from dynamic view" : undefined;
+  if (!ctx.activeFiles?.length) return "scope requires active files";
+  const matches = ctx.activeFiles.some((file) => globs.some((glob) => matchGlob(file, glob)));
+  return matches ? undefined : "scope does not match active files";
+}
+
 async function loadNestedMarkdownRules(ctx: RuleLoadContext): Promise<void> {
-  const { workspaceRoot, diagnostics, sections } = ctx;
+  const { workspaceRoot, diagnostics } = ctx;
   const filenames = ["AGENTS.md", "CLAUDE.md", "AGENT.md"];
   const found = await walkForFilenames(workspaceRoot, filenames, { maxDepth: 6, maxResults: 40 });
   // Root-level files first, then nested (shallower paths first) for stable ordering.
@@ -121,14 +175,13 @@ async function loadNestedMarkdownRules(ctx: RuleLoadContext): Promise<void> {
       continue;
     }
     const isNested = path.dirname(abs) !== workspaceRoot;
-    const label = isNested ? `${kind} (nested, scope: ${path.dirname(rel) || "."}/**)` : rel;
-    sections.push(section(kind, label, text));
-    diagnostics.push({ kind, path: rel, included: true, chars: text.trim().length });
+    const globs = isNested ? [`${normalizeRulePath(path.dirname(rel))}/**`] : undefined;
+    addRule(ctx, { kind, rel, content: text, globs });
   }
 }
 
 async function loadNinjaCodeRulesDir(ctx: RuleLoadContext): Promise<void> {
-  const { workspaceRoot, diagnostics, sections } = ctx;
+  const { workspaceRoot, diagnostics } = ctx;
   const dir = path.join(workspaceRoot, ".ninjacode", "rules");
   const files = await listFilesWithSuffix(dir, [".md"]);
   for (const abs of files) {
@@ -144,21 +197,17 @@ async function loadNinjaCodeRulesDir(ctx: RuleLoadContext): Promise<void> {
     const globs = toStringArray(data.globs);
     const description = toOptionalString(data.description);
     const content = body.trim() || raw.trim();
-    sections.push(
-      section("ninjacode-rules", rel, content || description || "", globs.length ? globs : undefined),
-    );
-    diagnostics.push({
+    addRule(ctx, {
       kind: "ninjacode-rules",
-      path: rel,
-      included: true,
+      rel,
+      content: content || description || "",
       globs: globs.length ? globs : undefined,
-      chars: content.length,
     });
   }
 }
 
 async function loadCursorRules(ctx: RuleLoadContext): Promise<void> {
-  const { workspaceRoot, diagnostics, sections } = ctx;
+  const { workspaceRoot, diagnostics } = ctx;
   const dir = path.join(workspaceRoot, ".cursor", "rules");
   const files = await listFilesWithSuffix(dir, [".mdc", ".md"]);
   for (const abs of files) {
@@ -178,20 +227,21 @@ async function loadCursorRules(ctx: RuleLoadContext): Promise<void> {
       continue;
     }
     const content = body.trim() || description || "";
-    const note = alwaysApply === false && globs.length === 0 ? " (manual: agent-requested only)" : "";
-    sections.push(section("cursor-rule", `${rel}${note}`, content, globs.length ? globs : undefined));
-    diagnostics.push({
+    const scope = alwaysApply === true ? undefined : globs.length ? globs : undefined;
+    const manualReason =
+      alwaysApply === false && globs.length === 0 ? "manual rule requires explicit request" : undefined;
+    addRule(ctx, {
       kind: "cursor-rule",
-      path: rel,
-      included: true,
-      globs: globs.length ? globs : undefined,
-      chars: content.length,
+      rel,
+      content,
+      globs: scope,
+      reason: manualReason,
     });
   }
 }
 
 async function loadCopilotInstructions(ctx: RuleLoadContext): Promise<void> {
-  const { workspaceRoot, diagnostics, sections } = ctx;
+  const { workspaceRoot, diagnostics } = ctx;
   const rel = path.join(".github", "copilot-instructions.md");
   const text = await readFileSafe(path.join(workspaceRoot, rel));
   if (text === null) return; // not present — not worth a diagnostic entry
@@ -200,12 +250,11 @@ async function loadCopilotInstructions(ctx: RuleLoadContext): Promise<void> {
     diagnostics.push({ kind: "copilot-instructions", path: rel, included: false, reason: "empty file" });
     return;
   }
-  sections.push(section("copilot-instructions", rel, text));
-  diagnostics.push({ kind: "copilot-instructions", path: rel, included: true, chars: text.trim().length });
+  addRule(ctx, { kind: "copilot-instructions", rel, content: text });
 }
 
 async function loadCopilotScopedInstructions(ctx: RuleLoadContext): Promise<void> {
-  const { workspaceRoot, diagnostics, sections } = ctx;
+  const { workspaceRoot, diagnostics } = ctx;
   const dir = path.join(workspaceRoot, ".github", "instructions");
   const files = await listFilesWithSuffix(dir, [".instructions.md"]);
   for (const abs of files) {
@@ -222,13 +271,11 @@ async function loadCopilotScopedInstructions(ctx: RuleLoadContext): Promise<void
       diagnostics.push({ kind: "copilot-instructions-scoped", path: rel, included: false, reason: "empty body" });
       continue;
     }
-    sections.push(section("copilot-instructions-scoped", rel, body, applyTo.length ? applyTo : undefined));
-    diagnostics.push({
+    addRule(ctx, {
       kind: "copilot-instructions-scoped",
-      path: rel,
-      included: true,
+      rel,
+      content: body,
       globs: applyTo.length ? applyTo : undefined,
-      chars: body.trim().length,
     });
   }
 }

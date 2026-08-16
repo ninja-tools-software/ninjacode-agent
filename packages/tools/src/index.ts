@@ -3,6 +3,7 @@ import { ToolRegistry as Registry } from "./types.js";
 import { editFileTool, deleteFileTool, listDirTool, readFileTool, writeFileTool } from "./fs.js";
 import { globTool, grepTool, searchCodebaseTool } from "./search.js";
 import { shellTool } from "./shell.js";
+import { gitDiffTool, gitLogTool, gitShowTool, gitStatusTool } from "./git.js";
 import { applyPatchTool } from "./patch.js";
 import { readLintsTool } from "./diagnostics.js";
 import { webSearchTool } from "./webSearch.js";
@@ -38,6 +39,10 @@ export function createDefaultToolRegistry(options?: {
     .register(searchCodebaseTool)
     .register(readLintsTool)
     .register(readSessionArtifactTool)
+    .register(gitStatusTool)
+    .register(gitDiffTool)
+    .register(gitLogTool)
+    .register(gitShowTool)
     .register(shellTool)
     .register(todoWriteTool)
     .register(writeScratchpadTool)
@@ -64,6 +69,7 @@ export * from "./paths.js";
 export * from "./fs.js";
 export * from "./search.js";
 export * from "./shell.js";
+export * from "./git.js";
 export * from "./shellScope.js";
 export * from "./shellDanger.js";
 export * from "./shellParse.js";

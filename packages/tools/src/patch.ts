@@ -232,15 +232,38 @@ export function applyHunks(before: string, hunks: Array<{ lines: string[] }>): s
   return content;
 }
 
-/** Exact match first, then whitespace-normalized fuzzy match. */
+function uniqueBlockIndex(haystack: string, needle: string): number {
+  let match = -1;
+  let offset = 0;
+  while (offset <= haystack.length) {
+    const candidate = haystack.indexOf(needle, offset);
+    if (candidate === -1) break;
+    const startsOnLine = candidate === 0 || haystack[candidate - 1] === "\n";
+    const end = candidate + needle.length;
+    const endsOnLine = end === haystack.length || haystack[end] === "\n";
+    if (startsOnLine && endsOnLine) {
+      if (match !== -1) {
+        throw new ToolError(
+          "Hunk context is ambiguous; add more unchanged context around the edit",
+          "invalid_args",
+        );
+      }
+      match = candidate;
+    }
+    offset = candidate + 1;
+  }
+  return match;
+}
+
+/** Unique exact match first, then a unique whitespace-normalized match. */
 function findContextIndex(content: string, oldBlock: string): number {
-  const exact = content.indexOf(oldBlock);
+  const exact = uniqueBlockIndex(content, oldBlock);
   if (exact !== -1) return exact;
 
   const normContent = normalizeWs(content);
   const normBlock = normalizeWs(oldBlock);
   if (!normBlock) return -1;
-  const normIdx = normContent.indexOf(normBlock);
+  const normIdx = uniqueBlockIndex(normContent, normBlock);
   if (normIdx === -1) return -1;
 
   // Map normalized index back to original — approximate by line offset

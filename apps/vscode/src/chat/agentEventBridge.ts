@@ -5,8 +5,10 @@ import {
   type AgentLogEntry,
   type AgentMode,
   type Checkpoint,
+  type CheckpointFailure,
   type RunState,
 } from "@ninjacode/core";
+import { t } from "../locale.js";
 import type { GatewayErrorInfo, HostToWebview } from "../protocol.js";
 import type { ProposedEditsStore } from "../proposedEdits.js";
 import type { SessionRuntimeManager } from "../sessionRuntime.js";
@@ -18,6 +20,17 @@ import { addTurnUsage, type TurnTokenUsage } from "./sessionUsage.js";
 export interface AgentEvent {
   type: string;
   payload: unknown;
+}
+
+function checkpointStageText(stage: CheckpointFailure["stage"]): string {
+  switch (stage) {
+    case "init":
+      return t("initialization");
+    case "create":
+      return t("creation");
+    case "emit":
+      return t("notification");
+  }
 }
 
 /** Correlates `tool_start` / `tool_end` pairs so a card can be updated in place. */
@@ -110,6 +123,7 @@ export class AgentEventBridge {
         if (text) this.deps.post(sid, { type: "status", text });
       },
       checkpoint: (sid, p) => this.onCheckpoint(sid, p as Checkpoint),
+      checkpoint_error: (sid, p) => this.onCheckpointFailure(sid, p as CheckpointFailure),
       error: (sid, p) => this.onError(sid, p as { message: string; gateway?: GatewayErrorInfo }),
       context_usage: (sid, p) =>
         this.deps.post(sid, {
@@ -219,6 +233,17 @@ export class AgentEventBridge {
     this.deps.runtimes.getOrCreate(sessionId).checkpoints.push(cp);
     this.deps.post(sessionId, { type: "checkpoint", id: cp.id, label: cp.label });
     this.deps.post(sessionId, { type: "status", text: `⊕ checkpoint ${cp.label}` });
+  }
+
+  private onCheckpointFailure(sessionId: string, failure: CheckpointFailure): void {
+    this.deps.post(sessionId, {
+      type: "status",
+      text: t(
+        "Checkpoint {0} failed: {1}. The run will continue without this checkpoint.",
+        checkpointStageText(failure.stage),
+        failure.message,
+      ),
+    });
   }
 
   private onCompaction(sessionId: string, info: { trigger: string; messagesSummarized: number }): void {

@@ -58,11 +58,12 @@ describe("sandbox boundary", () => {
 
   it("denies network and sensitive paths in the Seatbelt profile", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "nc-seatbelt-"));
+    const canonicalRoot = fs.realpathSync.native(root);
     const profile = buildSeatbeltProfile(options(root));
     expect(profile).toContain("(deny network*)");
-    expect(profile).toContain(`${root}/.env`);
+    expect(profile).toContain(`${canonicalRoot}/.env`);
     expect(profile).toContain(`${os.homedir()}/.ssh`);
-    expect(profile).toContain(`(allow file-write* (subpath "${root}"))`);
+    expect(profile).toContain(`(allow file-write* (subpath "${canonicalRoot}"))`);
   });
 
   it("builds a Linux namespace with a read-only host and private network", () => {
@@ -140,9 +141,14 @@ describe("sandbox boundary", () => {
       const sshProbe = path.join(os.homedir(), ".ssh");
       const result = await shellTool.execute(
         { workspaceRoot: root, agentDir: path.join(root, ".ninjacode") },
-        { command: `cat '${sshProbe}/id_rsa' 2>/dev/null; curl -s --max-time 2 https://example.com; printf pwn > /tmp/nc-sandbox-net-${process.pid}` },
+        {
+          command:
+            `if cat '${sshProbe}/id_rsa' >/dev/null 2>&1; then printf PRIVATE_KEY_READABLE; fi; ` +
+            `curl -s --max-time 2 https://example.com; ` +
+            `printf pwn > /tmp/nc-sandbox-net-${process.pid}`,
+        },
       );
-      expect(result.output).not.toMatch(/BEGIN (OPENSSH |RSA )?PRIVATE KEY/);
+      expect(result.output).not.toContain("PRIVATE_KEY_READABLE");
       expect(result.output).not.toMatch(/<html/i);
     },
   );
@@ -154,10 +160,14 @@ describe("sandbox boundary", () => {
       fs.mkdirSync(path.join(root, ".ninjacode"));
       const result = await shellTool.execute(
         { workspaceRoot: root, agentDir: path.join(root, ".ninjacode") },
-        { command: "cat ~/.ssh/id_rsa 2>/dev/null; curl -s --max-time 2 https://example.com" },
+        {
+          command:
+            "if cat ~/.ssh/id_rsa >/dev/null 2>&1; then printf PRIVATE_KEY_READABLE; fi; " +
+            "curl -s --max-time 2 https://example.com",
+        },
       );
       expect(result.meta?.exitCode).not.toBe(0);
-      expect(result.output).not.toMatch(/BEGIN (OPENSSH |RSA )?PRIVATE KEY/);
+      expect(result.output).not.toContain("PRIVATE_KEY_READABLE");
       expect(result.output).not.toMatch(/<html/i);
     },
   );

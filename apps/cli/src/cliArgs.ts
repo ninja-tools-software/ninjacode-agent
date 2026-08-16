@@ -12,7 +12,7 @@ export function parseArgs(argv: string[]) {
   const positional: string[] = [];
   while (args.length) {
     const a = args.shift()!;
-    if (a === "--yes" || a === "--no-checkpoints") {
+    if (a === "--yes" || a === "--no-checkpoints" || a === "--trust-workspace") {
       flags[a.slice(2)] = true;
     } else if (a.startsWith("--")) {
       const key = a.slice(2);

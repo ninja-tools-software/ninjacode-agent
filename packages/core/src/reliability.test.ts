@@ -106,6 +106,21 @@ describe("withRetry", () => {
     expect(inner.attempts).toHaveLength(1);
   });
 
+  it("does not retry a partial GatewayError", async () => {
+    const inner = new FlakyProvider([
+      new GatewayError("upstream_timeout", "partial timeout", { status: 504, partial: true }),
+    ]);
+    const provider = withRetry(inner, {
+      maxRetries: 4,
+      sleep: async () => undefined,
+    });
+
+    await expect(
+      provider.complete({ messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toMatchObject({ partial: true });
+    expect(inner.attempts).toHaveLength(1);
+  });
+
   it("retries a non-terminal GatewayError (rate_limited)", async () => {
     const inner = new FlakyProvider([
       new GatewayError("rate_limited", "rate_limited", { status: 429 }),
@@ -181,6 +196,62 @@ describe("withRetry", () => {
     // One attempt only: replaying would show the user the same prefix twice.
     expect(inner.attempts).toBe(1);
     expect(received).toEqual(["par", "tial"]);
+  });
+
+  it("does not retry after a routing event reached the sink", async () => {
+    let attempts = 0;
+    const inner: LlmProvider = {
+      name: "routing",
+      async complete(req) {
+        return this.completeStreaming(req);
+      },
+      async completeStreaming(_req, sink) {
+        attempts += 1;
+        await sink?.({ type: "routing", model: "test-model" });
+        throw new LlmError("server error", 503, "test");
+      },
+    };
+    const provider = withRetry(inner, { maxRetries: 2, sleep: async () => undefined });
+
+    await expect(
+      provider.completeStreaming({ messages: [{ role: "user", content: "hi" }] }, async () => {}),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(attempts).toBe(1);
+  });
+
+  it("caps adversarial retry configuration", async () => {
+    const inner = new FlakyProvider(
+      Array.from({ length: 10 }, () => new LlmError("server error", 503, "test")),
+    );
+    const provider = withRetry(inner, {
+      maxRetries: Number.MAX_SAFE_INTEGER,
+      baseDelayMs: Number.POSITIVE_INFINITY,
+      sleep: async () => undefined,
+    });
+
+    await expect(
+      provider.complete({ messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(inner.attempts).toHaveLength(6);
+  });
+
+  it("surfaces abort during backoff instead of the previous provider error", async () => {
+    const controller = new AbortController();
+    const inner = new FlakyProvider([new LlmError("server error", 503, "test")]);
+    const provider = withRetry(inner, {
+      maxRetries: 4,
+      sleep: async () => {
+        controller.abort("cancelled");
+      },
+    });
+
+    await expect(
+      provider.complete({
+        messages: [{ role: "user", content: "hi" }],
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(inner.attempts).toHaveLength(1);
   });
 });
 

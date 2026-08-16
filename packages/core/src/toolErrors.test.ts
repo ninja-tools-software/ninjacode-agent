@@ -10,6 +10,8 @@ describe("classifyToolFailure", () => {
     );
     expect(classified.category).toBe("InvalidArguments");
     expect(classified.retryable).toBe(true);
+    expect(classified.blame).toBe("model");
+    expect(classified.recoveryHint).toContain("Correct");
   });
 
   it("maps every code that carries a category", () => {
@@ -53,5 +55,16 @@ describe("classifyToolFailure", () => {
     const classified = classifyToolFailure("my_tool", undefined);
     expect(classified.category).toBe("Unknown");
     expect(classified.message).toBe("my_tool: unknown error");
+    expect(classified).toMatchObject({ retryable: false, blame: "tool" });
+  });
+
+  it("marks transient environment failures as retryable with recovery guidance", () => {
+    const classified = classifyToolFailure("read_file", new Error("EAI_AGAIN"));
+    expect(classified).toMatchObject({
+      category: "UnexpectedEnvironment",
+      retryable: true,
+      blame: "environment",
+    });
+    expect(classified.recoveryHint).toContain("Retry");
   });
 });

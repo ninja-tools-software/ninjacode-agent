@@ -7,6 +7,7 @@ import {
   DEFAULT_DATASET,
   repoRoot,
 } from "./paths.js";
+import { harborManifestPath, writeHarborBundleManifest } from "./manifest.js";
 
 function hasFlag(args: string[], ...names: string[]): boolean {
   return names.some((name) => args.includes(name));
@@ -47,11 +48,19 @@ function spawnInherit(command: string, args: string[], cwd?: string): Promise<nu
 
 async function ensureCliBundle(): Promise<string> {
   const bundle = cliBundlePath();
-  if (existsSync(bundle)) return bundle;
-  console.error("Building NinjaCode CLI bundle…");
-  const code = await spawnInherit("pnpm", ["--filter", "@ninjacode/cli", "bundle"], repoRoot());
-  if (code !== 0) throw new Error(`CLI bundle failed (exit ${code})`);
-  if (!existsSync(bundle)) throw new Error(`CLI bundle missing after build: ${bundle}`);
+  if (!existsSync(bundle)) {
+    console.error("Building NinjaCode CLI bundle…");
+    const code = await spawnInherit("pnpm", ["--filter", "@ninjacode/cli", "bundle"], repoRoot());
+    if (code !== 0) throw new Error(`CLI bundle failed (exit ${code})`);
+    if (!existsSync(bundle)) throw new Error(`CLI bundle missing after build: ${bundle}`);
+  }
+  const manifest = await writeHarborBundleManifest(bundle);
+  process.env.NINJACODE_BUNDLE = bundle;
+  process.env.NINJACODE_BUNDLE_MANIFEST = harborManifestPath();
+  console.error(
+    `Harbor bundle: CLI ${manifest.cliVersion}, commit ${manifest.gitCommit.slice(0, 12)}, ` +
+      `sha256 ${manifest.bundleSha256.slice(0, 12)}`,
+  );
   return bundle;
 }
 
@@ -107,7 +116,7 @@ async function cmdRun(args: string[]): Promise<void> {
   await runHarbor(["run", ...harborArgs, ...ninjacodeAgentArgs()]);
 }
 
-export function printHarborHelp(): void {
+function printHarborHelp(): void {
   console.log(
     [
       "Terminal-Bench 2.1 / Harbor — installed NinjaCode agent",

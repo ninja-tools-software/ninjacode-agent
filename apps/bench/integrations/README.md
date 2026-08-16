@@ -31,7 +31,7 @@ There is **no official lite subset** whose score compares to the
 - **Docker** running locally
 - Harbor: `uv tool install harbor`
 - A provider API key (`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, …)
-- CLI bundle: `pnpm --filter @ninjacode/cli bundle` (the wrapper builds it if missing)
+- CLI bundle + SHA-256 manifest (the `ninjabench harbor` wrapper builds/generates both)
 
 Sanity-check Harbor without a model:
 
@@ -63,7 +63,10 @@ PYTHONPATH=apps/bench/harbor harbor run -d terminal-bench/terminal-bench-2-1 \
 ```
 
 `-m` is Harbor's `provider/model` form. The adapter maps it to
-`--provider` / `--model` on the NinjaCode CLI.
+`--provider` / `--model` on the NinjaCode CLI. Run the wrapper once before a raw
+command so `apps/cli/dist/ninjacode.harbor-manifest.json` exists and matches the
+bundle. See [`docs/BENCHMARKS.md`](../../../docs/BENCHMARKS.md) for the manifest,
+container disk preflight, telemetry fields and publication checklist.
 
 ## Fairness notes
 

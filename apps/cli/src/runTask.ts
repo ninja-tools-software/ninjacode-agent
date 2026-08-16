@@ -7,6 +7,8 @@ import {
   DEFAULT_RUN_TIMEOUT_MS,
   loadMcpConfig,
   loadMcpTools,
+  type Agent,
+  type AgentOutcome,
   type ApprovalMode,
   type AgentMode,
 } from "@ninjacode/core";
@@ -15,11 +17,13 @@ import {
   setAskUserHandler,
   setUserActionHandler,
   type SandboxMode,
+  type ToolRegistry,
 } from "@ninjacode/tools";
 import { consumeLastGatewayError, handleAgentEvent, promptApproval } from "./cliEventHandlers.js";
 import { gatewayExitCode } from "./gatewayErrorLines.js";
 import { setupAskUserHandlers } from "./cliUserHandlers.js";
 import { t } from "./i18n.js";
+import { writeBenchmarkTelemetry } from "./benchmarkTelemetry.js";
 
 function providerApiKeyEnv(provider: string | undefined): string | undefined {
   if (!provider) return undefined;
@@ -61,10 +65,46 @@ function parseSandboxMode(flags: Record<string, string | boolean>): SandboxMode 
   return mode;
 }
 
+export function isWorkspaceTrusted(flags: Readonly<Record<string, string | boolean>>): boolean {
+  return flags["trust-workspace"] === true;
+}
+
+async function registerWorkspaceMcp(
+  tools: ToolRegistry,
+  workspace: string,
+  sandboxMode: SandboxMode,
+): Promise<void> {
+  const mcpConfigs = await loadMcpConfig(workspace);
+  if (!mcpConfigs.length) return;
+  const { tools: mcpTools } = await loadMcpTools(mcpConfigs, {
+    workspaceRoot: workspace,
+    agentDir: path.join(workspace, ".ninjacode"),
+    sandboxMode,
+    auth: createOAuthAuthPort(
+      createDeviceOAuthHost({
+        onUserCode: async ({ userCode, verificationUri }) => {
+          console.error(`MCP OAuth: visit ${verificationUri} and enter ${userCode}`);
+        },
+      }),
+      createMemorySecretStore(),
+    ),
+  });
+  for (const tool of mcpTools) tools.register(tool);
+}
+
+async function writeTelemetrySafely(agent: Agent, outcome: AgentOutcome): Promise<void> {
+  try {
+    await writeBenchmarkTelemetry(agent, outcome);
+  } catch (error) {
+    console.error(`Benchmark telemetry unavailable: ${(error as Error).message}`);
+  }
+}
+
 export async function runTask(flags: Record<string, string | boolean>, task: string): Promise<void> {
   const workspace = path.resolve(String(flags.workspace ?? process.cwd()));
   const kind = (flags.provider as ProviderKind) ?? detectProvider();
   const apiKey = resolveApiKey(flags);
+  const workspaceTrusted = isWorkspaceTrusted(flags);
 
   if (kind !== "mock" && kind !== "echo" && !apiKey) {
     console.error(t("cli.missingApiKey"));
@@ -81,35 +121,22 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
   const mode = parseMode(flags);
   const approvalMode = (flags.approval as ApprovalMode) ?? (flags.yes ? "autonomous" : "balanced");
   const sandboxMode = parseSandboxMode(flags);
+  if (!workspaceTrusted) console.error(t("cli.workspaceUntrusted"));
   const runtime = await buildAgentRuntime({
     workspaceRoot: workspace,
     provider,
     approvalMode,
     allowAllTools: !!flags.yes,
-    configureTools: async (tools) => {
-      const mcpConfigs = await loadMcpConfig(workspace);
-      if (!mcpConfigs.length) return;
-      const { tools: mcpTools } = await loadMcpTools(mcpConfigs, {
-        workspaceRoot: workspace,
-        agentDir: path.join(workspace, ".ninjacode"),
-        sandboxMode,
-        auth: createOAuthAuthPort(
-          createDeviceOAuthHost({
-            onUserCode: async ({ userCode, verificationUri }) => {
-              console.error(`MCP OAuth: visit ${verificationUri} and enter ${userCode}`);
-            },
-          }),
-          createMemorySecretStore(),
-        ),
-      });
-      for (const tool of mcpTools) tools.register(tool);
-    },
+    configureTools: workspaceTrusted
+      ? async (tools) => registerWorkspaceMcp(tools, workspace, sandboxMode)
+      : undefined,
     agent: {
       mode,
       model: flags.model as string | undefined,
       sandboxMode,
       runTimeoutMs: Number(flags["run-timeout-ms"]) || DEFAULT_RUN_TIMEOUT_MS,
       enableCheckpoints: !flags["no-checkpoints"],
+      enableWorkspaceHooks: workspaceTrusted,
       onEvent: handleAgentEvent,
       onApproval: flags.yes
         ? async () => ({ approved: true })
@@ -124,6 +151,7 @@ export async function runTask(flags: Record<string, string | boolean>, task: str
     t("cli.runHeader", { provider: provider.name, mode, workspace }),
   );
   const outcome = await agent.run(task);
+  await writeTelemetrySafely(agent, outcome);
   console.log("\n");
   if (!outcome.completed) {
     const gateway = consumeLastGatewayError();

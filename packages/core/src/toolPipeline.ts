@@ -11,7 +11,7 @@ import type { ToolCall } from "@ninjacode/providers";
 import type { PermissionEngine } from "./permissions.js";
 import { ToolCircuitBreaker } from "./reliability.js";
 import { toolOutputLimit, truncateToolOutput } from "./context.js";
-import { classifyToolFailure } from "./toolErrors.js";
+import { classifyToolFailure, toolMaxAttempts, validateToolArguments } from "./toolErrors.js";
 import type { HookRunResult } from "./hooks.js";
 import { SessionArtifactStore } from "./sessionArtifacts.js";
 import { sessionEventLog } from "./sessionEventLog.js";
@@ -102,6 +102,11 @@ export class ToolPipeline {
     if (preflight) return preflight;
 
     const tool = registryToolOrThrow(registry, tc);
+    try {
+      validateToolArguments(tool, tc.arguments);
+    } catch (error) {
+      return this.preExecutionFailure(tc, error, started);
+    }
     const target = safeTarget(tool, tc.arguments);
     const scopes = safeGrantScopes(tool, tc.arguments);
     const grantPolicy = safeGrantPolicy(tool, tc.arguments, scopes);
@@ -139,6 +144,18 @@ export class ToolPipeline {
     });
   }
 
+  private preExecutionFailure(tc: ToolCall, error: unknown, started: number): ToolInvocation {
+    const classified = classifyToolFailure(tc.name, error, tc.arguments);
+    return {
+      toolCall: tc,
+      output: `Tool error [${classified.category}]: ${classified.message}\nRecovery: ${classified.recoveryHint}`,
+      approved: false,
+      durationMs: Date.now() - started,
+      error: error instanceof ToolError ? error.code : classified.message,
+      meta: { error: classified },
+    };
+  }
+
   private async checkPreToolHooks(
     tool: Tool,
     tc: ToolCall,
@@ -163,17 +180,55 @@ export class ToolPipeline {
       `${ctx.tool.name}(${ctx.target.slice(0, 80)})`,
       JSON.stringify(ctx.tc.arguments),
     );
-    await this.deps.emit("tool_start", { name: ctx.tool.name, arguments: ctx.tc.arguments, target: ctx.target });
+    await this.deps.emit("tool_start", {
+      id: ctx.tc.id,
+      name: ctx.tool.name,
+      arguments: ctx.tc.arguments,
+      target: ctx.target,
+    });
 
     const span = startSpan("tool", { tool: ctx.tool.name, risk: ctx.tool.risk });
     try {
-      const result = await this.handleToolSuccess(ctx);
+      const execution = await this.executeWithRetry(ctx);
+      const result = await this.handleToolSuccess(ctx, execution);
       span.end({ ok: !result.error, durationMs: result.durationMs });
       return result;
     } catch (e) {
       span.end({ failed: true });
       return this.handleToolFailure(ctx, e);
     }
+  }
+
+  private async executeWithRetry(ctx: ToolRunContext) {
+    const maxAttempts = toolMaxAttempts(ctx.tool, ctx.tc.arguments);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      if (this.deps.signal.aborted) throw new DOMException("Aborted", "AbortError");
+      try {
+        return await ctx.tool.execute(this.buildToolContext(), ctx.tc.arguments);
+      } catch (error) {
+        const classified = classifyToolFailure(ctx.tool.name, error, ctx.tc.arguments);
+        if (!this.canRetryExecution(classified.category, classified.retryable, attempt, maxAttempts)) {
+          throw error;
+        }
+        await this.waitBeforeRetry(attempt);
+      }
+    }
+    throw new ToolError("Tool retry budget exhausted", "runtime");
+  }
+
+  private canRetryExecution(
+    category: string,
+    retryable: boolean,
+    attempt: number,
+    maxAttempts: number,
+  ): boolean {
+    if (this.deps.signal.aborted || !retryable || attempt >= maxAttempts) return false;
+    return category === "Timeout" || category === "ProviderError" || category === "UnexpectedEnvironment";
+  }
+
+  private async waitBeforeRetry(attempt: number): Promise<void> {
+    const delayMs = Math.min(1_000, 100 * 2 ** (attempt - 1));
+    await this.deps.waitOrAbort(new Promise((resolve) => setTimeout(resolve, delayMs)));
   }
 
   private buildToolContext(): ToolContext {
@@ -189,8 +244,10 @@ export class ToolPipeline {
     };
   }
 
-  private async handleToolSuccess(ctx: ToolRunContext): Promise<ToolInvocation> {
-    const result = await ctx.tool.execute(this.buildToolContext(), ctx.tc.arguments);
+  private async handleToolSuccess(
+    ctx: ToolRunContext,
+    result: Awaited<ReturnType<Tool["execute"]>>,
+  ): Promise<ToolInvocation> {
     const artifactId = await this.archiveToolOutput(ctx, result.output, result.meta);
     this.deps.breaker.recordSuccess(ctx.tool.name);
     this.deps.onModifiedFiles(ctx.tool.name, result.meta);
@@ -202,6 +259,7 @@ export class ToolPipeline {
     }
 
     await this.deps.emit("tool_end", {
+      id: ctx.tc.id,
       name: ctx.tool.name,
       output: truncateToolOutput(output, toolOutputLimit(ctx.tool.name)),
       meta: result.meta,
@@ -254,9 +312,13 @@ export class ToolPipeline {
   }
 
   private async handleToolFailure(ctx: ToolRunContext, e: unknown): Promise<ToolInvocation> {
-    if (this.deps.isAbortError(e)) {
+    if (this.deps.signal.aborted || this.deps.isAbortError(e)) {
       this.deps.logAgentEvent("cancel", `${ctx.tool.name}: aborted by user`);
-      await this.deps.emit("tool_end", { name: ctx.tool.name, error: "aborted" });
+      await this.deps.emit("tool_end", {
+        id: ctx.tc.id,
+        name: ctx.tool.name,
+        error: "aborted",
+      });
       return {
         toolCall: ctx.tc,
         output: "Tool call aborted by user.",
@@ -266,17 +328,24 @@ export class ToolPipeline {
       };
     }
 
-    const message = e instanceof ToolError ? e.message : (e as Error).message;
     const classified = classifyToolFailure(ctx.tool.name, e, ctx.tc.arguments);
+    const message = classified.message;
     const artifactId = await this.archiveToolOutput(ctx, message, {
       error: true,
       category: classified.category,
+      retryable: classified.retryable,
+      blame: classified.blame,
+      recoveryHint: classified.recoveryHint,
     });
     this.deps.breaker.recordFailure(ctx.tool.name);
     await this.deps.emit("tool_end", {
+      id: ctx.tc.id,
       name: ctx.tool.name,
       error: message,
       category: classified.category,
+      retryable: classified.retryable,
+      blame: classified.blame,
+      recoveryHint: classified.recoveryHint,
     });
     this.deps.logAgentEvent("tool_result", `${ctx.tool.name}: error [${classified.category}]`, message);
     await this.deps.runHooks("PostToolUse", {
@@ -287,11 +356,12 @@ export class ToolPipeline {
 
     return {
       toolCall: ctx.tc,
-      output: `Tool error [${classified.category}]: ${message}`,
+      output: `Tool error [${classified.category}]: ${message}\nRecovery: ${classified.recoveryHint}`,
       approved: ctx.approved,
       durationMs: Date.now() - ctx.execStarted,
       artifactId,
       error: message,
+      meta: { error: classified },
     };
   }
 }

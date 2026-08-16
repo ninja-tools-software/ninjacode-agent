@@ -5,6 +5,7 @@ import type { CodebaseIndexLike, DiagnosticsProvider, SandboxMode } from "@ninja
 import { planIdForSession } from "@ninjacode/tools";
 import { BudgetTracker, withRetry, type SessionBudget } from "./reliability.js";
 import { CheckpointManager } from "./checkpoints.js";
+import { resolveHarnessProfile } from "./harnessProfiles.js";
 import type { AgentMode, AgentEventHandler, ApprovalHandler } from "./types.js";
 import type { PermissionEngine } from "./permissions.js";
 import type { ToolRegistry } from "@ninjacode/tools";
@@ -14,6 +15,18 @@ import type { ContentPart } from "@ninjacode/providers";
 export interface AgentTaskInput {
   text: string;
   images?: ContentPart[];
+}
+
+/** Limits applied independently to every delegated child agent. */
+export interface SubAgentGovernanceOptions {
+  /** Maximum number of children running at once for one orchestrator. */
+  maxConcurrency?: number;
+  /** Estimated list-price ceiling for each child. */
+  maxCostUsd?: number;
+  /** Turn ceiling for each child. */
+  maxTurns?: number;
+  /** Wall-clock ceiling for each child. */
+  timeoutMs?: number;
 }
 
 export interface AgentOptions {
@@ -37,6 +50,7 @@ export interface AgentOptions {
   enableCheckpoints?: boolean;
   enablePromptCache?: boolean;
   enableSubagents?: boolean;
+  subagentGovernance?: SubAgentGovernanceOptions;
   persistSessions?: boolean;
   budget?: SessionBudget;
   enableRetry?: boolean;
@@ -115,6 +129,10 @@ export function resolveAgentConfig(opts: AgentOptions): ResolvedAgentConfig {
   const agentDir = opts.agentDir ?? path.join(workspaceRoot, ".ninjacode");
   const mode = resolveMode(opts);
   const sessionId = opts.sessionId ?? randomUUID();
+  const profile = resolveHarnessProfile({
+    providerKind: opts.provider.name,
+    modelId: opts.model,
+  });
 
   return {
     provider: resolveProvider(opts),
@@ -125,7 +143,7 @@ export function resolveAgentConfig(opts: AgentOptions): ResolvedAgentConfig {
     maxTokens: opts.maxTokens ?? 8192,
     model: opts.model,
     utilityModel: opts.utilityModel,
-    reasoningEffort: opts.reasoningEffort,
+    reasoningEffort: opts.reasoningEffort ?? profile.reasoningEffort,
     thinkingBudgetTokens: opts.thinkingBudgetTokens,
     contextWindow: opts.contextWindow,
     codebaseIndex: opts.codebaseIndex,
@@ -133,7 +151,9 @@ export function resolveAgentConfig(opts: AgentOptions): ResolvedAgentConfig {
     sandboxMode: opts.sandboxMode ?? "workspace-write",
     runTimeoutMs: opts.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS,
     enableCompletionVerification: resolveCompletionVerification(opts, mode),
-    enableVerificationSubAgent: opts.enableVerificationSubAgent ?? false,
+    enableVerificationSubAgent:
+      opts.enableVerificationSubAgent ??
+      (profile.verification === "strict" && (mode === "agent" || mode === "debug")),
     enableLoopDetection: opts.enableLoopDetection ?? true,
     sessionId,
     planId: opts.planId ?? planIdForSession(sessionId),

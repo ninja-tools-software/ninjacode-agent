@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import type { CheckpointFailure } from "@ninjacode/core";
 import type { GatewayErrorInfo } from "@ninjacode/providers";
 import { gatewayErrorLines } from "./gatewayErrorLines.js";
 import { t } from "./i18n.js";
@@ -11,6 +12,17 @@ export function consumeLastGatewayError(): GatewayErrorInfo | undefined {
   const info = lastGatewayError;
   lastGatewayError = undefined;
   return info;
+}
+
+function checkpointStageText(stage: CheckpointFailure["stage"]): string {
+  switch (stage) {
+    case "init":
+      return t("cli.checkpointStage.init");
+    case "create":
+      return t("cli.checkpointStage.create");
+    case "emit":
+      return t("cli.checkpointStage.emit");
+  }
 }
 
 export async function promptApproval(req: {
@@ -52,6 +64,14 @@ export async function handleAgentEvent(ev: { type: string; payload: unknown }): 
   } else if (ev.type === "checkpoint") {
     const p = ev.payload as { id: string; label: string };
     process.stderr.write(`⊕ checkpoint ${p.label} (${p.id.slice(0, 8)})\n`);
+  } else if (ev.type === "checkpoint_error") {
+    const p = ev.payload as CheckpointFailure;
+    process.stderr.write(
+      `${t("cli.checkpointFailed", {
+        stage: checkpointStageText(p.stage),
+        message: p.message,
+      })}\n`,
+    );
   } else if (ev.type === "routing") {
     const p = ev.payload as { model: string; label?: string; reason?: string };
     const reason = p.reason ? ` (${p.reason})` : "";

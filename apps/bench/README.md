@@ -4,7 +4,8 @@ Benchmark & monitoring harness for the NinjaCode agent — and head-to-head comp
 against competitor CLIs (Claude Code, Codex, Cursor CLI).
 
 See [PLAN.md](./PLAN.md) for the full roadmap (public benchmarks, LLM-judged quality,
-online monitoring).
+online monitoring). The reproducible methodology, CI gates and publication checklist
+live in [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md).
 
 ## What it does today
 
@@ -42,8 +43,9 @@ pnpm bench:harness
 export DEEPSEEK_API_KEY=sk-...
 pnpm bench:quick
 
-# Compare two runs
-node apps/bench/dist/index.js compare runs/quick/baseline.json runs/quick/run-….json
+# Compare two files or artifact directories, with optional regression gates
+node apps/bench/dist/index.js compare runs/quick/baseline runs/quick/current \
+  --max-pass-rate-drop 0.05 --max-cost-increase-pct 25
 
 # Full live run with Anthropic (slower, for confirmation)
 export ANTHROPIC_API_KEY=sk-ant-...

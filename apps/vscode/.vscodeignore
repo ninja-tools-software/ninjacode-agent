@@ -9,6 +9,9 @@ node_modules/**
 **/*.map
 **/*.d.ts
 esbuild.mjs
+esbuild.e2e.mjs
+run-e2e.mjs
+dist-e2e/**
 tsconfig.json
 vite.config.ts
 **/.DS_Store

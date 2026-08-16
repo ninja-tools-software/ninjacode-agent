@@ -26,6 +26,14 @@ interface TaskDelta {
   delta: number;
 }
 
+interface ComparisonCoverage {
+  onlyBaseline: string[];
+  onlyAfter: string[];
+  trialCountMismatches: Array<{ taskId: string; baseline: number; after: number }>;
+  agentMismatch?: { baseline: string[]; after: string[] };
+  comparable: boolean;
+}
+
 interface CompareResult {
   baseline: MetricTotals;
   after: MetricTotals;
@@ -41,6 +49,21 @@ interface CompareResult {
     wallTimeMs: number;
   };
   perTask: TaskDelta[];
+  coverage: ComparisonCoverage;
+}
+
+export interface CompareThresholds {
+  minPassRate?: number;
+  maxPassRateDrop?: number;
+  maxCostIncreasePercent?: number;
+  maxWallTimeIncreasePercent?: number;
+  maxToolErrorsIncrease?: number;
+  requireComparable?: boolean;
+}
+
+interface GateEvaluation {
+  passed: boolean;
+  failures: string[];
 }
 
 function sumMetric(results: TaskResult[], key: keyof TaskResult["metrics"]): number {
@@ -85,13 +108,49 @@ function passRateByTask(report: RunReport): Map<string, number> {
   return rates;
 }
 
+function countByTask(report: RunReport): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const result of report.results) {
+    counts.set(result.taskId, (counts.get(result.taskId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function comparisonCoverage(baseline: RunReport, after: RunReport): ComparisonCoverage {
+  const baselineCounts = countByTask(baseline);
+  const afterCounts = countByTask(after);
+  const onlyBaseline = [...baselineCounts.keys()].filter((id) => !afterCounts.has(id)).sort();
+  const onlyAfter = [...afterCounts.keys()].filter((id) => !baselineCounts.has(id)).sort();
+  const trialCountMismatches = [...baselineCounts.entries()]
+    .filter(([taskId, count]) => afterCounts.has(taskId) && afterCounts.get(taskId) !== count)
+    .map(([taskId, count]) => ({ taskId, baseline: count, after: afterCounts.get(taskId) ?? 0 }))
+    .sort((a, b) => a.taskId.localeCompare(b.taskId));
+  const baselineAgents = [...new Set(baseline.agents)].sort();
+  const afterAgents = [...new Set(after.agents)].sort();
+  const agentMismatch =
+    JSON.stringify(baselineAgents) === JSON.stringify(afterAgents)
+      ? undefined
+      : { baseline: baselineAgents, after: afterAgents };
+  return {
+    onlyBaseline,
+    onlyAfter,
+    trialCountMismatches,
+    agentMismatch,
+    comparable:
+      onlyBaseline.length === 0 &&
+      onlyAfter.length === 0 &&
+      trialCountMismatches.length === 0 &&
+      agentMismatch === undefined,
+  };
+}
+
 /** Pure comparison of two RunReport objects. */
 export function compareReports(baseline: RunReport, after: RunReport): CompareResult {
   const b = totals(baseline);
   const a = totals(after);
   const baseRates = passRateByTask(baseline);
   const afterRates = passRateByTask(after);
-  const taskIds = new Set([...baseRates.keys(), ...afterRates.keys()]);
+  const taskIds = [...baseRates.keys()].filter((taskId) => afterRates.has(taskId));
   const perTask: TaskDelta[] = [...taskIds]
     .sort()
     .map((taskId) => {
@@ -121,7 +180,75 @@ export function compareReports(baseline: RunReport, after: RunReport): CompareRe
       wallTimeMs: a.wallTimeMs - b.wallTimeMs,
     },
     perTask,
+    coverage: comparisonCoverage(baseline, after),
   };
+}
+
+function percentIncrease(after: number, baseline: number): number {
+  if (baseline === 0) return after > 0 ? Number.POSITIVE_INFINITY : 0;
+  return ((after - baseline) / baseline) * 100;
+}
+
+/** Evaluate deterministic CI gates. Threshold rates use 0..1; increases use percentages. */
+export function evaluateCompareGates(
+  comparison: CompareResult,
+  thresholds: CompareThresholds,
+): GateEvaluation {
+  const failures: string[] = [];
+  if ((thresholds.requireComparable ?? true) && !comparison.coverage.comparable) {
+    failures.push("agents, task coverage, or trial counts differ");
+  }
+  if (
+    thresholds.minPassRate !== undefined &&
+    comparison.after.passRate < thresholds.minPassRate
+  ) {
+    failures.push(
+      `pass rate ${(comparison.after.passRate * 100).toFixed(1)}% is below ` +
+        `${(thresholds.minPassRate * 100).toFixed(1)}%`,
+    );
+  }
+  if (
+    thresholds.maxPassRateDrop !== undefined &&
+    comparison.deltas.passRate < -thresholds.maxPassRateDrop
+  ) {
+    failures.push(
+      `pass rate dropped ${(-comparison.deltas.passRate * 100).toFixed(1)}pp ` +
+        `(limit ${(thresholds.maxPassRateDrop * 100).toFixed(1)}pp)`,
+    );
+  }
+  const costIncrease = percentIncrease(
+    comparison.after.estimatedCostUsd,
+    comparison.baseline.estimatedCostUsd,
+  );
+  if (
+    thresholds.maxCostIncreasePercent !== undefined &&
+    costIncrease > thresholds.maxCostIncreasePercent
+  ) {
+    failures.push(
+      `cost increased ${Number.isFinite(costIncrease) ? `${costIncrease.toFixed(1)}%` : "from zero"} ` +
+        `(limit ${thresholds.maxCostIncreasePercent.toFixed(1)}%)`,
+    );
+  }
+  const wallIncrease = percentIncrease(comparison.after.wallTimeMs, comparison.baseline.wallTimeMs);
+  if (
+    thresholds.maxWallTimeIncreasePercent !== undefined &&
+    wallIncrease > thresholds.maxWallTimeIncreasePercent
+  ) {
+    failures.push(
+      `wall time increased ${wallIncrease.toFixed(1)}% ` +
+        `(limit ${thresholds.maxWallTimeIncreasePercent.toFixed(1)}%)`,
+    );
+  }
+  if (
+    thresholds.maxToolErrorsIncrease !== undefined &&
+    comparison.deltas.toolErrors > thresholds.maxToolErrorsIncrease
+  ) {
+    failures.push(
+      `tool errors increased by ${comparison.deltas.toolErrors} ` +
+        `(limit ${thresholds.maxToolErrorsIncrease})`,
+    );
+  }
+  return { passed: failures.length === 0, failures };
 }
 
 function fmtPct(n: number): string {
@@ -143,6 +270,41 @@ function arrow(delta: number): string {
   return "→";
 }
 
+function appendCoverageWarning(lines: string[], coverage: ComparisonCoverage): void {
+  if (coverage.comparable) return;
+  lines.push(
+    "- ⚠️ Coverage differs; overall totals are shown but must not be treated as a controlled regression.",
+  );
+  if (coverage.onlyBaseline.length) {
+    lines.push(`  - Baseline only: ${coverage.onlyBaseline.join(", ")}`);
+  }
+  if (coverage.onlyAfter.length) {
+    lines.push(`  - After only: ${coverage.onlyAfter.join(", ")}`);
+  }
+  if (coverage.trialCountMismatches.length) {
+    const mismatches = coverage.trialCountMismatches
+      .map((item) => `${item.taskId} ${item.baseline}→${item.after}`)
+      .join(", ");
+    lines.push(`  - Trial-count mismatch: ${mismatches}`);
+  }
+  if (coverage.agentMismatch) {
+    lines.push(
+      `  - Agent mismatch: ${coverage.agentMismatch.baseline.join(", ")} → ` +
+        coverage.agentMismatch.after.join(", "),
+    );
+  }
+}
+
+function appendAgentSummary(lines: string[], baseline: RunReport, after: RunReport): void {
+  const baseSum = summarize(baseline);
+  const afterSum = summarize(after);
+  if (baseSum.length <= 1 && afterSum.length <= 1) return;
+  lines.push("## Agents", "");
+  lines.push(`- Baseline agents: ${baseSum.map((s) => `${s.agent} ${fmtPct(s.passRate)}`).join(", ")}`);
+  lines.push(`- After agents: ${afterSum.map((s) => `${s.agent} ${fmtPct(s.passRate)}`).join(", ")}`);
+  lines.push("");
+}
+
 export function compareToMarkdown(baseline: RunReport, after: RunReport): string {
   const c = compareReports(baseline, after);
   const lines: string[] = [];
@@ -150,6 +312,7 @@ export function compareToMarkdown(baseline: RunReport, after: RunReport): string
   lines.push("");
   lines.push(`- Baseline: ${baseline.startedAt}${baseline.gitCommit ? ` (\`${baseline.gitCommit}\`)` : ""}`);
   lines.push(`- After: ${after.startedAt}${after.gitCommit ? ` (\`${after.gitCommit}\`)` : ""}`);
+  appendCoverageWarning(lines, c.coverage);
   lines.push("");
   lines.push("## Overall");
   lines.push("");
@@ -195,17 +358,6 @@ export function compareToMarkdown(baseline: RunReport, after: RunReport): string
     );
   }
   lines.push("");
-
-  // Include agent-level summaries for context when multi-agent.
-  const baseSum = summarize(baseline);
-  const afterSum = summarize(after);
-  if (baseSum.length > 1 || afterSum.length > 1) {
-    lines.push("## Agents");
-    lines.push("");
-    lines.push(`- Baseline agents: ${baseSum.map((s) => `${s.agent} ${fmtPct(s.passRate)}`).join(", ")}`);
-    lines.push(`- After agents: ${afterSum.map((s) => `${s.agent} ${fmtPct(s.passRate)}`).join(", ")}`);
-    lines.push("");
-  }
-
+  appendAgentSummary(lines, baseline, after);
   return lines.join("\n");
 }

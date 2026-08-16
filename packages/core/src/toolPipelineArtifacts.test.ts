@@ -13,6 +13,7 @@ describe("ToolPipeline artifact persistence", () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "nc-pipeline-artifact-"));
     const agentDir = path.join(workspaceRoot, ".ninjacode");
     const fullOutput = `begin-${"x".repeat(30_000)}-end`;
+    const events: Array<{ type: string; payload: unknown }> = [];
     const registry = new ToolRegistry().register({
       name: "large_read",
       description: "test",
@@ -34,7 +35,9 @@ describe("ToolPipeline artifact persistence", () => {
       getState: () => "running",
       setState: async () => undefined,
       runHooks: async () => [],
-      emit: async () => undefined,
+      emit: async (type, payload) => {
+        events.push({ type, payload });
+      },
       logAgentEvent: () => undefined,
       waitOrAbort: async (promise) => promise,
       isAbortError: () => false,
@@ -45,6 +48,16 @@ describe("ToolPipeline artifact persistence", () => {
       { id: "call", name: "large_read", arguments: {} },
     ]);
     expect(invocation?.artifactId).toMatch(/^[a-f0-9]{64}$/);
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: "tool_start",
+        payload: expect.objectContaining({ id: "call", name: "large_read" }),
+      }),
+      expect.objectContaining({
+        type: "tool_end",
+        payload: expect.objectContaining({ id: "call", name: "large_read" }),
+      }),
+    ]);
     const files = sessionArtifactPaths(agentDir, "session", invocation!.artifactId!);
     expect(await fs.readFile(files.body, "utf8")).toBe(fullOutput);
 

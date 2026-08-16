@@ -24,17 +24,28 @@ describe("computeCompactionLimits", () => {
 
   it("subtracts output and safety before deriving target and high thresholds", () => {
     const limits = computeCompactionLimits(500_000, { reservedOutputTokens: 20_000 });
+    expect(limits.keepRecent).toBe(117);
+    expect(limits.hardLimit).toBe(313);
     expect(limits.inputBudget).toBe(455_000);
     expect(limits.targetTokens).toBe(273_000);
     expect(limits.tokenHighThreshold).toBe(386_750);
     expect(limits.tokenHardThreshold).toBe(455_000);
   });
 
-  it("keeps message count out of the gate when a token budget is known", () => {
+  it("scales message limits with a known context window", () => {
     const limits = computeCompactionLimits(500_000);
-    expect(limits.hardLimit).toBe(80);
+    expect(limits.keepRecent).toBe(117);
+    expect(limits.hardLimit).toBe(313);
     expect(limits.tokenHighThreshold).toBe(403_750);
     expect(limits.tokenHardThreshold).toBe(475_000);
+  });
+
+  it("bounds proportional message limits for tiny and huge windows", () => {
+    expect(computeCompactionLimits(1_000)).toMatchObject({ keepRecent: 12, hardLimit: 32 });
+    expect(computeCompactionLimits(10_000_000)).toMatchObject({
+      keepRecent: 120,
+      hardLimit: 320,
+    });
   });
 });
 

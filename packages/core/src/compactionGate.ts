@@ -1,8 +1,13 @@
 import { estimateTokens } from "./contextEstimate.js";
 import type { Message } from "@ninjacode/providers";
 
-const HISTORY_HARD_LIMIT = 80;
-const KEEP_RECENT = 30;
+const DEFAULT_HISTORY_HARD_LIMIT = 80;
+const DEFAULT_KEEP_RECENT = 30;
+const MIN_HISTORY_HARD_LIMIT = 32;
+const MAX_HISTORY_HARD_LIMIT = 320;
+const MIN_KEEP_RECENT = 12;
+const MAX_KEEP_RECENT = 120;
+const BASE_CONTEXT_WINDOW = 128_000;
 
 interface CompactionLimits {
   hardLimit: number;
@@ -37,9 +42,27 @@ export function computeCompactionLimits(
     contextWindow && contextWindow > 0
       ? Math.max(1, contextWindow - (opts.reservedOutputTokens ?? 0) - safetyMargin)
       : 0;
-  const keepRecent = KEEP_RECENT;
+  const scale =
+    contextWindow && Number.isFinite(contextWindow) && contextWindow > 0
+      ? contextWindow / BASE_CONTEXT_WINDOW
+      : undefined;
+  const keepRecent =
+    scale === undefined
+      ? DEFAULT_KEEP_RECENT
+      : clamp(Math.round(DEFAULT_KEEP_RECENT * scale), MIN_KEEP_RECENT, MAX_KEEP_RECENT);
+  const hardLimit =
+    scale === undefined
+      ? DEFAULT_HISTORY_HARD_LIMIT
+      : Math.max(
+          keepRecent + 1,
+          clamp(
+            Math.round(DEFAULT_HISTORY_HARD_LIMIT * scale),
+            MIN_HISTORY_HARD_LIMIT,
+            MAX_HISTORY_HARD_LIMIT,
+          ),
+        );
   return {
-    hardLimit: HISTORY_HARD_LIMIT,
+    hardLimit,
     keepRecent,
     inputBudget,
     targetTokens: inputBudget > 0 ? Math.floor(inputBudget * 0.6) : 0,
@@ -62,7 +85,9 @@ export function shouldSkipCompaction(
 ): boolean {
   if (opts.force) return false;
   const pressure = compactionPressure(msgs, limits, opts);
-  if (limits.tokenHighThreshold > 0) return !pressure.overTokenHigh;
+  if (limits.tokenHighThreshold > 0) {
+    return !pressure.overTokenHigh && msgs.length <= limits.hardLimit;
+  }
   return msgs.length <= limits.hardLimit;
 }
 
@@ -110,6 +135,21 @@ function messagesRewritten(before: Message[], after: Message[]): boolean {
   if (before.length !== after.length) return true;
   return before.some((msg, i) => {
     const next = after[i];
-    return !next || msg.role !== next.role || msg.content !== next.content || msg.name !== next.name;
+    return !next || !sameMessage(msg, next);
   });
+}
+
+function sameMessage(before: Message, after: Message): boolean {
+  return (
+    before.role === after.role &&
+    before.content === after.content &&
+    before.name === after.name &&
+    before.toolCallId === after.toolCallId &&
+    JSON.stringify(before.toolCalls) === JSON.stringify(after.toolCalls) &&
+    JSON.stringify(before.parts) === JSON.stringify(after.parts)
+  );
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }

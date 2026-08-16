@@ -7,6 +7,11 @@ import {
   type CompactHistoryResult,
   type CompactionTrigger,
 } from "./compactionGate.js";
+import {
+  buildStructuredCheckpoint,
+  CHECKPOINT_INSTRUCTIONS,
+  type CompactionRecoveryReferences,
+} from "./compactionCheckpoint.js";
 import { estimateTokens } from "./contextEstimate.js";
 import { maskOldObservations } from "./observationMasking.js";
 import { alignCompactionStart, normalizeToolHistory } from "./toolHistory.js";
@@ -134,17 +139,14 @@ export async function compactHistory(options: {
   safetyMarginTokens?: number;
   signal?: AbortSignal;
   force?: boolean;
+  recoveryReferences?: CompactionRecoveryReferences;
   onCompaction?: (info: CompactionInfo) => void | Promise<void>;
 }): Promise<CompactHistoryResult> {
   const original = options.history;
   const msgs = compactHistoryLossless(original);
-  const limits = computeCompactionLimits(options.contextWindow, {
-    reservedOutputTokens: options.reservedOutputTokens,
-    safetyMarginTokens: options.safetyMarginTokens,
-  });
+  const limits = computeCompactionLimits(options.contextWindow, { reservedOutputTokens: options.reservedOutputTokens, safetyMarginTokens: options.safetyMarginTokens });
   const gate = {
     force: options.force,
-    contextWindow: options.contextWindow,
     systemTokens: options.systemTokens,
     toolTokens: options.toolTokens,
     model: options.budgetModel ?? options.model,
@@ -204,7 +206,7 @@ function splitHistoryForCompaction(
   const nonSystem = msgs.filter((m) => m.role !== "system");
   const priorSummaries = nonSystem.filter(isCompactionMessage);
   const compactable = nonSystem.filter((m) => !isCompactionMessage(m));
-  let start =
+  const start =
     recentTokenBudget > 0
       ? recentTailStart(compactable, recentTokenBudget, model)
       : alignCompactionStart(compactable, Math.max(0, compactable.length - keepRecent));
@@ -244,7 +246,10 @@ async function buildCompactionSummary(opts: {
   }
   const startedAt = Date.now();
   return {
-    text: summarizeMessagesHeuristic(opts.older),
+    text: buildStructuredCheckpoint({
+      messages: opts.older,
+      pinnedTask: opts.pinnedTask,
+    }),
     model: "heuristic",
     durationMs: Date.now() - startedAt,
     native: false,
@@ -255,6 +260,7 @@ async function buildCompactionSummary(opts: {
 async function finalizeCompaction(
   options: {
     pinnedTask?: string;
+    recoveryReferences?: CompactionRecoveryReferences;
     onCompaction?: (info: CompactionInfo) => void | Promise<void>;
   },
   split: {
@@ -265,8 +271,13 @@ async function finalizeCompaction(
   summary: CompactionSummary,
   trigger: CompactionTrigger,
 ): Promise<Message[]> {
-  const pin = options.pinnedTask ? `Pinned original task:\n${options.pinnedTask}\n\n` : "";
-  const summaryContent = `${COMPACTION_MARKER}\n${pin}${summary.text}`;
+  const checkpoint = buildStructuredCheckpoint({
+    messages: split.older,
+    summary: summary.text,
+    pinnedTask: options.pinnedTask,
+    references: options.recoveryReferences,
+  });
+  const summaryContent = `${COMPACTION_MARKER}\n${checkpoint}`;
 
   // Every prior summary is input to this compaction and replaced atomically.
   // Therefore the model view contains exactly one canonical summary.
@@ -304,45 +315,18 @@ export function compactHistorySync(history: Message[], pinnedTask?: string): Mes
   const recent = nonSystem.slice(start);
   const older = nonSystem.slice(0, start).filter((message) => !isCompactionMessage(message));
   if (older.length === 0) return msgs;
-  const pin = pinnedTask ? `Pinned original task:\n${pinnedTask}\n\n` : "";
   return normalizeToolHistory([
     ...system,
     {
       role: "user",
-      content: `${COMPACTION_MARKER}\n${pin}${summarizeMessagesHeuristic(older)}`,
+      content: `${COMPACTION_MARKER}\n${buildStructuredCheckpoint({
+        messages: older,
+        pinnedTask,
+      })}`,
     },
     ...recent,
   ]);
 }
-
-/**
- * Free-form summaries lose the specifics an agent needs to resume work. Fixed
- * sections force the model to carry the facts forward — paths, decisions,
- * errors, remaining steps — instead of narrating what happened.
- */
-const SUMMARY_INSTRUCTIONS = [
-  "You compress the history of a coding-agent session so the agent can resume without the transcript.",
-  "Output exactly these sections, in this order, with these headings and nothing else:",
-  "",
-  "## Task",
-  "The user's current goal, kept verbatim where wording is a requirement.",
-  "## Constraints",
-  "Explicit requirements, prohibitions, compatibility constraints and conflicting instructions with their resolution.",
-  "## Files touched",
-  "One line per file: workspace-relative path — what changed in it, or what was learned from it.",
-  "## Decisions",
-  "Each choice made and why, so it is not revisited.",
-  "## Validation",
-  "Tests, checks and commands already run, including exact failures that remain.",
-  "## Open work",
-  "What remains to do, in execution order.",
-  "## Archives",
-  "Artifact IDs and what recoverable raw content each one contains.",
-  "",
-  "Rules: keep file paths, symbol names, commands and error strings exact.",
-  "Drop tool output dumps, narration and anything already reflected in the code.",
-  "Write \"None\" under a section that has nothing.",
-].join("\n");
 
 interface CompactionSummary {
   text: string;
@@ -371,7 +355,7 @@ async function summarizeWithLlm(opts: {
       temperature: 0,
       signal: opts.signal,
       messages: [
-        { role: "system", content: SUMMARY_INSTRUCTIONS },
+        { role: "system", content: CHECKPOINT_INSTRUCTIONS },
         {
           role: "user",
           content: `${opts.pinnedTask ? `Original task: ${opts.pinnedTask}\n\n` : ""}Transcript to compress:\n${transcript}`,
@@ -382,17 +366,22 @@ async function summarizeWithLlm(opts: {
       ? await opts.provider.compactContext!(request)
       : await opts.provider.complete(request);
     return {
-      text: completion.text.trim() || summarizeMessagesHeuristic(opts.older),
+      text:
+        completion.text.trim() ||
+        buildStructuredCheckpoint({ messages: opts.older, pinnedTask: opts.pinnedTask }),
       model: completion.resolvedModel ?? completion.model ?? opts.model ?? opts.provider.name,
       usage: completion.usage,
       durationMs: Date.now() - startedAt,
       native,
       fallback: completion.text.trim().length === 0,
     };
-  } catch (error) {
+  } catch {
     if (opts.signal?.aborted) throw abortError(opts.signal);
     return {
-      text: summarizeMessagesHeuristic(opts.older),
+      text: buildStructuredCheckpoint({
+        messages: opts.older,
+        pinnedTask: opts.pinnedTask,
+      }),
       model: opts.model ?? opts.provider.name,
       durationMs: Date.now() - startedAt,
       native: false,
@@ -421,33 +410,3 @@ function serializeCompactionSegment(messages: Message[]): string {
     .join("\n");
 }
 
-function summarizeMessagesHeuristic(messages: Message[]): string {
-  const sample = [
-    ...messages.slice(0, 12),
-    ...messages.slice(Math.max(12, Math.floor(messages.length / 2) - 6), Math.floor(messages.length / 2) + 6),
-    ...messages.slice(-16),
-  ].filter((message, index, all) => all.indexOf(message) === index);
-  const lines = sample.map((message) => {
-    const tools = message.toolCalls?.map((tool) => tool.name).join(", ");
-    return `${message.role}${message.name ? `(${message.name})` : ""}: ${message.content.slice(0, 240)}${tools ? ` [tools: ${tools}]` : ""}`;
-  });
-  const artifacts = messages
-    .flatMap((message) => message.content.match(/[a-f0-9]{64}/g) ?? [])
-    .filter((id, index, all) => all.indexOf(id) === index);
-  return [
-    "## Task",
-    lines.filter((line) => line.startsWith("user:")).at(0) ?? "None",
-    "## Constraints",
-    "Provider compaction failed; consult the archived compaction segment for exact constraints.",
-    "## Files touched",
-    "See archived compaction segment.",
-    "## Decisions",
-    ...lines.filter((line) => line.startsWith("assistant:")),
-    "## Validation",
-    ...lines.filter((line) => line.startsWith("tool(")),
-    "## Open work",
-    lines.at(-1) ?? "None",
-    "## Archives",
-    artifacts.length > 0 ? artifacts.join("\n") : "See the compaction event artifact.",
-  ].join("\n");
-}

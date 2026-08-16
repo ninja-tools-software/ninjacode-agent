@@ -40,7 +40,11 @@ import type {
 import type { ContextUsageBreakdown } from "./contextEstimate.js";
 import { startSpan } from "./telemetry.js";
 
-export type { AgentOptions, AgentTaskInput } from "./agentOptions.js";
+export type {
+  AgentOptions,
+  AgentTaskInput,
+  SubAgentGovernanceOptions,
+} from "./agentOptions.js";
 
 export const createSubAgent: AgentFactory = (opts) =>
   new Agent({ ...opts, persistSessions: false, enableSubagents: false });
@@ -203,6 +207,7 @@ export class Agent {
       sessionId: this.config.sessionId,
       task: normalizedTask,
       emitCheckpoint: (cp) => this.emit("checkpoint", cp),
+      emitCheckpointFailure: (failure) => this.emit("checkpoint_error", failure),
     });
     this.runtime.requestSeq = prepared.requestSeq;
     this.runtime.pendingCheckpointId = prepared.pendingCheckpointId;

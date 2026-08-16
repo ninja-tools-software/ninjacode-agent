@@ -161,7 +161,13 @@ export class AgentRunner {
       },
     });
 
-    await this.registerHandoffTools(runtime.tools, { provider, root, agentDir, sessionId: () => sid });
+    await this.registerHandoffTools(runtime.tools, {
+      provider,
+      root,
+      agentDir,
+      agentOptions: runtime.agentOptions,
+      sessionId: () => sid,
+    });
     const created = await this.createAgent(runtime.agentOptions, request.sessionId, sid);
     sid = created.sessionId;
 
@@ -230,6 +236,7 @@ export class AgentRunner {
       provider: ReturnType<typeof createProvider>;
       root: string;
       agentDir: string;
+      agentOptions: AgentOptions;
       sessionId: () => string;
     },
   ): Promise<void> {
@@ -241,6 +248,10 @@ export class AgentRunner {
       workspaceRoot: opts.root,
       agentDir: opts.agentDir,
       onEvent: (ev) => this.deps.onAgentEvent(opts.sessionId(), ev),
+      onApproval: opts.agentOptions.onApproval,
+      sandboxMode: opts.agentOptions.sandboxMode,
+      permissionPolicy: opts.agentOptions.permissions.getPolicy(),
+      governance: opts.agentOptions.subagentGovernance,
     })) {
       tools.register(t);
     }

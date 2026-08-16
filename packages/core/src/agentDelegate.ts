@@ -22,6 +22,10 @@ export function registerDelegateToolIfNeeded(opts: {
       workspaceRoot: config.workspaceRoot,
       agentDir: config.agentDir,
       onEvent,
+      onApproval: agentOptions.onApproval,
+      sandboxMode: config.sandboxMode,
+      permissionPolicy: agentOptions.permissions.getPolicy(),
+      governance: agentOptions.subagentGovernance,
     }),
   );
 }

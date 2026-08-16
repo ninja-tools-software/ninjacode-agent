@@ -5,7 +5,7 @@ import type { ProviderKind } from "@ninjacode/providers";
 import { loadTasks } from "./tasks.js";
 import { runBench } from "./runner.js";
 import { toMarkdown, summarize } from "./report.js";
-import { compareToMarkdown } from "./compare.js";
+import { cmdCompare } from "./compareCli.js";
 import { createNinjaCodeAdapter } from "./adapters/ninjacode.js";
 import { createCliAdapter, type CliAdapterConfig } from "./adapters/cli.js";
 import type { AgentAdapter, RunReport } from "./types.js";
@@ -132,18 +132,6 @@ async function cmdReport(args: string[]): Promise<void> {
   console.log(toMarkdown(report));
 }
 
-async function cmdCompare(args: string[]): Promise<void> {
-  const files = args.filter((a) => !a.startsWith("--"));
-  if (files.length < 2) {
-    console.error("Usage: ninjabench compare <baseline.json> <after.json>");
-    process.exitCode = 1;
-    return;
-  }
-  const baseline = JSON.parse(await fs.readFile(files[0], "utf8")) as RunReport;
-  const after = JSON.parse(await fs.readFile(files[1], "utf8")) as RunReport;
-  console.log(compareToMarkdown(baseline, after));
-}
-
 async function cmdList(args: string[]): Promise<void> {
   const suite = getFlag(args, "suite");
   const tasks = await loadTasks(undefined, suite ? { suite } : undefined);
@@ -172,6 +160,54 @@ async function cmdSweBench(args: string[]): Promise<void> {
   }
 }
 
+function printMainHelp(): void {
+  console.log(
+    [
+      "NinjaBench — benchmark harness for NinjaCode and competitor agents",
+      "",
+      "Usage:",
+      "  ninjabench list [--suite NAME]          List available tasks",
+      "  ninjabench run [options]                Run the benchmark",
+      "  ninjabench report <run.json>            Re-render a saved run as markdown",
+      "  ninjabench compare <base|dir> <current|dir>  Diff runs and apply CI gates",
+      "  ninjabench swebench predict|eval|compare  SWE-bench Lite pipeline",
+      "  ninjabench harbor oracle|smoke|run        Terminal-Bench 2.1 / Harbor",
+      "",
+      "Run options:",
+      "  --tasks a,b,c        Only run these task ids",
+      "  --suite NAME         Only run tasks tagged with this suite (quick|harness)",
+      "  --trials N           Trials per (agent, task) pair (default 3)",
+      "  --concurrency N      Parallel (agent, task, trial) runs (default 1)",
+      "  --provider KIND      NinjaCode provider (anthropic|openai|deepseek|…|mock)",
+      "  --model NAME         Model override",
+      "  --max-turns N        Cap agent turns (default 40; quick suite uses 20)",
+      "  --api-key KEY        API key (defaults to env)",
+      "  --agents FILE        JSON config of competitor CLIs (see agents.example.json)",
+      "  --no-ninjacode       Skip the in-process NinjaCode agent",
+      "  --keep-failures      Keep temp workspaces of failed runs for debugging",
+      "  --unpublished        Mark report non-publishable (also --trials < 3)",
+      "  --out DIR            Output directory (default ./runs)",
+      "  --strict             Exit non-zero if any task fails",
+      "",
+      "Compare gates (flags or BENCH_* environment variables):",
+      "  --min-pass-rate 0..1",
+      "  --max-pass-rate-drop 0..1",
+      "  --max-cost-increase-pct N",
+      "  --max-wall-time-increase-pct N",
+      "  --max-tool-errors-increase N",
+      "  --allow-incompatible  Permit different tasks/trial counts",
+      "",
+      "Pyramid:",
+      "  pnpm bench:harness   # deterministic mock scripts (CI gate)",
+      "  pnpm bench:quick     # live DeepSeek flash iteration",
+      "  ninjabench compare runs/quick/baseline.json runs/quick/run-….json",
+      "",
+      "SWE-bench: ninjabench swebench — run without args for subcommand help",
+      "Harbor:    ninjabench harbor — Terminal-Bench 2.1 (oracle / smoke / full run)",
+    ].join("\n"),
+  );
+}
+
 async function main(): Promise<void> {
   const [cmd, ...args] = process.argv.slice(2);
   switch (cmd) {
@@ -194,43 +230,7 @@ async function main(): Promise<void> {
       await cmdHarbor(args);
       break;
     default:
-      console.log(
-        [
-          "NinjaBench — benchmark harness for NinjaCode and competitor agents",
-          "",
-          "Usage:",
-          "  ninjabench list [--suite NAME]          List available tasks",
-          "  ninjabench run [options]                Run the benchmark",
-          "  ninjabench report <run.json>            Re-render a saved run as markdown",
-          "  ninjabench compare <base.json> <after.json>  Diff two NinjaBench runs",
-          "  ninjabench swebench predict|eval|compare  SWE-bench Lite pipeline",
-          "  ninjabench harbor oracle|smoke|run        Terminal-Bench 2.1 / Harbor",
-          "",
-          "Run options:",
-          "  --tasks a,b,c        Only run these task ids",
-          "  --suite NAME         Only run tasks tagged with this suite (quick|harness)",
-          "  --trials N           Trials per (agent, task) pair (default 3)",
-          "  --concurrency N      Parallel (agent, task, trial) runs (default 1)",
-          "  --provider KIND      NinjaCode provider (anthropic|openai|deepseek|…|mock)",
-          "  --model NAME         Model override",
-          "  --max-turns N        Cap agent turns (default 40; quick suite uses 20)",
-          "  --api-key KEY        API key (defaults to env)",
-          "  --agents FILE        JSON config of competitor CLIs (see agents.example.json)",
-          "  --no-ninjacode       Skip the in-process NinjaCode agent",
-          "  --keep-failures      Keep temp workspaces of failed runs for debugging",
-          "  --unpublished        Mark the report as non-publishable (also implied by --trials < 3)",
-          "  --out DIR            Output directory (default ./runs)",
-          "  --strict             Exit non-zero if any task fails",
-          "",
-          "Pyramid:",
-          "  pnpm bench:harness   # deterministic mock scripts (CI gate)",
-          "  pnpm bench:quick     # live DeepSeek flash iteration",
-          "  ninjabench compare runs/quick/baseline.json runs/quick/run-….json",
-          "",
-          "SWE-bench: ninjabench swebench — run without args for subcommand help",
-          "Harbor:    ninjabench harbor — Terminal-Bench 2.1 (oracle / smoke / full run)",
-        ].join("\n"),
-      );
+      printMainHelp();
   }
 }
 

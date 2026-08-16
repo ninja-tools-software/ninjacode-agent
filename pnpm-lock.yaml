@@ -89,6 +89,28 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tools
     devDependencies:
+      esbuild:
+        specifier: ^0.25.1
+        version: 0.25.12
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.9
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@2.7.0)(jsdom@28.1.0(@noble/hashes@2.2.0))(sass@1.99.0)(tsx@4.23.1)(yaml@2.9.0)
+
+  apps/cloud-worker:
+    dependencies:
+      '@ninjacode/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@ninjacode/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.10
+        version: 22.20.1
       typescript:
         specifier: ^5.8.2
         version: 5.9.3
