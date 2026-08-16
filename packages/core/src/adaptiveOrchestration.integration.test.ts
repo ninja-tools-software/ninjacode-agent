@@ -137,6 +137,7 @@ describe("adaptive orchestration integration", () => {
         persistSessions: false,
         enableSubagents: false,
         enableVerificationSubAgent: false,
+        sandboxMode: "danger-full-access",
         orchestrationProfile: "adaptive",
         onEvent: (event) => {
           events.push(event);
