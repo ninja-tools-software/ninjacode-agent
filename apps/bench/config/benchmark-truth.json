@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "dataset": "terminal-bench/terminal-bench-2-1",
   "model": "xai/grok-4.6",
-  "reasoningEffort": "high",
+  "reasoningEffort": "xhigh",
   "harborVersion": "0.21.0",
   "node": {
     "minimumMajor": 24,
@@ -21,7 +21,15 @@
     "smoke": {
       "expectedTasks": 1,
       "attempts": 1,
-      "publishable": false
+      "publishable": false,
+      "maximumAgentTimeoutRate": 0
+    },
+    "canary": {
+      "expectedTasks": 1,
+      "attempts": 3,
+      "publishable": false,
+      "minimumCorrectionPassRate": 0.666,
+      "maximumAgentTimeoutRate": 0
     },
     "subset": {
       "expectedTasks": 20,
@@ -41,6 +49,9 @@
   },
   "smoke": [
     { "name": "terminal-bench/path-tracing", "stratum": "algorithms" }
+  ],
+  "canary": [
+    { "name": "terminal-bench/write-compressor", "stratum": "build" }
   ],
   "subset": [
     { "name": "terminal-bench/schemelike-metacircular-eval", "stratum": "software" },

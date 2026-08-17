@@ -24,6 +24,10 @@ REMOTE_MANIFEST = "/installed-agent/ninjacode-manifest.json"
 REMOTE_TELEMETRY = "/tmp/ninjacode-harbor-telemetry.json"
 REMOTE_TRAJECTORY = "/tmp/ninjacode-harbor-trajectory.json"
 REMOTE_TRAJECTORY_ARTIFACT = "/logs/artifacts/trajectory.json"
+REMOTE_TIMELINE = "/tmp/ninjacode-harbor-tool-timeline.json"
+REMOTE_TIMELINE_ARTIFACT = "/logs/artifacts/tool-timeline.json"
+REMOTE_EVENTS = "/tmp/ninjacode-harbor-events.jsonl"
+REMOTE_EVENTS_ARTIFACT = "/logs/artifacts/events.jsonl"
 FAILURE_KINDS = {
     "verify_failure",
     "agent_timeout",
@@ -122,15 +126,32 @@ def parse_available_kib(df_output: str) -> int:
         raise RuntimeError(f"Invalid container disk availability: {lines[-1][3]!r}") from exc
 
 
-def pinned_node_install_snippet(version: str) -> str:
-    """Install a fully pinned Node release only when the image lacks Node >= 24."""
+def node_env_prefix() -> str:
+    """Prefer the pinned official tarball, then a leftover nvm install."""
     return (
+        'if [ -x "$HOME/.local/node/bin/node" ]; then '
+        'export PATH="$HOME/.local/node/bin:$PATH"; '
+        "elif [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
+    )
+
+
+def pinned_node_install_snippet(version: str) -> str:
+    """Install a fully pinned Node release from the official tarball (no nvm)."""
+    return (
+        "set -euo pipefail; "
+        'arch="$(uname -m)"; '
+        'case "$arch" in x86_64) arch=x64;; aarch64|arm64) arch=arm64;; '
+        '*) echo "unsupported Node arch: $arch" >&2; exit 1;; esac; '
+        f"ver={shlex.quote(version)}; "
+        'prefix="$HOME/.local/node-v${ver}-linux-${arch}"; '
+        'mkdir -p "$HOME/.local"; '
         "curl --fail --show-error --silent --location "
-        "https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh "
-        "| env -u NODE_VERSION bash && "
-        'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && '
-        f"nvm install {shlex.quote(version)} && "
-        f"nvm alias default {shlex.quote(version)}"
+        '"https://nodejs.org/dist/v${ver}/node-v${ver}-linux-${arch}.tar.gz" '
+        '| tar -xz -C "$HOME/.local"; '
+        'test -x "$prefix/bin/node"; '
+        'ln -sfn "$prefix" "$HOME/.local/node"; '
+        'export PATH="$HOME/.local/node/bin:$PATH"; '
+        'node -e "process.exit(+process.versions.node.split(\'.\')[0]>=24?0:1)"'
     )
 
 
@@ -185,6 +206,15 @@ def summarize_trajectory(
     time_to_first = None
     if first_edit and isinstance(first_edit.get("timestamp"), (int, float)):
         time_to_first = max(0, int(first_edit["timestamp"] - started))
+    longest_llm = None
+    for event in events:
+        duration = event.get("durationMs")
+        if not isinstance(duration, (int, float)):
+            continue
+        attributes = event.get("attributes") or {}
+        if event.get("type") != "turn" or attributes.get("category"):
+            continue
+        longest_llm = duration if longest_llm is None else max(longest_llm, duration)
     read_only = 0
     for event in turn_events:
         turn = (event.get("attributes") or {}).get("turn")
@@ -194,6 +224,7 @@ def summarize_trajectory(
     return {
         "turns": len(turn_events),
         "timeToFirstEditMs": time_to_first,
+        "longestLlmTurnMs": None if longest_llm is None else int(longest_llm),
         "readOnlyTurns": read_only,
         "toolHistogram": histogram,
         "stopReason": stop_reason,
@@ -213,7 +244,7 @@ class NinjaCodeAgent(BaseInstalledAgent):
 
     def get_version_command(self) -> str | None:
         return (
-            "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
+            f"{node_env_prefix()}"
             f"node -e \"const m=require('{REMOTE_MANIFEST}');"
             "console.log('cli='+m.cliVersion+',adapter='+m.adapterVersion+"
             "',commit='+m.gitCommit+',bundle='+m.bundleSha256+',node='+process.version)\""
@@ -238,7 +269,7 @@ class NinjaCodeAgent(BaseInstalledAgent):
         await self.exec_as_agent(
             environment,
             command=(
-                "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
+                f"{node_env_prefix()}"
                 f"node -e \"const fs=require('fs'),c=require('crypto'),"
                 f"m=require('{REMOTE_MANIFEST}'),b=fs.readFileSync('{REMOTE_BUNDLE}');"
                 "if(c.createHash('sha256').update(b).digest('hex')!==m.bundleSha256)"
@@ -268,23 +299,32 @@ class NinjaCodeAgent(BaseInstalledAgent):
         self, environment: BaseEnvironment, manifest: dict[str, Any]
     ) -> str:
         minimum = int(manifest["minimumNodeMajor"])
-        check = f"node -e \"process.exit(+process.versions.node.split('.')[0]>={minimum}?0:1)\""
+        check = (
+            f"{node_env_prefix()}"
+            "node -e "
+            f"\"process.exit(+process.versions.node.split('.')[0]>={minimum}?0:1)\""
+        )
         result = await environment.exec(command=check)
         if result.return_code != 0:
-            await self.ensure_system_dependencies(environment, ("nodejs",))
-            result = await environment.exec(command=check)
-        if result.return_code != 0:
-            await self.ensure_system_dependencies(environment, ("curl",))
+            await self.ensure_system_dependencies(environment, ("curl", "ca_certificates"))
             await self.exec_as_agent(
                 environment,
                 command=pinned_node_install_snippet(str(manifest["preferredNodeVersion"])),
             )
+            result = await self.exec_as_agent(environment, command=check)
+            if result.return_code != 0:
+                version_result = await self.exec_as_agent(
+                    environment,
+                    command=f"{node_env_prefix()}node --version || true",
+                )
+                got = (version_result.stdout or "missing").strip()
+                raise RuntimeError(
+                    f"Pinned Node {manifest['preferredNodeVersion']} is required "
+                    f"(minimum major {minimum}); container has {got}."
+                )
         version_result = await self.exec_as_agent(
             environment,
-            command=(
-                "if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
-                "node --version"
-            ),
+            command=f"{node_env_prefix()}node --version",
         )
         return (version_result.stdout or "unknown").strip().removeprefix("v")
 
@@ -327,7 +367,11 @@ class NinjaCodeAgent(BaseInstalledAgent):
             + shlex.quote(REMOTE_TELEMETRY)
             + " "
             + shlex.quote(REMOTE_TRAJECTORY)
-            + "; if [ -s ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi; "
+            + " "
+            + shlex.quote(REMOTE_TIMELINE)
+            + " "
+            + shlex.quote(REMOTE_EVENTS)
+            + f"; {node_env_prefix()}"
             + shlex.join(cmd)
         )
         # Harbor does not automatically copy host API keys into the trial
@@ -351,6 +395,8 @@ class NinjaCodeAgent(BaseInstalledAgent):
         finally:
             await self._collect_telemetry(environment, context)
             await self._collect_trajectory(environment, context)
+            await self._collect_tool_timeline(environment, context)
+            await self._copy_artifact_if_present(environment, REMOTE_EVENTS, REMOTE_EVENTS_ARTIFACT)
         if captured_exit is not None and not (context.metadata or {}).get(
             "telemetry_complete"
         ):
@@ -458,11 +504,65 @@ class NinjaCodeAgent(BaseInstalledAgent):
             metadata.get("tool_histogram") if isinstance(metadata.get("tool_histogram"), dict) else None,
         )
         context.metadata = metadata
+        await self._copy_artifact_if_present(
+            environment, REMOTE_TRAJECTORY, REMOTE_TRAJECTORY_ARTIFACT
+        )
+
+    async def _collect_tool_timeline(
+        self, environment: BaseEnvironment, context: AgentContext
+    ) -> None:
+        metadata = dict(context.metadata or {})
+        result = await environment.exec(
+            command=f"test -s {REMOTE_TIMELINE} && cat {REMOTE_TIMELINE}"
+        )
+        if result.return_code != 0:
+            metadata["tool_timeline_available"] = False
+            context.metadata = metadata
+            return
+        try:
+            timeline = json.loads(result.stdout or "")
+        except json.JSONDecodeError:
+            metadata["tool_timeline_available"] = False
+            metadata["tool_timeline_error"] = "invalid_json"
+            context.metadata = metadata
+            return
+        if not isinstance(timeline, dict) or timeline.get("schemaVersion") != "1.0":
+            metadata["tool_timeline_available"] = False
+            metadata["tool_timeline_error"] = "unsupported_schema"
+            context.metadata = metadata
+            return
+        tools = timeline.get("tools") if isinstance(timeline.get("tools"), list) else []
+        turns = timeline.get("turns") if isinstance(timeline.get("turns"), list) else []
+        max_batch = 0
+        for tool in tools:
+            if isinstance(tool, dict) and isinstance(tool.get("batchSize"), int):
+                max_batch = max(max_batch, tool["batchSize"])
+        metadata["tool_timeline_available"] = True
+        metadata["tool_timeline"] = {
+            "tools": len(tools),
+            "turns": len(turns),
+            "maxBatchSize": max_batch,
+        }
+        context.metadata = metadata
+        await self._copy_artifact_if_present(
+            environment, REMOTE_TIMELINE, REMOTE_TIMELINE_ARTIFACT
+        )
+
+    async def _copy_artifact_if_present(
+        self,
+        environment: BaseEnvironment,
+        source: str,
+        destination: str,
+    ) -> None:
         await environment.exec(
             command=(
-                "if [ -d /logs/artifacts ]; then "
-                f"cp {shlex.quote(REMOTE_TRAJECTORY)} "
-                f"{shlex.quote(REMOTE_TRAJECTORY_ARTIFACT)}; fi"
+                "if [ -d /logs/artifacts ] && [ -s "
+                + shlex.quote(source)
+                + " ]; then cp "
+                + shlex.quote(source)
+                + " "
+                + shlex.quote(destination)
+                + "; fi"
             )
         )
 

@@ -41,6 +41,10 @@ describe("resolveAgentConfig harness profiles", () => {
 
   it("keeps legacy orchestration by default and supports an adaptive A/B profile", () => {
     const legacy = resolveAgentConfig(options());
+    const grok = resolveAgentConfig(options({
+      provider: { name: "xai" } as LlmProvider,
+      model: "grok-4.6",
+    }));
     const adaptive = resolveAgentConfig(options({
       orchestrationProfile: "adaptive",
       adaptiveOrchestration: {
@@ -51,6 +55,12 @@ describe("resolveAgentConfig harness profiles", () => {
     }));
 
     expect(legacy.orchestrationProfile).toBe("legacy");
+    expect(grok.orchestrationProfile).toBe("adaptive");
+    expect(grok.reasoningEffort).toBe("xhigh");
+    expect(grok.adaptiveOrchestration).toMatchObject({
+      automaticDelegation: false,
+      maxAutomaticDelegations: 1,
+    });
     expect(adaptive).toMatchObject({
       orchestrationProfile: "adaptive",
       adaptiveOrchestration: {

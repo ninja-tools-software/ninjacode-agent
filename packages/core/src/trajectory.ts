@@ -60,6 +60,7 @@ export interface TrajectoryReplay {
   subagentCalls: number;
   errors: number;
   timeToFirstEditMs?: number;
+  longestLlmTurnMs?: number;
   readOnlyTurns: number;
   rereads: number;
   errorCategories: Record<string, number>;
@@ -81,6 +82,7 @@ export interface TrajectoryComparison {
     subagentCalls: number;
     errors: number;
     timeToFirstEditMs?: number;
+    longestLlmTurnMs?: number;
     readOnlyTurns: number;
     rereads: number;
     compactions: number;
@@ -142,6 +144,7 @@ const TRAJECTORY_ATTRIBUTE_KEYS = new Set([
   "lgtm",
   "confidence",
   "cycle",
+  "durationMs",
 ]);
 const WRITE_TOOLS = new Set(["apply_patch", "edit_file", "write_file", "delete_file"]);
 const READ_TOOLS = new Set(["read_file", "list_dir", "glob", "grep", "search_codebase"]);
@@ -211,6 +214,7 @@ export function replayTrajectory(input: string | Trajectory): TrajectoryReplay {
     subagentCalls: countEvents(trajectory.events, "subagent"),
     errors: trajectory.events.filter((event) => event.type === "error" || event.success === false).length,
     timeToFirstEditMs: firstEdit ? Math.max(0, firstEdit.timestamp - trajectory.startedAt) : undefined,
+    longestLlmTurnMs: longestDuration(trajectory.events),
     readOnlyTurns: turnEvents.filter((event) => {
       const turn = event.attributes?.turn;
       return typeof turn !== "number" || !mutationTurns.has(turn);
@@ -244,6 +248,7 @@ export function compareTrajectories(
       subagentCalls: candidate.subagentCalls - baseline.subagentCalls,
       errors: candidate.errors - baseline.errors,
       timeToFirstEditMs: optionalDelta(baseline.timeToFirstEditMs, candidate.timeToFirstEditMs),
+      longestLlmTurnMs: optionalDelta(baseline.longestLlmTurnMs, candidate.longestLlmTurnMs),
       readOnlyTurns: candidate.readOnlyTurns - baseline.readOnlyTurns,
       rereads: candidate.rereads - baseline.rereads,
       compactions: candidate.compactions - baseline.compactions,
@@ -319,6 +324,7 @@ export class TrajectoryRecorder {
         this.events.push(createTrajectoryEvent({
           type: "phase",
           timestamp,
+          durationMs: finiteNumber(payload.durationMs),
           attributes: {
             phase: safeCategory(payload.phase),
             from: typeof payload.from === "string" ? safeCategory(payload.from) : undefined,
@@ -392,6 +398,7 @@ export class TrajectoryRecorder {
     this.events.push(createTrajectoryEvent({
       type: "turn",
       timestamp,
+      durationMs: finiteNumber(payload.durationMs),
       attributes: {
         turn,
         category: compaction ? "compaction_usage" : undefined,
@@ -632,6 +639,16 @@ function countAttributeValues(events: TrajectoryEvent[], key: string): Record<st
 
 function optionalDelta(baseline: number | undefined, candidate: number | undefined): number | undefined {
   return baseline === undefined || candidate === undefined ? undefined : candidate - baseline;
+}
+
+function longestDuration(events: TrajectoryEvent[]): number | undefined {
+  let longest: number | undefined;
+  for (const event of events) {
+    if (event.durationMs === undefined) continue;
+    if (event.type !== "turn" || event.attributes?.category !== undefined) continue;
+    longest = longest === undefined ? event.durationMs : Math.max(longest, event.durationMs);
+  }
+  return longest;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

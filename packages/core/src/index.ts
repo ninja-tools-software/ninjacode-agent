@@ -68,6 +68,19 @@ export {
   TrajectoryRecorder,
   TRAJECTORY_SCHEMA_VERSION,
 } from "./trajectory.js";
+export {
+  persistRedactedEventsJsonl,
+  persistToolTimeline,
+  siblingArtifactPath,
+  summarizeToolArgs,
+  ToolTimelineRecorder,
+  TOOL_TIMELINE_SCHEMA_VERSION,
+} from "./toolTimeline.js";
+export type {
+  ToolTimeline,
+  ToolTimelineEntry,
+  ToolTimelineTurn,
+} from "./toolTimeline.js";
 export type {
   Trajectory,
   TrajectoryCaptureOptions,

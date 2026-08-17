@@ -4,6 +4,7 @@ import type { Trajectory } from "@ninjacode/core";
 export interface BenchMockScript {
   text?: string;
   toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
+  delayMs?: number;
 }
 
 /** A single benchmark task, loaded from tasks/<id>/task.json. */
@@ -31,6 +32,8 @@ export interface BenchTask {
   timeoutSec?: number;
   /** Per-task agent turn budget (overrides adapter default). */
   maxTurns?: number;
+  /** Optional adaptive orchestration for scripted harness tasks. */
+  orchestrationProfile?: "legacy" | "adaptive";
   /**
    * Force edit-tool filtering for scripted mock runs.
    * `"patch"` exposes `apply_patch` (hides `edit_file`); `"string_replace"` is the mock default.
@@ -75,6 +78,7 @@ export interface TaskMetrics {
   /** Structural trajectory metrics; no prompt, output, path, or tool argument is retained. */
   trajectoryAvailable?: boolean;
   timeToFirstEditMs?: number;
+  longestLlmTurnMs?: number;
   readOnlyTurns?: number;
   rereads?: number;
   errorCategories?: Record<string, number>;

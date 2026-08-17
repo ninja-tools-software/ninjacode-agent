@@ -75,6 +75,20 @@ describe("adaptive phase policy", () => {
     expect(decision.guidance).toContain("budget 3");
   });
 
+  it("counts shell rereads of the same artefact path", () => {
+    const state = createPhasePolicyState({
+      task: "Write image.c",
+      maxTurns: 20,
+      goal: "edit",
+      options: { automaticDelegation: false },
+    });
+    observePhaseTurn(state, [invocation("run_shell", { command: "python3 -c 'print(1)' image.ppm" })], 1);
+    expect(state.rereadCount).toBe(0);
+    observePhaseTurn(state, [invocation("run_shell", { command: "head image.ppm" })], 2);
+    expect(state.rereadCount).toBe(1);
+    expect(state.readTargets["image.ppm"]).toBe(2);
+  });
+
   it("delegates only on justified signals and respects the parent ceiling", () => {
     const state = createPhasePolicyState({
       task: "Refactor integration wiring",
@@ -106,7 +120,7 @@ describe("adaptive phase policy", () => {
     const failure = observePhaseTurn(
       state,
       [invocation("run_shell", {}, { error: "timeout", output: "Tool error [Timeout]" })],
-      2,
+      1,
     );
     expect(failure.transition).toMatchObject({ to: "recover", reason: "tool_Timeout" });
     expect(failure.guidance).toContain("narrow the operation");
@@ -114,9 +128,98 @@ describe("adaptive phase policy", () => {
     const recovered = observePhaseTurn(
       state,
       [invocation("read_file", { path: "src/a.ts" })],
-      3,
+      2,
     );
     expect(recovered.transition).toMatchObject({ from: "recover", to: "explore" });
+  });
+
+  it("closes exploration on NotFound at the budget and does not reopen it", () => {
+    const state = createPhasePolicyState({
+      task: "Fix the typo",
+      maxTurns: 64,
+      goal: "edit",
+      options: { automaticDelegation: false },
+    });
+    observePhaseTurn(state, [invocation("read_file", { path: "src/a.ts" })], 1);
+    expect(state.explorationBudget).toBe(3);
+    expect(state.explorationClosed).toBe(false);
+    const missing = observePhaseTurn(
+      state,
+      [invocation("read_file", { path: "missing.ts" }, { error: "Cannot read missing.ts", meta: { error: { category: "NotFound" } } })],
+      3,
+    );
+    expect(state.explorationBudget).toBe(3);
+    expect(state.explorationClosed).toBe(true);
+    expect(missing.transition).toMatchObject({ to: "recover", reason: "tool_NotFound" });
+
+    const recovered = observePhaseTurn(state, [invocation("read_file", { path: "src/a.ts" })], 4);
+    expect(recovered.transition).toMatchObject({ from: "recover", to: "execute" });
+    expect(state.phase).toBe("execute");
+  });
+
+  it("returns to execute, never explore, after NotFound/success alternation once the budget is closed", () => {
+    const state = createPhasePolicyState({
+      task: "Fix the typo",
+      maxTurns: 64,
+      goal: "edit",
+      options: { automaticDelegation: false },
+    });
+    const missing = (turn: number) =>
+      observePhaseTurn(
+        state,
+        [invocation("read_file", { path: "src/a.ts" }, { error: "Cannot read src/a.ts", meta: { error: { category: "NotFound" } } })],
+        turn,
+      );
+
+    expect(missing(1).transition).toMatchObject({ to: "recover", reason: "tool_NotFound" });
+    expect(state.explorationClosed).toBe(false);
+    expect(observePhaseTurn(state, [invocation("read_file", { path: "src/a.ts" })], 2).transition).toMatchObject({
+      from: "recover",
+      to: "explore",
+    });
+
+    expect(missing(3).transition).toMatchObject({ to: "recover", reason: "tool_NotFound" });
+    expect(state.explorationClosed).toBe(true);
+    expect(observePhaseTurn(state, [invocation("read_file", { path: "src/a.ts" })], 4).transition).toMatchObject({
+      from: "recover",
+      to: "execute",
+    });
+    expect(state.phase).toBe("execute");
+  });
+
+  it("does not recover from a successful shell whose output mentions not found", () => {
+    const state = createPhasePolicyState({
+      task: "Fix src/a.ts",
+      maxTurns: 20,
+      goal: "edit",
+      options: { automaticDelegation: false },
+    });
+    const decision = observePhaseTurn(
+      state,
+      [
+        invocation("run_shell", { command: "which gcc python3" }, {
+          output: "gcc not found\n/usr/bin/python3",
+          meta: { exitCode: 0, error: { category: "NotFound" } },
+        }),
+      ],
+      1,
+    );
+    expect(decision.transition).toBeUndefined();
+    expect(state.phase).toBe("explore");
+  });
+
+  it("raises the exploration budget when independent areas make the task complex", () => {
+    const state = createPhasePolicyState({
+      task: "Fix the typo",
+      maxTurns: 64,
+      goal: "edit",
+      options: { automaticDelegation: false },
+    });
+    expect(state.explorationBudget).toBe(3);
+    observePhaseTurn(state, [invocation("read_file", { path: "packages/core/src/a.ts" })], 1);
+    observePhaseTurn(state, [invocation("read_file", { path: "packages/tools/src/b.ts" })], 2);
+    expect(state.complexity).toBe("complex");
+    expect(state.explorationBudget).toBe(9);
   });
 
   it("allows at most two correction-verification cycles", () => {

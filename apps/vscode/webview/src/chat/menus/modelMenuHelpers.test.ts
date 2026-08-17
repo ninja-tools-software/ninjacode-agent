@@ -76,6 +76,7 @@ describe("model settings defaults", () => {
 
   it("formats the settings pill summary", () => {
     expect(capitalizeEffort("high")).toBe("High");
+    expect(capitalizeEffort("xhigh")).toBe("Extra High");
     expect(formatModelSettingsSummary(settings({ reasoningEffort: "high" }), levelsModel)).toBe(
       "High 200K",
     );

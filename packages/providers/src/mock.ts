@@ -2,9 +2,30 @@ import type { Completion, CompletionRequest, LlmProvider, StreamSink, ToolCall }
 import { emptyUsage } from "./types.js";
 
 function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw new DOMException(signal.reason ? String(signal.reason) : "Aborted", "AbortError");
-  }
+  if (!signal?.aborted) return;
+  throw abortReason(signal);
+}
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException(signal.reason ? String(signal.reason) : "Aborted", "AbortError");
+}
+
+function abortableDelay(ms: number | undefined, signal?: AbortSignal): Promise<void> {
+  if (!ms || ms <= 0) return Promise.resolve();
+  throwIfAborted(signal);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortReason(signal!));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 export interface MockScript {
@@ -12,6 +33,8 @@ export interface MockScript {
   text?: string;
   toolCalls?: ToolCall[];
   stopReason?: Completion["stopReason"];
+  /** Abortable delay before emitting the scripted completion. */
+  delayMs?: number;
 }
 
 /**
@@ -34,6 +57,7 @@ export class MockProvider implements LlmProvider {
     throwIfAborted(req.signal);
     const script = this.scripts[Math.min(this.index, this.scripts.length - 1)] ?? { text: "done" };
     this.index += 1;
+    await abortableDelay(script.delayMs, req.signal);
 
     const text = script.text ?? "";
     if (text) {

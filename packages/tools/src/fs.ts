@@ -5,6 +5,10 @@ import { ToolError } from "./types.js";
 import { isSkippedDir } from "./ignore.js";
 import { resolveInWorkspace, toWorkspaceRelative } from "./paths.js";
 import { AmbiguousEdit, StalePatch, writeWithDiff } from "./patch.js";
+import {
+  classifyDataFile,
+  formatDataFileSummary,
+} from "./dataFiles.js";
 
 function relPath(ctx: ToolContext, relOrAbs: string): string {
   return toWorkspaceRelative(ctx.workspaceRoot, relOrAbs);
@@ -119,9 +123,10 @@ function renderReadSlice(opts: {
 export const readFileTool: Tool = {
   name: "read_file",
   description:
-    "Read a file from the workspace. Returns numbered lines (N|content), up to ~40k chars per call. " +
+    "Read a text source file from the workspace. Returns numbered lines (N|content), up to ~40k chars per call. " +
     "When truncated, a footer gives the next offset to continue. Optionally pass offset/limit for a line range. " +
-    "Use workspace-relative paths (e.g. src/app.ts).",
+    "Use workspace-relative paths (e.g. src/app.ts). Do not use this for images, binaries, or large data files " +
+    "(.ppm, .png, .wav, …): the tool returns metadata and a compact-analysis hint instead of the payload.",
   risk: "read_only",
   inputSchema: {
     type: "object",
@@ -138,12 +143,27 @@ export const readFileTool: Tool = {
   async execute(ctx, args): Promise<ToolResult> {
     const rel = relPath(ctx, String(args.path ?? ""));
     const abs = resolveInWorkspace(ctx.workspaceRoot, rel);
-    let content: string;
+    let buf: Buffer;
     try {
-      content = await fs.readFile(abs, "utf8");
+      buf = await fs.readFile(abs);
     } catch (e) {
       throw new ToolError(`Cannot read ${rel}: ${(e as Error).message}`, "not_found");
     }
+    const data = classifyDataFile(rel, buf.subarray(0, 8_192), buf.byteLength);
+    if (data) {
+      return {
+        output: formatDataFileSummary(rel, data),
+        meta: {
+          path: rel,
+          dataFile: true,
+          kind: data.kind,
+          bytes: data.bytes,
+          encoding: data.encoding,
+          ...(data.ppm ?? {}),
+        },
+      };
+    }
+    const content = buf.toString("utf8");
     const lines = content.split("\n");
     const totalLines = countFileLines(content);
     const hasOffset = typeof args.offset === "number";

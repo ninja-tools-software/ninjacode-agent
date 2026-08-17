@@ -15,6 +15,7 @@ import {
 } from "@ninjacode/core";
 import {
   createProvider,
+  isReasoningEffort,
   type ProviderKind,
   type ReasoningEffort,
 } from "@ninjacode/providers";
@@ -172,7 +173,7 @@ function trajectoryCaptureFromEnv(): { enabled: true; persistPath: string } | un
 function parseReasoningEffort(flags: Record<string, string | boolean>): ReasoningEffort | undefined {
   const effort = flags["reasoning-effort"];
   if (effort === undefined) return undefined;
-  if (effort !== "low" && effort !== "medium" && effort !== "high") {
+  if (!isReasoningEffort(effort)) {
     throw new Error(`Invalid --reasoning-effort value: ${String(effort)}`);
   }
   return effort;

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ProviderKind, ReasoningEffort } from "@ninjacode/providers";
+import { isReasoningEffort, type ProviderKind, type ReasoningEffort } from "@ninjacode/providers";
 import { loadTasks } from "./tasks.js";
 import { runBench } from "./runner.js";
 import { toMarkdown, summarize } from "./report.js";
@@ -30,7 +30,7 @@ function hasFlag(args: string[], name: string): boolean {
 function reasoningEffort(args: string[]): ReasoningEffort | undefined {
   const value = getFlag(args, "reasoning-effort") ?? process.env.NINJABENCH_REASONING_EFFORT;
   if (value === undefined) return undefined;
-  if (value !== "low" && value !== "medium" && value !== "high") {
+  if (!isReasoningEffort(value)) {
     throw new Error(`Invalid --reasoning-effort value: ${value}`);
   }
   return value;
@@ -229,7 +229,7 @@ function printMainHelp(): void {
       "  --concurrency N      Parallel (agent, task, trial) runs (default 1)",
       "  --provider KIND      NinjaCode provider (anthropic|openai|deepseek|…|mock)",
       "  --model NAME         Model override",
-      "  --reasoning-effort E Pin reasoning effort (low|medium|high)",
+      "  --reasoning-effort E Pin reasoning effort (low|medium|high|xhigh)",
       "  --ablation NAME      optimized|control|no-parallel-reads|no-async-persistence|no-provider-cache|no-context-deltas",
       "  --max-turns N        Cap agent turns (default 40; quick suite uses 20)",
       "  --api-key KEY        API key (defaults to env)",
@@ -263,7 +263,7 @@ function printMainHelp(): void {
       "  ninjabench compare runs/quick/baseline.json runs/quick/run-….json",
       "",
       "SWE-bench: ninjabench swebench — run without args for subcommand help",
-      "Harbor:    ninjabench harbor — Terminal-Bench 2.1 (oracle / smoke / full run)",
+      "Harbor:    ninjabench harbor — Terminal-Bench 2.1 (oracle / smoke / canary / full run)",
     ].join("\n"),
   );
 }

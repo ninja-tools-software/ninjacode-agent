@@ -71,6 +71,7 @@ export function effectiveContextWindow(settings: SettingsState, modelInfo?: Mode
 
 export function capitalizeEffort(effort: string): string {
   if (!effort) return effort;
+  if (effort === "xhigh") return "Extra High";
   return effort.charAt(0).toUpperCase() + effort.slice(1);
 }
 

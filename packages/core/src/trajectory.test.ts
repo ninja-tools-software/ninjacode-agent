@@ -81,6 +81,7 @@ describe("trajectory replay", () => {
       subagentCalls: 0,
       errors: -1,
       timeToFirstEditMs: undefined,
+      longestLlmTurnMs: undefined,
       readOnlyTurns: 0,
       rereads: 0,
       compactions: 0,

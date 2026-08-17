@@ -85,6 +85,30 @@ describe("read_file", () => {
       ToolError,
     );
   });
+
+  it("returns metadata instead of dumping a PPM image", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "nc-read-"));
+    const body = Array.from({ length: 50 }, () => "255 0 0 0 255 0 0 0 255").join("\n");
+    await fs.writeFile(path.join(root, "image.ppm"), `P3\n2 2\n255\n${body}\n`, "utf8");
+
+    const result = await readFileTool.execute(ctx(root), { path: "image.ppm" });
+
+    expect(result.output).toContain("[data file] image.ppm");
+    expect(result.output).toContain("Netpbm P3 2x2");
+    expect(result.output).toContain("run_shell");
+    expect(result.output).not.toContain("255 0 0");
+    expect(result.meta).toMatchObject({ dataFile: true, kind: "image", width: 2, height: 2 });
+  });
+
+  it("returns metadata for a binary file with a NUL byte", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "nc-read-"));
+    await fs.writeFile(path.join(root, "blob.dat"), Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe]));
+
+    const result = await readFileTool.execute(ctx(root), { path: "blob.dat" });
+
+    expect(result.output).toContain("[data file] blob.dat");
+    expect(result.meta?.dataFile).toBe(true);
+  });
 });
 
 describe("write_file verification", () => {

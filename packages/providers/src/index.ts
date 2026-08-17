@@ -13,7 +13,14 @@ export type {
   ReasoningEffort,
   ProviderKind,
 } from "./types.js";
-export { LlmError, emptyUsage, wantsTools, hasImageParts } from "./types.js";
+export {
+  LlmError,
+  emptyUsage,
+  wantsTools,
+  hasImageParts,
+  isReasoningEffort,
+  REASONING_EFFORTS,
+} from "./types.js";
 
 export {
   listProviderCatalogs,

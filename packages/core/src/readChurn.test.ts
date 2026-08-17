@@ -83,4 +83,18 @@ describe("repeatedReadWarning", () => {
     ];
     expect(repeatedReadWarning(history)).toBeUndefined();
   });
+
+  it("warns after repeated shell dumps of the same artefact", () => {
+    const dump = (id: string): Message => ({
+      role: "assistant",
+      content: "",
+      toolCalls: [{ id, name: "run_shell", arguments: { command: "sed -n '1,80p' /tmp/orig.asm" } }],
+    });
+    const history = [dump("1"), dump("2"), dump("3"), dump("4")];
+    const warning = repeatedReadWarning(history);
+    expect(warning).toContain("orig.asm");
+    expect(warning).toContain("inspected the same artefact");
+    history.push({ role: "user", content: `[System] ${warning}` }, dump("5"));
+    expect(repeatedReadWarning(history)).toBeUndefined();
+  });
 });

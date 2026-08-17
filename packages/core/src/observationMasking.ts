@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import type { Message } from "@ninjacode/providers";
 
 /**
- * Deterministic local reads may be repeated. Shell and network observations are
- * deliberately absent: rerunning them may produce side effects or different data.
+ * Deterministic local reads may be repeated. Ordinary shell output stays
+ * verbatim (rerunning it may have side effects); large data dumps are masked
+ * once archived because they pollute the context the same way a paged PPM does.
  */
 const MASKABLE_TOOLS = new Set([
   "read_file",
@@ -24,7 +25,20 @@ const PATH_ANNOTATION = /^\[path:[^\]]+\]\n/;
 const ARTIFACT_REFERENCE = /artifact ([a-f0-9]{64})/;
 
 export function isMaskableObservation(message: Message): boolean {
-  return message.role === "tool" && !!message.name && MASKABLE_TOOLS.has(message.name);
+  if (message.role !== "tool" || !message.name) return false;
+  if (MASKABLE_TOOLS.has(message.name)) return true;
+  return message.name === "run_shell" && looksLikeDataDumpContent(message.content);
+}
+
+function looksLikeDataDumpContent(content: string): boolean {
+  if (content.length < 400) return false;
+  if (content.includes("\0")) return true;
+  const head = content.slice(0, 512);
+  if (/^P[1-6](?:\s|$)/u.test(head)) return true;
+  const sample = content.slice(0, 4_000);
+  const numbers = sample.match(/\d+/g)?.length ?? 0;
+  const lines = Math.max(sample.split("\n").length, 1);
+  return numbers > 200 && sample.length / lines > 40;
 }
 
 function maskedContent(message: Message): string {

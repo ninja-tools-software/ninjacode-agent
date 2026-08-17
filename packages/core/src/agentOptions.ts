@@ -296,7 +296,13 @@ export function resolveAgentConfig(opts: AgentOptions): ResolvedAgentConfig {
     enableLoopDetection: opts.enableLoopDetection ?? true,
     enableSubagents: opts.enableSubagents !== false,
     orchestrationProfile: opts.orchestrationProfile ?? profile.orchestration,
-    adaptiveOrchestration: resolveAdaptiveOrchestrationOptions(opts.adaptiveOrchestration),
+    adaptiveOrchestration: resolveAdaptiveOrchestrationOptions({
+      ...(profile.orchestration === "adaptive" &&
+      (opts.provider.name === "xai" || (opts.model ?? "").startsWith("grok-"))
+        ? { automaticDelegation: false, maxAutomaticDelegations: 1 }
+        : {}),
+      ...opts.adaptiveOrchestration,
+    }),
     subagentGovernance: opts.subagentGovernance,
     sessionId,
     planId: opts.planId ?? planIdForSession(sessionId),

@@ -17,7 +17,7 @@ on:
         description: "Plan or execute a benchmark profile"
         type: choice
         default: none
-        options: [none, quick, smoke, subset, full, publish]
+        options: [none, quick, smoke, canary, subset, full, publish]
       execute_live:
         description: "Actually execute the selected live profile"
         type: boolean
@@ -155,7 +155,7 @@ jobs:
   harbor-profile:
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      contains(fromJSON('["smoke","subset","full","publish"]'), inputs.benchmark_profile)
+      contains(fromJSON('["smoke","canary","subset","full","publish"]'), inputs.benchmark_profile)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

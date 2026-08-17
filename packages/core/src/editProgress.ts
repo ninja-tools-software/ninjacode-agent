@@ -8,12 +8,28 @@ const PLAN_TOOLS = new Set(["write_plan"]);
 /** Fractions of the turn budget at which an agent that has not edited is warned. */
 const EDIT_NUDGE_AT = [0.5, 0.8];
 
+/** Absolute turns so a 64-turn budget still warns before the agent has burned a long explore phase. */
+const EDIT_NUDGE_AT_TURNS = [3, 6, 10];
+
 export type ProgressGoal = "edit" | "plan";
 
 export function hasMutatedWorkspace(history: Message[]): boolean {
-  return history.some(
-    (m) => m.role === "assistant" && (m.toolCalls ?? []).some((tc) => MUTATING_TOOLS.has(tc.name)),
-  );
+  for (let index = 0; index < history.length; index += 1) {
+    const message = history[index];
+    if (message?.role !== "assistant") continue;
+    for (const call of message.toolCalls ?? []) {
+      if (!MUTATING_TOOLS.has(call.name)) continue;
+      const result = history
+        .slice(index + 1)
+        .find((entry) => entry.role === "tool" && entry.toolCallId === call.id);
+      if (result && !looksLikeFailedToolResult(result.content)) return true;
+    }
+  }
+  return false;
+}
+
+function looksLikeFailedToolResult(content: string): boolean {
+  return /^(?:error|failed|denied)|tool error \[|permission denied/iu.test(content.trim());
 }
 
 export function hasWrittenPlan(history: Message[]): boolean {
@@ -26,9 +42,15 @@ function nudgeTurns(maxTurns: number, goal: ProgressGoal): number[] {
   if (goal === "plan") {
     const early = Math.min(8, Math.max(3, Math.floor(maxTurns * 0.125)));
     const late = Math.max(early + 1, Math.floor(maxTurns * 0.4));
-    return [...new Set([early, late])];
+    return uniqueSorted([early, late]);
   }
-  return EDIT_NUDGE_AT.map((fraction) => Math.floor(maxTurns * fraction));
+  const fractionMarks = EDIT_NUDGE_AT.map((fraction) => Math.floor(maxTurns * fraction));
+  const absoluteMarks = EDIT_NUDGE_AT_TURNS.filter((turn) => turn < maxTurns);
+  return uniqueSorted([...absoluteMarks, ...fractionMarks]);
+}
+
+function uniqueSorted(values: number[]): number[] {
+  return [...new Set(values.filter((turn) => turn > 0))].sort((a, b) => a - b);
 }
 
 /**

@@ -55,15 +55,15 @@ export class OpenAICompatibleProvider implements LlmProvider {
       ...(req.tools?.length
         ? {
             tools: req.tools.map(toOpenAITool),
-            tool_choice: "auto" as const,
+            tool_choice: req.toolChoice ?? "auto",
           }
         : {}),
     };
 
     if (req.reasoningEffort) {
-      // OpenAI o-series + OpenRouter reasoning models
+      // OpenAI o-series, xAI Grok, and OpenRouter reasoning models.
       body.reasoning_effort = req.reasoningEffort;
-      if (this.name === "openrouter" || this.name === "ninjacode-gateway") {
+      if (this.name === "openrouter" || this.name === "ninjacode-gateway" || this.name === "xai") {
         body.reasoning = { effort: req.reasoningEffort };
       }
     }

@@ -68,6 +68,30 @@ describe("versioned harness profiles", () => {
     expect(Object.isFrozen(profile.optionalTools)).toBe(true);
   });
 
+  it("uses Grok 4.6 extra-high reasoning, string_replace edits, and adaptive orchestration", () => {
+    const profile = resolveHarnessProfile({
+      providerKind: "xai",
+      modelId: "grok-4.6",
+    });
+    expect(profile).toMatchObject({
+      source: "model",
+      key: "grok-4.6",
+      editFormat: "string_replace",
+      orchestration: "adaptive",
+      reasoningEffort: "xhigh",
+    });
+  });
+
+  it("keeps Grok 4.5 on string_replace without xhigh", () => {
+    expect(resolveHarnessProfile({ modelId: "grok-4.5" })).toMatchObject({
+      source: "family",
+      key: "xai",
+      editFormat: "string_replace",
+      orchestration: "adaptive",
+      reasoningEffort: undefined,
+    });
+  });
+
   it("exposes reasoning only for profiles backed by the existing effort type", () => {
     expect(resolveHarnessProfile({ modelId: "o3" }).reasoningEffort).toBe("high");
     expect(resolveHarnessProfile({ modelId: "claude-opus-4-20250514" }).reasoningEffort)

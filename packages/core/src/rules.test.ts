@@ -284,6 +284,9 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("in parallel");
     expect(prompt).toContain("Do not pass small limit values");
     expect(prompt).toContain("Prefer the grep tool");
+    expect(prompt).toContain("Do not read image, binary, or large data files");
+    expect(prompt).toContain("first turn");
+    expect(prompt).toContain("compact analysis");
   });
 });
 

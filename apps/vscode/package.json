@@ -567,7 +567,8 @@
           "enum": [
             "low",
             "medium",
-            "high"
+            "high",
+            "xhigh"
           ],
           "description": "%ninjacode.configuration.reasoningEffort.description%"
         },

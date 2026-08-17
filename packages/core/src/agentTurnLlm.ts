@@ -21,15 +21,10 @@ import {
   buildVolatileContextMessage,
   volatileContextChanged,
 } from "./volatileContext.js";
-import type { AgentTurnDeps } from "./agentTurnTypes.js";
+import type { AgentTurnDeps, AgentTurnOutcome } from "./agentTurnTypes.js";
 import { abortReasonMessage } from "./agentRuntime.js";
 import { startSpan } from "./telemetry.js";
 import { isRetryableLlmError, isRetryWrappedProvider } from "./reliability.js";
-
-type AgentTurnOutcome =
-  | { kind: "continue" }
-  | { kind: "failed"; message: string }
-  | { kind: "stopped"; message: string };
 
 export class ContextBudgetError extends Error {
   readonly code = "context_budget_exceeded";
@@ -278,6 +273,7 @@ export async function callLlmForTurn(
   let emitted = false;
   const sink = createStreamSink(deps, () => (emitted = true));
   logLlmCall(deps, messages.length);
+  const llmStarted = Date.now();
 
   try {
     const system = messages[0]?.role === "system" ? messages[0].content : "";
@@ -310,7 +306,8 @@ export async function callLlmForTurn(
       signal: deps.signal,
       hasEmitted: () => emitted,
     });
-    await recordCompletedTurn(deps, completion, estimated, llmSpan);
+    const durationMs = Date.now() - llmStarted;
+    await recordCompletedTurn(deps, completion, estimated, llmSpan, durationMs);
     return { completion };
   } catch (e) {
     startSpan("llm", { turn: turn + 1, failed: true }).end();
@@ -343,6 +340,7 @@ async function recordCompletedTurn(
   completion: Completion,
   estimated: ReturnType<typeof estimateContextUsage>,
   llmSpan: ReturnType<typeof startSpan>,
+  durationMs: number,
 ): Promise<void> {
   const resolvedModel = completion.resolvedModel ?? completion.model ?? deps.model;
   const actualInput =
@@ -359,6 +357,7 @@ async function recordCompletedTurn(
     turn: deps.turn + 1,
     usage: completion.usage,
     model: resolvedModel,
+    durationMs,
   });
   if (completion.resolvedModel) {
     deps.logAgentEvent(

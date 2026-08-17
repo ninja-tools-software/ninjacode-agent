@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NinjaCodeGatewayProvider } from "./gateway.js";
-import { createDeepSeekProvider } from "./openai-compatible.js";
+import { createDeepSeekProvider, createXaiProvider } from "./openai-compatible.js";
 import { promptCacheKey } from "./promptCache.js";
 
 function sseResponse(chunks: string[]): Response {
@@ -106,5 +106,27 @@ describe("prompt caching wiring", () => {
     // prompt_tokens=10 includes 8 cached; inputTokens must report only the uncached share.
     expect(completion.usage.inputTokens).toBe(2);
     expect(completion.usage.cacheReadTokens).toBe(8);
+  });
+
+  it("forwards tool_choice required for constrained finalization", async () => {
+    let captured: Record<string, unknown> = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: { body: string }) => {
+        captured = JSON.parse(init.body) as Record<string, unknown>;
+        return sseResponse([TEXT_CHUNK, "data: [DONE]\n\n"]);
+      }),
+    );
+    const provider = createXaiProvider("k", "grok-4.6");
+    await provider.completeStreaming({
+      messages: [{ role: "user", content: "write it" }],
+      tools: [{
+        name: "write_file",
+        description: "write",
+        inputSchema: { required: ["path"], properties: { path: { type: "string" } } },
+      }],
+      toolChoice: "required",
+    });
+    expect(captured.tool_choice).toBe("required");
   });
 });

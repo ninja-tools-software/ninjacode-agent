@@ -85,6 +85,7 @@ async function createAgent(
       model: opts.model,
       reasoningEffort: opts.reasoningEffort,
       runTimeoutMs,
+      orchestrationProfile: task.orchestrationProfile,
       sandboxMode: "danger-full-access",
       signal,
       trajectory: { enabled: true },
@@ -120,6 +121,7 @@ function trajectoryMetrics(trajectory: Trajectory | undefined): Partial<TaskMetr
   return {
     trajectoryAvailable: true,
     timeToFirstEditMs: replay.timeToFirstEditMs,
+    longestLlmTurnMs: replay.longestLlmTurnMs,
     readOnlyTurns: replay.readOnlyTurns,
     rereads: replay.rereads,
     errorCategories: replay.errorCategories,

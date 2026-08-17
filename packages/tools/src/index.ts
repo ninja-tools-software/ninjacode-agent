@@ -66,7 +66,7 @@ export function createDefaultToolRegistry(options?: {
 
 export * from "./types.js";
 export * from "./paths.js";
-export * from "./fs.js";
+export * from "./dataFiles.js";
 export * from "./search.js";
 export * from "./shell.js";
 export * from "./git.js";

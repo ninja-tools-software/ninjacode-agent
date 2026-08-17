@@ -100,16 +100,16 @@ node apps/bench/dist/index.js harbor audit runs/harbor/full \
 Le wrapper génère `apps/cli/dist/ninjacode.harbor-manifest.json` avec la version CLI,
 la version de l'adaptateur, le commit (`NINJACODE_GIT_COMMIT` ou `GITHUB_SHA` en
 archive sans `.git`), le SHA-256 et la taille du bundle, ainsi que la politique Node.
-Il épingle aussi Harbor 0.21.0, `xai/grok-4.6`, l'effort `high`, le timeout CLI,
+Il épingle aussi Harbor 0.21.0, `xai/grok-4.6`, l'effort `xhigh`, le timeout CLI,
 les multiplicateurs agent/verifier, le dataset, le profil, le nombre de tâches et
 d'essais. Le lanceur refuse une version Harbor différente ; l'adaptateur refuse un
 modèle ou un bundle qui ne correspond pas au manifeste.
 
 L'installation vérifie l'espace **dans le conteneur d'essai** (minimum 512 MiB).
-Elle réutilise Node quand l'image fournit une version compatible, tente ensuite le
-paquet système, et n'utilise le téléchargement nvm qu'en dernier recours. Ce fallback
-épingle nvm 0.40.2 et Node 24.19.0. La version Node réellement utilisée est incluse
-dans la version Harbor de l'agent.
+Elle réutilise Node quand l'image fournit une version compatible (majeur ≥ 24).
+Sinon elle installe le tarball officiel Node 24.19.0 depuis `nodejs.org/dist`
+(gzip, `pipefail`, binaire vérifié) au lieu d'un `apt nodejs` trop vieux ou de nvm.
+La version Node réellement utilisée est incluse dans la version Harbor de l'agent.
 
 Quand la CLI termine, l'adaptateur remplit `AgentContext` avec les tokens d'entrée,
 de cache et de sortie et le coût. Les turns, appels/erreurs d'outils, histogramme

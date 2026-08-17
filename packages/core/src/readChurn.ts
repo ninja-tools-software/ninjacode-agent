@@ -1,13 +1,16 @@
 import type { Message } from "@ninjacode/providers";
+import { extractShellReadTargets } from "./phasePolicy.js";
 
 /** Tools whose output is a slice of a file: re-reading one is re-reading the file. */
 const READ_TOOLS = new Set(["read_file"]);
 
 /** Overlapping reads of one path before the agent is told it is going in circles. */
 const READ_CHURN_LIMIT = 4;
+const SHELL_CHURN_LIMIT = 4;
 
 /** Lets the warning recognise its own past output, so each path is flagged once. */
 const READ_CHURN_MARKER = "read the same file";
+const SHELL_CHURN_MARKER = "inspected the same artefact";
 
 interface LineRange {
   start: number;
@@ -54,12 +57,27 @@ function countChurnByPath(history: Message[]): Map<string, number> {
   return counts;
 }
 
-function alreadyWarned(history: Message[], target: string): boolean {
+function countShellChurnByPath(history: Message[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const message of history) {
+    if (message.role !== "assistant") continue;
+    for (const call of message.toolCalls ?? []) {
+      if (call.name !== "run_shell") continue;
+      const command = typeof call.arguments?.command === "string" ? call.arguments.command : "";
+      for (const target of extractShellReadTargets(command)) {
+        counts.set(target, (counts.get(target) ?? 0) + 1);
+      }
+    }
+  }
+  return counts;
+}
+
+function alreadyWarned(history: Message[], target: string, marker: string): boolean {
   return history.some(
     (m) =>
       m.role === "user" &&
       typeof m.content === "string" &&
-      m.content.includes(READ_CHURN_MARKER) &&
+      m.content.includes(marker) &&
       m.content.includes(target),
   );
 }
@@ -72,15 +90,25 @@ function alreadyWarned(history: Message[], target: string): boolean {
  * keeps the cached message suffix from churning.
  */
 export function repeatedReadWarning(history: Message[]): string | undefined {
-  const worst = [...countChurnByPath(history)]
-    .filter(([target, count]) => count >= READ_CHURN_LIMIT && !alreadyWarned(history, target))
+  const worstRead = [...countChurnByPath(history)]
+    .filter(([target, count]) => count >= READ_CHURN_LIMIT && !alreadyWarned(history, target, READ_CHURN_MARKER))
     .sort((a, b) => b[1] - a[1])[0];
-  if (!worst) return undefined;
+  if (worstRead) {
+    const [target, count] = worstRead;
+    return (
+      `You have read the same file ${count} times: ${target}. Its contents are already in this ` +
+      "conversation — scroll up rather than re-reading it. If a detail is genuinely missing, " +
+      "grep for the exact symbol instead of paging through the file again."
+    );
+  }
 
-  const [target, count] = worst;
+  const worstShell = [...countShellChurnByPath(history)]
+    .filter(([target, count]) => count >= SHELL_CHURN_LIMIT && !alreadyWarned(history, target, SHELL_CHURN_MARKER))
+    .sort((a, b) => b[1] - a[1])[0];
+  if (!worstShell) return undefined;
+  const [target, count] = worstShell;
   return (
-    `You have read the same file ${count} times: ${target}. Its contents are already in this ` +
-    "conversation — scroll up rather than re-reading it. If a detail is genuinely missing, " +
-    "grep for the exact symbol instead of paging through the file again."
+    `You have inspected the same artefact ${count} times via shell: ${target}. ` +
+    "Summarize the evidence you already have and proceed; do not dump another overlapping slice."
   );
 }

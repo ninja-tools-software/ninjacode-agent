@@ -42,7 +42,7 @@ describe("Harbor bundle manifest", () => {
       preferredNodeVersion: "24.19.0",
       harborVersion: "0.21.0",
       model: "xai/grok-4.6",
-      reasoningEffort: "high",
+      reasoningEffort: "xhigh",
       cliRunTimeoutMs: 840000,
       profile: "smoke",
       expectedTasks: 1,

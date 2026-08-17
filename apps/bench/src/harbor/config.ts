@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { benchRoot } from "./paths.js";
 
-export type HarborProfileName = "smoke" | "subset" | "full" | "publish";
+export type HarborProfileName = "smoke" | "canary" | "subset" | "full" | "publish";
 
 export interface HarborPinnedTask {
   name: string;
@@ -13,7 +13,7 @@ export interface BenchmarkTruthConfig {
   schemaVersion: 1;
   dataset: string;
   model: string;
-  reasoningEffort: "low" | "medium" | "high";
+  reasoningEffort: "low" | "medium" | "high" | "xhigh";
   harborVersion: string;
   node: { minimumMajor: number; preferredVersion: string };
   timeouts: {
@@ -27,9 +27,16 @@ export interface BenchmarkTruthConfig {
   };
   profiles: Record<
     HarborProfileName,
-    { expectedTasks: number; attempts: number; publishable: boolean }
+    {
+      expectedTasks: number;
+      attempts: number;
+      publishable: boolean;
+      minimumCorrectionPassRate?: number;
+      maximumAgentTimeoutRate?: number;
+    }
   >;
   smoke: HarborPinnedTask[];
+  canary: HarborPinnedTask[];
   subset: HarborPinnedTask[];
 }
 
@@ -38,6 +45,7 @@ export function pinnedTasksForProfile(
   profile: HarborProfileName,
 ): HarborPinnedTask[] {
   if (profile === "smoke") return config.smoke;
+  if (profile === "canary") return config.canary;
   if (profile === "subset") return config.subset;
   return [];
 }
@@ -52,8 +60,10 @@ export function assertBenchmarkTruthConfig(
     !parsed.model ||
     !parsed.harborVersion ||
     !Array.isArray(parsed.smoke) ||
+    !Array.isArray(parsed.canary) ||
     !Array.isArray(parsed.subset) ||
     parsed.smoke.length !== parsed.profiles.smoke.expectedTasks ||
+    parsed.canary.length !== parsed.profiles.canary.expectedTasks ||
     parsed.subset.length !== parsed.profiles.subset.expectedTasks
   ) {
     throw new Error(`Invalid benchmark truth config: ${configPath}`);

@@ -13,6 +13,8 @@ dist/
 .vscode-test/
 coverage/
 *.log
+__pycache__/
+*.pyc
 # SWE-bench: dataset cache and the Python harness used by `ninjabench swebench eval`
 .cache/
 .venv-swebench/

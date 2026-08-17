@@ -33,13 +33,23 @@ describe("isMaskableObservation", () => {
     }
   });
 
+  it("masks archived shell data dumps but not ordinary shell logs", () => {
+    const dump = "P3\n" + Array.from({ length: 80 }, () => "255 0 0 0 255 0 0 0 255").join("\n");
+    expect(isMaskableObservation({
+      role: "tool",
+      name: "run_shell",
+      toolCallId: "dump",
+      content: dump,
+    })).toBe(true);
+    expect(isMaskableObservation(observation("run_shell", 0))).toBe(false);
+  });
+
   it("refuses results the agent cannot reproduce", () => {
     for (const name of [
       "ask_user",
       "record_hypotheses",
       "read_debug_logs",
       "edit_file",
-      "run_shell",
       "fetch_url",
       "web_search",
     ]) {

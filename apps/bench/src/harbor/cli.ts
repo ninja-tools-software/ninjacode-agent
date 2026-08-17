@@ -24,6 +24,9 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+const REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
+type HarborReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
 function hasFlag(args: string[], ...names: string[]): boolean {
   return names.some((name) => args.includes(name));
 }
@@ -33,10 +36,52 @@ function getFlag(args: string[], ...names: string[]): string | undefined {
   return index >= 0 ? args[index + 1] : undefined;
 }
 
+export function parseNinjaBenchHarborArgs(args: string[]): {
+  reasoningEffort?: HarborReasoningEffort;
+  reuseBundle: boolean;
+  harborArgs: string[];
+} {
+  const harborArgs: string[] = [];
+  let reasoningEffort: HarborReasoningEffort | undefined;
+  let reuseBundle = false;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--reasoning-effort") {
+      const value = args[++i];
+      if (!value || !REASONING_EFFORTS.includes(value as HarborReasoningEffort)) {
+        throw new Error(`Invalid --reasoning-effort value: ${value ?? "<missing>"}`);
+      }
+      reasoningEffort = value as HarborReasoningEffort;
+      continue;
+    }
+    if (arg === "--reuse-bundle") {
+      reuseBundle = true;
+      continue;
+    }
+    harborArgs.push(arg);
+  }
+  return { reasoningEffort, reuseBundle, harborArgs };
+}
+
+export function withReasoningEffort(
+  config: BenchmarkTruthConfig,
+  reasoningEffort: HarborReasoningEffort,
+): BenchmarkTruthConfig {
+  return { ...config, reasoningEffort };
+}
+
 export function uniqueSmokeJobName(now = new Date()): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   return (
     `smoke-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-` +
+    `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+  );
+}
+
+export function uniqueCanaryJobName(now = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return (
+    `canary-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-` +
     `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
   );
 }
@@ -83,11 +128,16 @@ async function ensureCliBundle(
   config: BenchmarkTruthConfig,
   profile: HarborProfileName,
   model: string,
+  options: { reuseBundle?: boolean } = {},
 ): Promise<string> {
   const bundle = cliBundlePath();
-  console.error("Building pinned NinjaCode CLI bundle…");
-  const code = await spawnInherit("pnpm", ["--filter", "@ninjacode/cli", "bundle"], repoRoot());
-  if (code !== 0) throw new Error(`CLI bundle failed (exit ${code})`);
+  if (options.reuseBundle && existsSync(bundle)) {
+    console.error("Reusing pinned NinjaCode CLI bundle…");
+  } else {
+    console.error("Building pinned NinjaCode CLI bundle…");
+    const code = await spawnInherit("pnpm", ["--filter", "@ninjacode/cli", "bundle"], repoRoot());
+    if (code !== 0) throw new Error(`CLI bundle failed (exit ${code})`);
+  }
   if (!existsSync(bundle)) throw new Error(`CLI bundle missing after build: ${bundle}`);
   const manifest = await writeHarborBundleManifest(bundle, harborManifestPath(), {
     config,
@@ -150,6 +200,10 @@ async function cmdSmoke(args: string[]): Promise<void> {
   await cmdProfile("smoke", withJobName(args, uniqueSmokeJobName()));
 }
 
+async function cmdCanary(args: string[]): Promise<void> {
+  await cmdProfile("canary", withJobName(args, uniqueCanaryJobName()));
+}
+
 async function cmdRun(args: string[]): Promise<void> {
   const config = await loadBenchmarkTruthConfig();
   const harborArgs = withDefaultModel(withDefaultDataset(args));
@@ -195,6 +249,7 @@ async function cmdProfile(
   profile: HarborProfileName,
   args: string[],
 ): Promise<void> {
+  const { reasoningEffort, reuseBundle, harborArgs } = parseNinjaBenchHarborArgs(args);
   const pinnedFlags = [
     "-d",
     "--dataset",
@@ -207,31 +262,35 @@ async function cmdProfile(
     "--agent-timeout-multiplier",
     "--verifier-timeout-multiplier",
   ];
-  const override = args.find((arg) => pinnedFlags.includes(arg));
+  const override = harborArgs.find((arg) => pinnedFlags.includes(arg));
   if (override) {
     throw new Error(`${override} is pinned by Harbor profile ${profile}`);
   }
   const config = await loadBenchmarkTruthConfig();
+  const effective = reasoningEffort ? withReasoningEffort(config, reasoningEffort) : config;
   await requirePinnedHarborVersion(config.harborVersion);
-  await ensureCliBundle(config, profile, config.model);
-  await runHarbor(profileHarborArgs(config, profile, args));
+  await ensureCliBundle(effective, profile, config.model, { reuseBundle });
+  await runHarbor(profileHarborArgs(effective, profile, harborArgs));
+  await auditProfileOutput(profile, harborArgs, config);
 }
 
 async function cmdPlan(args: string[]): Promise<void> {
   const profile = args[0] as HarborProfileName | undefined;
-  if (!profile || !["smoke", "subset", "full", "publish"].includes(profile)) {
-    throw new Error("Usage: ninjabench harbor plan smoke|subset|full|publish");
+  if (!profile || !["smoke", "canary", "subset", "full", "publish"].includes(profile)) {
+    throw new Error("Usage: ninjabench harbor plan smoke|canary|subset|full|publish");
   }
+  const { reasoningEffort } = parseNinjaBenchHarborArgs(args.slice(1));
   const config = await loadBenchmarkTruthConfig();
+  const effective = reasoningEffort ? withReasoningEffort(config, reasoningEffort) : config;
   console.log(
     JSON.stringify(
       {
         profile,
-        harborVersion: config.harborVersion,
-        model: config.model,
-        reasoningEffort: config.reasoningEffort,
-        cliRunTimeoutMs: config.timeouts.cliRunMs,
-        command: ["harbor", ...profileHarborArgs(config, profile, [])],
+        harborVersion: effective.harborVersion,
+        model: effective.model,
+        reasoningEffort: effective.reasoningEffort,
+        cliRunTimeoutMs: effective.timeouts.cliRunMs,
+        command: ["harbor", ...profileHarborArgs(effective, profile, [])],
       },
       null,
       2,
@@ -255,6 +314,8 @@ async function cmdAudit(args: string[]): Promise<void> {
     maximumInfrastructureErrorRate: config.gates.maximumInfrastructureErrorRate,
     expectedTasks: config.profiles[profile].expectedTasks,
     expectedAttempts: config.profiles[profile].attempts,
+    minimumCorrectionPassRate: config.profiles[profile].minimumCorrectionPassRate,
+    maximumAgentTimeoutRate: config.profiles[profile].maximumAgentTimeoutRate,
     baseline,
   });
   const markdown = harborTruthMarkdown(summary, gate);
@@ -267,6 +328,35 @@ async function cmdAudit(args: string[]): Promise<void> {
   if (!gate.passed) process.exitCode = 1;
 }
 
+async function auditProfileOutput(
+  profile: HarborProfileName,
+  args: string[],
+  config: BenchmarkTruthConfig,
+): Promise<void> {
+  const outputRoot = getFlag(args, "-o");
+  const jobName = getFlag(args, "--job-name");
+  if (!outputRoot || !jobName) return;
+  const directory = path.resolve(outputRoot, jobName);
+  try {
+    await fs.access(directory);
+  } catch {
+    return;
+  }
+  const summary = await readHarborTruth(directory);
+  const profileConfig = config.profiles[profile];
+  const gate = evaluateHarborTruthGates(summary, {
+    minimumTelemetryCoverage: config.gates.minimumTelemetryCoverage,
+    maximumInfrastructureErrorRate: config.gates.maximumInfrastructureErrorRate,
+    expectedTasks: profileConfig.expectedTasks,
+    expectedAttempts: profileConfig.attempts,
+    minimumCorrectionPassRate: profileConfig.minimumCorrectionPassRate,
+    maximumAgentTimeoutRate: profileConfig.maximumAgentTimeoutRate,
+  });
+  const markdown = harborTruthMarkdown(summary, gate);
+  console.log(markdown);
+  if (!gate.passed) process.exitCode = 1;
+}
+
 function printHarborHelp(): void {
   console.log(
     [
@@ -275,6 +365,9 @@ function printHarborHelp(): void {
       "  ninjabench harbor oracle [harbor args]   Verify Harbor + Docker (1 oracle task)",
       "  ninjabench harbor plan PROFILE           Print a pinned command without running it",
       "  ninjabench harbor smoke [harbor args]    Pinned path-tracing canary (1×1, unique job name)",
+      "  ninjabench harbor canary [harbor args]   Pinned write-compressor canary (1×3, unique job name)",
+      "  ninjabench harbor canary --reasoning-effort high --reuse-bundle",
+      "      A/B high vs xhigh on the same CLI bundle (rewrite manifest only)",
       "  ninjabench harbor subset [harbor args]   Stratified pinned subset (20×3)",
       "  ninjabench harbor full [harbor args]     Pinned full baseline (89×1)",
       "  ninjabench harbor publish [harbor args]  Pinned publication run (89×3)",
@@ -283,11 +376,12 @@ function printHarborHelp(): void {
       "",
       "Defaults:",
       `  -d ${DEFAULT_DATASET}`,
-      "  oracle defaults to -l 1; smoke pins terminal-bench/path-tracing",
+      "  oracle defaults to -l 1; smoke pins terminal-bench/path-tracing; canary pins write-compressor ×3",
       "",
       "Examples:",
       "  ninjabench harbor oracle",
       "  ninjabench harbor plan subset",
+      "  ninjabench harbor plan canary --reasoning-effort high",
       "  ninjabench harbor smoke -n 1 -o runs/harbor",
       "  ninjabench harbor audit runs/harbor/full --profile full",
       "",
@@ -305,6 +399,9 @@ export async function cmdHarbor(args: string[]): Promise<void> {
       break;
     case "smoke":
       await cmdSmoke(rest);
+      break;
+    case "canary":
+      await cmdCanary(rest);
       break;
     case "subset":
       await cmdProfile("subset", rest);

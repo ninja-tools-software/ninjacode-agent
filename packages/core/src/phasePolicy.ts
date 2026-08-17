@@ -51,6 +51,7 @@ export interface PhasePolicyState {
   verificationRecoveryCycles: number;
   recoveryCycles: number;
   initialTransitionPending: boolean;
+  explorationClosed: boolean;
   readTargets: Record<string, number>;
 }
 
@@ -158,6 +159,7 @@ export function createPhasePolicyState(input: {
     verificationRecoveryCycles: 0,
     recoveryCycles: 0,
     initialTransitionPending: true,
+    explorationClosed: false,
     readTargets: {},
   };
 }
@@ -191,7 +193,14 @@ export function observePhaseTurn(
     verification ||= isVerification;
     verificationFailed ||= isVerification && !success;
     if (isMutation && success) state.mutationCount += 1;
-    observeRead(state, invocation);
+    if (success) {
+      observeRead(state, invocation);
+      if (name === "run_shell") {
+        for (const target of extractShellReadTargets(String(invocation.toolCall.arguments.command ?? ""))) {
+          observeReadTarget(state, target);
+        }
+      }
+    }
     const category = invocationErrorCategory(invocation);
     if (!firstRecoverableError && category && RECOVERABLE_ERROR_CATEGORIES.has(category)) {
       firstRecoverableError = category;
@@ -199,6 +208,7 @@ export function observePhaseTurn(
   }
 
   if (!mutation) state.readOnlyTurns += 1;
+  if (turn >= state.explorationBudget) state.explorationClosed = true;
 
   if (verificationFailed) {
     return verificationFailureDecision(state, turn, "tool_verification_failed");
@@ -214,7 +224,7 @@ export function observePhaseTurn(
   }
 
   if (state.phase === "recover" && invocations.some(invocationSucceeded)) {
-    const next = state.mutationCount > 0 ? "execute" : "explore";
+    const next = state.mutationCount > 0 || state.explorationClosed ? "execute" : "explore";
     return {
       transition: transitionTo(state, next, turn, "recovery_action_succeeded"),
       guidance:
@@ -236,7 +246,7 @@ export function observePhaseTurn(
     };
   }
 
-  const delegation = delegationDecision(state, turn);
+  const delegation = state.explorationClosed ? undefined : delegationDecision(state, turn);
   if (delegation) {
     return {
       delegation,
@@ -244,7 +254,7 @@ export function observePhaseTurn(
     };
   }
 
-  if (state.phase === "explore" && turn >= state.explorationBudget) {
+  if ((state.phase === "explore" || state.phase === "recover") && state.explorationClosed) {
     return {
       transition: transitionTo(state, "execute", turn, "exploration_budget_exhausted"),
       guidance: explorationGuidance(state, turn),
@@ -358,9 +368,16 @@ function transitionTo(
 
 function observeRead(state: PhasePolicyState, invocation: ToolInvocation): void {
   if (!READ_TOOLS.has(invocation.toolCall.name)) return;
-  state.readCount += 1;
   const target = readTarget(invocation);
-  if (!target) return;
+  if (!target) {
+    state.readCount += 1;
+    return;
+  }
+  observeReadTarget(state, target);
+}
+
+function observeReadTarget(state: PhasePolicyState, target: string): void {
+  state.readCount += 1;
   const seen = state.readTargets[target] ?? 0;
   if (seen > 0) state.rereadCount += 1;
   state.readTargets[target] = seen + 1;
@@ -376,6 +393,17 @@ function observeRead(state: PhasePolicyState, invocation: ToolInvocation): void 
       );
     }
   }
+}
+
+/** File-like tokens in a shell command, used to detect rereads of the same artefact. */
+export function extractShellReadTargets(command: string): string[] {
+  const found = new Set<string>();
+  const pattern = /(?:^|[\s'"=])(\.?\.?\/?(?:[\w.-]+\/)*[\w.-]+\.[A-Za-z0-9]{1,8})/g;
+  for (const match of command.matchAll(pattern)) {
+    const raw = match[1]?.replaceAll("\\", "/").replace(/^\.\//u, "");
+    if (raw) found.add(raw);
+  }
+  return [...found];
 }
 
 function readTarget(invocation: ToolInvocation): string | undefined {
@@ -411,6 +439,7 @@ function invocationSucceeded(invocation: ToolInvocation): boolean {
 }
 
 function invocationErrorCategory(invocation: ToolInvocation): ToolErrorCategory | undefined {
+  if (invocationSucceeded(invocation)) return undefined;
   const structured = invocation.meta?.error;
   if (isRecord(structured) && isToolErrorCategory(structured.category)) return structured.category;
   const output = `${invocation.error ?? ""} ${invocation.output}`.toLowerCase();

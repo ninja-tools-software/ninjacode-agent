@@ -133,17 +133,16 @@ async function handleToolTurn(
     await deps.setState("failed");
     return { kind: "failed", message: adaptive.terminalFailure };
   }
-  const guidance = adaptive
-    ? adaptive.guidance
-    : [
-        repeatedReadWarning(state.history),
-        editProgressWarning({
-          turn: deps.turn + 1,
-          maxTurns: deps.maxTurns,
-          mutated: progressMutated(deps),
-          goal: progressGoal(deps),
-        }),
-      ].filter((line): line is string => line !== undefined);
+  const calendarGuidance = [
+    repeatedReadWarning(state.history),
+    editProgressWarning({
+      turn: deps.turn + 1,
+      maxTurns: deps.maxTurns,
+      mutated: progressMutated(deps),
+      goal: progressGoal(deps),
+    }),
+  ].filter((line): line is string => line !== undefined);
+  const guidance = adaptive ? [...adaptive.guidance, ...calendarGuidance] : calendarGuidance;
   if (guidance.length > 0) {
     state.history.push({ role: "user", content: `[System] ${guidance.join(" ")}` });
   }

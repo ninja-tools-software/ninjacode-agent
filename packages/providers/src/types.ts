@@ -20,7 +20,12 @@ export type ProviderKind =
   | "mock"
   | "echo";
 
-export type ReasoningEffort = "low" | "medium" | "high";
+export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
+export function isReasoningEffort(value: unknown): value is ReasoningEffort {
+  return typeof value === "string" && (REASONING_EFFORTS as readonly string[]).includes(value);
+}
 
 export interface ToolCall {
   id: string;
@@ -82,6 +87,8 @@ export interface CompletionRequest {
   reasoningEffort?: ReasoningEffort;
   /** Anthropic extended thinking budget in tokens. */
   thinkingBudgetTokens?: number;
+  /** Force a tool call on the last delivery attempt. Tools/order stay unchanged. */
+  toolChoice?: "auto" | "required" | "none";
   /** Abort signal for cancelling the request (fetch + stream consumption). */
   signal?: AbortSignal;
 }

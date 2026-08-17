@@ -13,6 +13,13 @@ interface HarborTrialResult {
       telemetry_complete?: boolean;
       telemetry_error?: string;
       failure_kind?: FailureKind;
+      completed?: boolean;
+      stop_reason?: string;
+      trajectory?: {
+        turns?: number;
+        timeToFirstEditMs?: number | null;
+        longestLlmTurnMs?: number | null;
+      };
     } | null;
   } | null;
   verifier_result?: { rewards?: Record<string, number> } | null;
@@ -27,9 +34,14 @@ interface HarborTruthTrial {
   trial: string;
   passed: boolean;
   failureKind?: FailureKind;
+  verifierPassed: boolean;
+  agentCompleted: boolean;
   telemetryEligible: boolean;
   telemetryAvailable: boolean;
   telemetryComplete: boolean;
+  timeToFirstEditMs?: number;
+  longestLlmTurnMs?: number;
+  turns?: number;
 }
 
 interface HarborTruthSummary {
@@ -39,12 +51,15 @@ interface HarborTruthSummary {
   total: number;
   evaluable: number;
   passed: number;
+  correctButTimedOut: number;
   correctionPassRate: number;
   infrastructureErrors: number;
   infrastructureErrorRate: number;
   telemetryEligible: number;
   telemetryCovered: number;
   telemetryCoverage: number;
+  agentTimeoutRate: number;
+  longestLlmTurnMs?: number;
 }
 
 interface HarborTruthGates {
@@ -52,6 +67,8 @@ interface HarborTruthGates {
   maximumInfrastructureErrorRate?: number;
   expectedTasks?: number;
   expectedAttempts?: number;
+  minimumCorrectionPassRate?: number;
+  maximumAgentTimeoutRate?: number;
   baseline?: HarborTruthSummary;
 }
 
@@ -101,15 +118,22 @@ export function classifyHarborFailure(
 export function harborTruthTrial(result: HarborTrialResult): HarborTruthTrial {
   const metadata = result.agent_result?.metadata;
   const failureKind = classifyHarborFailure(result);
+  const rewards = Object.values(result.verifier_result?.rewards ?? {});
+  const trajectory = metadata?.trajectory;
   return {
     task: result.task_name ?? "unknown",
     trial: result.trial_name ?? "unknown",
     passed: failureKind === undefined,
     failureKind,
+    verifierPassed: rewards.some((reward) => reward > 0),
+    agentCompleted: metadata?.completed === true,
     telemetryEligible: Boolean(result.agent_execution),
     telemetryAvailable:
       metadata?.telemetry_available === true && metadata.telemetry_error === undefined,
     telemetryComplete: metadata?.telemetry_complete === true,
+    timeToFirstEditMs: finiteNumber(trajectory?.timeToFirstEditMs),
+    longestLlmTurnMs: finiteNumber(trajectory?.longestLlmTurnMs),
+    turns: finiteNumber(trajectory?.turns),
   };
 }
 
@@ -127,6 +151,9 @@ export function summarizeHarborTruth(
   ).length;
   const evaluable = trials.length - infrastructureErrors;
   const passed = counts.passed;
+  const correctButTimedOut = trials.filter(
+    (trial) => trial.failureKind === "agent_timeout" && trial.verifierPassed,
+  ).length;
   const telemetryEligible = trials.filter((trial) => trial.telemetryEligible).length;
   const telemetryCovered = trials.filter(
     (trial) =>
@@ -134,6 +161,9 @@ export function summarizeHarborTruth(
       trial.telemetryAvailable &&
       trial.telemetryComplete,
   ).length;
+  const longestTurns = trials
+    .map((trial) => trial.longestLlmTurnMs)
+    .filter((value): value is number => value !== undefined);
   return {
     trials,
     tasks: [...new Set(trials.map((trial) => trial.task))].sort(),
@@ -141,6 +171,7 @@ export function summarizeHarborTruth(
     total: trials.length,
     evaluable,
     passed,
+    correctButTimedOut,
     correctionPassRate: evaluable ? passed / evaluable : 0,
     infrastructureErrors,
     infrastructureErrorRate: trials.length
@@ -151,6 +182,8 @@ export function summarizeHarborTruth(
     telemetryCoverage: telemetryEligible
       ? telemetryCovered / telemetryEligible
       : 0,
+    agentTimeoutRate: evaluable ? counts.agent_timeout / evaluable : 0,
+    longestLlmTurnMs: longestTurns.length ? Math.max(...longestTurns) : undefined,
   };
 }
 
@@ -237,6 +270,24 @@ export function evaluateHarborTruthGates(
       failures.push("task/trial list differs from baseline");
     }
   }
+  if (
+    gates.minimumCorrectionPassRate !== undefined &&
+    summary.correctionPassRate < gates.minimumCorrectionPassRate
+  ) {
+    failures.push(
+      `correction pass rate ${(summary.correctionPassRate * 100).toFixed(1)}% is below ` +
+        `${(gates.minimumCorrectionPassRate * 100).toFixed(1)}%`,
+    );
+  }
+  if (
+    gates.maximumAgentTimeoutRate !== undefined &&
+    summary.agentTimeoutRate > gates.maximumAgentTimeoutRate
+  ) {
+    failures.push(
+      `agent timeout rate ${(summary.agentTimeoutRate * 100).toFixed(1)}% exceeds ` +
+        `${(gates.maximumAgentTimeoutRate * 100).toFixed(1)}%`,
+    );
+  }
   return { passed: failures.length === 0, failures };
 }
 
@@ -249,10 +300,18 @@ export function harborTruthMarkdown(
     "",
     `- Correction pass rate: ${(summary.correctionPassRate * 100).toFixed(1)}% ` +
       `(${summary.passed}/${summary.evaluable} evaluable trials)`,
+    `- Correct but timed out: ${summary.correctButTimedOut}`,
     `- Infrastructure errors: ${(summary.infrastructureErrorRate * 100).toFixed(1)}% ` +
       `(${summary.infrastructureErrors}/${summary.total})`,
     `- Telemetry coverage: ${(summary.telemetryCoverage * 100).toFixed(1)}% ` +
       `(${summary.telemetryCovered}/${summary.telemetryEligible} eligible trials)`,
+    "",
+    "## Run metrics",
+    "",
+    `- Agent timeout rate: ${(summary.agentTimeoutRate * 100).toFixed(1)}%`,
+    `- Longest LLM turn: ${
+      summary.longestLlmTurnMs === undefined ? "n/a" : `${summary.longestLlmTurnMs}ms`
+    }`,
     "",
     "## Outcome taxonomy",
     "",
@@ -267,4 +326,8 @@ export function harborTruthMarkdown(
     }
   }
   return `${lines.join("\n")}\n`;
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }

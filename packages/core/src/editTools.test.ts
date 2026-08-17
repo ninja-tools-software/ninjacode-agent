@@ -11,6 +11,10 @@ describe("editTools", () => {
     expect(preferredEditFormat("openai", "gpt-4o")).toBe("patch");
   });
 
+  it("prefers string_replace for Grok 4.6", () => {
+    expect(preferredEditFormat("xai", "grok-4.6")).toBe("string_replace");
+  });
+
   it("exposes a single edit format at a time", () => {
     const reg = createDefaultToolRegistry();
     const patchOnly = filterToolsForEditFormat(reg, "patch");

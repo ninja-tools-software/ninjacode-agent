@@ -261,12 +261,20 @@ export class ToolPipeline {
       const diagNote = await postEditDiagnostics(this.buildToolContext(), result.meta);
       if (diagNote) output = `${output}\n\n${diagNote}`;
     }
+    const outputChars = output.length;
+    const visible = truncateToolOutput(output, toolOutputLimit(ctx.tool.name));
+    const meta = {
+      ...(result.meta ?? {}),
+      outputChars,
+      visibleChars: visible.length,
+      truncated: visible.length < outputChars,
+    };
 
     await this.deps.emit("tool_end", {
       id: ctx.tc.id,
       name: ctx.tool.name,
-      output: truncateToolOutput(output, toolOutputLimit(ctx.tool.name)),
-      meta: result.meta,
+      output: visible,
+      meta,
     });
     this.deps.logAgentEvent("tool_result", `${ctx.tool.name}: ok (${output.length} chars)`, output);
 
@@ -286,7 +294,7 @@ export class ToolPipeline {
       durationMs: Date.now() - ctx.execStarted,
       approvalWaitMs: ctx.approvalWaitMs || undefined,
       artifactId,
-      meta: result.meta,
+      meta,
     };
   }
 

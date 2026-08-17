@@ -56,7 +56,7 @@ const FAMILY_PROFILES: Readonly<Partial<Record<ProviderKind, ProfileOverrides>>>
   moonshot: Object.freeze({ editFormat: "patch" }),
   glm: Object.freeze({ editFormat: "patch" }),
   mistral: Object.freeze({ editFormat: "patch" }),
-  xai: Object.freeze({ editFormat: "patch" }),
+  xai: Object.freeze({ editFormat: "string_replace", orchestration: "adaptive" }),
   mammouth: Object.freeze({ editFormat: "patch" }),
   "openai-compatible": Object.freeze({ editFormat: "patch" }),
   gateway: Object.freeze({ editFormat: "patch" }),
@@ -86,6 +86,11 @@ const MODEL_PROFILES: Readonly<Record<string, ProfileOverrides>> = Object.freeze
     editFormat: "patch",
     verification: "strict",
     reasoningEffort: "high",
+  }),
+  "grok-4.6": Object.freeze({
+    editFormat: "string_replace",
+    orchestration: "adaptive",
+    reasoningEffort: "xhigh",
   }),
 });
 

@@ -101,6 +101,11 @@ describe("xai provider", () => {
     const catalog = getProviderCatalog("xai");
     expect(catalog?.label).toBe("xAI");
     expect(catalog?.models[0]?.id).toBe("grok-4.6");
+    expect(catalog?.models[0]?.reasoning).toEqual({
+      kind: "levels",
+      levels: ["low", "medium", "high", "xhigh"],
+      default: "xhigh",
+    });
   });
 });
 

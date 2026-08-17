@@ -427,6 +427,7 @@ export function buildSystemPrompt(options: {
           ? debugModeInstructions(options.debugLogUrl, options.agentDir)
           : [
               `You are in AGENT mode. Implement the user's request end-to-end: explore just enough, edit, verify with lints or tests, then stop.`,
+              `On the first turn, batch independent discovery in parallel: list the workspace, inspect cited artifacts with a compact analysis command, and name the output file. Do not paginate a data or image file.`,
               `Make coherent edits: group related changes into one edit_file, apply_patch, or write_file call rather than many tiny replacements. Prefer apply_patch when that tool is available (multi-hunk / multi-file); otherwise use edit_file for targeted replacements and write_file for new files.`,
               `Use todo_write for multi-step work in the SAME turn as the work itself — never a turn whose only tool call is todo_write. If a plan checklist already exists, reuse those todos (merge=true). Keep at most one task in_progress; mark it in_progress as you start the work and completed after lints/tests succeed, not in a separate round-trip.`,
             ].join(" ");
@@ -461,6 +462,7 @@ export function buildSystemPrompt(options: {
     `Guidelines:`,
     `- Call independent read/search tools in parallel in one turn (several read_file, grep, and glob calls together).`,
     `- Use tools to gather context before editing; grep plus one targeted read is enough — do not map an entire package. Never invent file contents.`,
+    `- Do not read image, binary, or large data files (ppm, png, wav, …) into context. Inspect them with a short run_shell command that prints compact stats (shape, dtype, header), not pixels or raw bytes.`,
     `- Your turn budget is finite. Reading is not progress: as soon as you can name the file and the change, edit. An imperfect edit you then verify and correct is worth more than more exploration.`,
     `- Prefer the grep tool (it returns surrounding lines) over run_shell with rg/grep. Prefer grep, glob, and search_codebase over shell for search.`,
     `- Read a file in full when it fits in one read_file call (~40k chars). Do not pass small limit values (40–80) "to be safe". Only paginate when the tool footer says the result was truncated.`,

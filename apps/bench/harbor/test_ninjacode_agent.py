@@ -93,9 +93,14 @@ class HarborAdapterTests(unittest.TestCase):
 
     def test_node_fallback_is_fully_pinned(self) -> None:
         snippet = ADAPTER.pinned_node_install_snippet("24.19.0")
-        self.assertIn("nvm/v0.40.2/install.sh", snippet)
-        self.assertIn("nvm install 24.19.0", snippet)
+        self.assertIn("nodejs.org/dist/v${ver}/node-v${ver}-linux-${arch}.tar.gz", snippet)
+        self.assertIn("24.19.0", snippet)
         self.assertIn("curl --fail", snippet)
+        self.assertIn("set -euo pipefail", snippet)
+        self.assertIn('test -x "$prefix/bin/node"', snippet)
+        self.assertNotIn("nvm", snippet)
+        self.assertNotIn("nodejs", snippet.split("nodejs.org")[0])
+        self.assertIn("$HOME/.local/node/bin", ADAPTER.node_env_prefix())
 
     def test_maps_cli_telemetry_to_harbor_context(self) -> None:
         telemetry = {
@@ -275,6 +280,58 @@ class HarborAdapterTests(unittest.TestCase):
         self.assertTrue(context.metadata["trajectory_available"])
         self.assertEqual(context.metadata["trajectory"]["stopReason"], "timeout")
         self.assertTrue(copied)
+
+    def test_node_install_requests_ca_certificates_not_hyphenated(self) -> None:
+        called: list[object] = []
+
+        class Environment:
+            async def exec(self, **_kwargs):
+                return SimpleNamespace(return_code=1, stdout="", stderr="missing node")
+
+        class Agent(ADAPTER.NinjaCodeAgent):
+            async def ensure_system_dependencies(self, _environment, packages):
+                called.append(packages)
+
+            async def exec_as_agent(self, _environment, command="", **_kwargs):
+                if "nodejs.org/dist" in command:
+                    return SimpleNamespace(return_code=0, stdout="")
+                if "process.versions.node" in command:
+                    return SimpleNamespace(return_code=0, stdout="")
+                if "node --version" in command:
+                    return SimpleNamespace(return_code=0, stdout="v24.19.0")
+                return SimpleNamespace(return_code=0, stdout="v24.19.0")
+
+        agent = Agent()
+        version = asyncio.run(
+            agent._ensure_node(
+                Environment(),
+                {"minimumNodeMajor": 24, "preferredNodeVersion": "24.19.0"},
+            )
+        )
+        self.assertEqual(called, [("curl", "ca_certificates")])
+        self.assertEqual(version, "24.19.0")
+        self.assertNotIn("ca-certificates", str(called))
+
+    def test_summarizes_longest_llm_turn_from_turn_events(self) -> None:
+        summary = ADAPTER.summarize_trajectory(
+            {
+                "schemaVersion": "1.0",
+                "startedAt": 1000,
+                "outcome": {"completed": False},
+                "events": [
+                    {"type": "turn", "durationMs": 5100, "attributes": {"turn": 1}},
+                    {"type": "turn", "durationMs": 2400, "attributes": {"turn": 2}},
+                    {
+                        "type": "turn",
+                        "durationMs": 9999,
+                        "attributes": {"turn": 3, "category": "compaction_usage"},
+                    },
+                ],
+            },
+            "timeout",
+        )
+        self.assertEqual(summary["longestLlmTurnMs"], 5100)
+        self.assertEqual(summary["turns"], 2)
 
     def test_nonzero_exit_without_telemetry_is_reraised(self) -> None:
         class Environment:

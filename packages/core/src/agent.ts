@@ -42,6 +42,12 @@ import type {
 import type { ContextUsageBreakdown } from "./contextEstimate.js";
 import { startSpan } from "./telemetry.js";
 import { persistTrajectory, TrajectoryRecorder } from "./trajectory.js";
+import {
+  persistRedactedEventsJsonl,
+  persistToolTimeline,
+  siblingArtifactPath,
+  ToolTimelineRecorder,
+} from "./toolTimeline.js";
 import { DebouncedSessionPersistence } from "./sessionPersistence.js";
 
 export type {
@@ -63,6 +69,7 @@ export class Agent {
   private readonly sessionPersistence: DebouncedSessionPersistence;
   private runtime: AgentRuntime;
   private trajectoryRecorder?: TrajectoryRecorder;
+  private toolTimelineRecorder?: ToolTimelineRecorder;
 
   constructor(opts: AgentOptions) {
     const externalOnEvent = opts.onEvent;
@@ -70,6 +77,7 @@ export class Agent {
       ...opts,
       onEvent: async (event) => {
         this.trajectoryRecorder?.recordAgentEvent(event);
+        this.toolTimelineRecorder?.recordAgentEvent(event);
         await externalOnEvent?.(event);
       },
     }, createSubAgent);
@@ -241,6 +249,13 @@ export class Agent {
             runId: this.config.trajectory.runId,
           })
         : undefined;
+    this.toolTimelineRecorder =
+      this.config.trajectory?.enabled === true
+        ? new ToolTimelineRecorder({
+            sessionId: this.config.sessionId,
+            startedAt: this.runtime.runStartedAt,
+          })
+        : undefined;
     linkExternalAbortSignal(this.config.externalSignal, this.runtime.controller, (reason) => this.abort(reason));
     await this.setState("running");
     if (this.config.persistSessions) {
@@ -287,6 +302,17 @@ export class Agent {
       span.end({ completed: outcome.completed, turns: outcome.turns.length });
       if (outcome.trajectory && this.config.trajectory?.persistPath) {
         await persistTrajectory(this.config.trajectory.persistPath, outcome.trajectory);
+        const timeline = this.toolTimelineRecorder?.finalize();
+        if (timeline) {
+          await persistToolTimeline(
+            siblingArtifactPath(this.config.trajectory.persistPath, "ninjacode-harbor-tool-timeline.json"),
+            timeline,
+          );
+        }
+        await persistRedactedEventsJsonl(
+          sessionEventLog(this.config.agentDir, this.config.sessionId).file,
+          siblingArtifactPath(this.config.trajectory.persistPath, "ninjacode-harbor-events.jsonl"),
+        );
       }
       return outcome;
     } catch (error) {
