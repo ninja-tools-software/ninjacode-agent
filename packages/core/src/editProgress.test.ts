@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "@ninjacode/providers";
-import { editProgressWarning, hasMutatedWorkspace, hasWrittenPlan } from "./editProgress.js";
+import {
+  dueClockMark,
+  editProgressWarning,
+  hasMutatedWorkspace,
+  hasWrittenPlan,
+} from "./editProgress.js";
 
 function assistant(...tools: string[]): Message {
   return {
@@ -78,6 +83,66 @@ describe("editProgressWarning", () => {
     );
   });
 
+  /**
+   * The canary sent "58 turns remain" with 28s of wall clock left. Reporting the
+   * budget that is not binding tells the agent it can keep exploring.
+   */
+  it("names the clock, not the turns, once the clock is the scarce budget", () => {
+    const message = editProgressWarning({
+      turn: 6,
+      maxTurns: 64,
+      mutated: false,
+      clock: { remainingMs: 28_000, runTimeoutMs: 840_000, recentTurnMs: [206_100, 390_400] },
+      clockMarkDue: true,
+    });
+
+    expect(message).toContain("97% of the run's time is gone");
+    expect(message).toContain("28s remain");
+    expect(message).toContain("running out of time");
+    expect(message).not.toContain("turns remain");
+    expect(message).not.toContain("running out of turns");
+  });
+
+  /** A turn's cost is the budget figure the model cannot observe for itself. */
+  it("quotes the observed cost of a turn, and omits it when unmeasured", () => {
+    const clock = { remainingMs: 419_000, runTimeoutMs: 840_000, recentTurnMs: [203_900, 206_100] };
+
+    expect(editProgressWarning({ turn: 5, maxTurns: 64, mutated: false, clock, clockMarkDue: true }))
+      .toContain("recent turns took up to 3min each");
+    expect(
+      editProgressWarning({
+        turn: 5,
+        maxTurns: 64,
+        mutated: false,
+        clock: { ...clock, recentTurnMs: [] },
+        clockMarkDue: true,
+      }),
+    ).not.toContain("recent turns");
+  });
+
+  it("keeps the turn wording while turns are the scarce budget", () => {
+    const message = editProgressWarning({
+      turn: 40,
+      maxTurns: 50,
+      mutated: false,
+      clock: { remainingMs: 800_000, runTimeoutMs: 840_000, recentTurnMs: [1_000] },
+    });
+
+    expect(message).toContain("40 of 50 turns are gone");
+    expect(message).toContain("10 turns remain");
+  });
+
+  it("stays on turns for an untimed run", () => {
+    expect(
+      editProgressWarning({
+        turn: 3,
+        maxTurns: 64,
+        mutated: false,
+        clock: { remainingMs: Number.POSITIVE_INFINITY, runTimeoutMs: 0, recentTurnMs: [] },
+      }),
+    ).toContain("61 turns remain");
+  });
+
   it("treats write_plan as progress in plan mode and nudges earlier", () => {
     expect(hasWrittenPlan([assistant("write_plan")])).toBe(true);
     expect(editProgressWarning({ turn: 8, maxTurns: 64, mutated: false, goal: "plan" })).toMatch(
@@ -88,5 +153,38 @@ describe("editProgressWarning", () => {
     );
     expect(editProgressWarning({ turn: 8, maxTurns: 64, mutated: true, goal: "plan" })).toBeUndefined();
     expect(editProgressWarning({ turn: 32, maxTurns: 64, mutated: false, goal: "plan" })).toBeUndefined();
+  });
+});
+
+describe("dueClockMark", () => {
+  const clockAt = (elapsedFraction: number) => ({
+    remainingMs: 840_000 * (1 - elapsedFraction),
+    runTimeoutMs: 840_000,
+    recentTurnMs: [],
+  });
+
+  it("stays silent while the run has spent less than half its clock", () => {
+    expect(dueClockMark(clockAt(0.49), [])).toBeUndefined();
+  });
+
+  it("yields each mark once, so the model does not learn to skip it", () => {
+    const fired: number[] = [];
+    for (const elapsed of [0.5, 0.6, 0.75, 0.9]) {
+      const mark = dueClockMark(clockAt(elapsed), fired);
+      if (mark !== undefined) fired.push(mark);
+    }
+    expect(fired).toEqual([0.5, 0.75]);
+  });
+
+  /** A turn costing minutes can skip a mark entirely; one urgent warning suffices. */
+  it("reports only the furthest mark when a single turn skips over several", () => {
+    expect(dueClockMark(clockAt(0.97), [])).toBe(0.75);
+    expect(dueClockMark(clockAt(0.97), [0.75])).toBeUndefined();
+  });
+
+  it("has nothing to say about an untimed run", () => {
+    expect(
+      dueClockMark({ remainingMs: Number.POSITIVE_INFINITY, runTimeoutMs: 0, recentTurnMs: [] }, []),
+    ).toBeUndefined();
   });
 });

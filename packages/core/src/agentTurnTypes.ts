@@ -37,6 +37,10 @@ export interface AgentTurnMutableState {
   verificationRetries: number;
   /** Consecutive LLM turns that produced nothing before their time ran out. */
   llmStallRetries: number;
+  /** Duration of the most recent completed LLM turns: what a turn actually costs. */
+  recentLlmTurnMs: number[];
+  /** Clock marks already used for a budget warning, so each fires once. */
+  firedClockMarks: number[];
   globalTurn: number;
   toolCallFingerprints: string[];
   phasePolicy?: PhasePolicyState;
@@ -91,6 +95,8 @@ export interface AgentTurnDeps {
   checkRunTimeout: () => string | undefined;
   /** Milliseconds left on the run clock; `Infinity` when the run is untimed. */
   remainingRunMs: () => number;
+  /** Total run budget, needed to say which budget is the scarce one. `0` when untimed. */
+  runTimeoutMs: number;
   runHooks: (
     event: HookRunResult["event"],
     input: { toolName?: string; arguments?: Record<string, unknown>; output?: string; error?: string },

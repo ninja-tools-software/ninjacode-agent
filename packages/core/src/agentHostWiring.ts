@@ -157,6 +157,7 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
       return reason;
     },
     remainingRunMs: () => remainingRunMs(host.runTimeoutMs, host.runStartedAt),
+    runTimeoutMs: host.runTimeoutMs,
     runHooks: host.runHooks,
     persist: host.persist,
     setState: host.setState,

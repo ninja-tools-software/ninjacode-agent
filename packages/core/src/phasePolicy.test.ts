@@ -208,6 +208,72 @@ describe("adaptive phase policy", () => {
     expect(state.phase).toBe("explore");
   });
 
+  /**
+   * Probing the environment is how the agent learns it: `which python3` exiting 1
+   * and a missing interpreter exiting 127 are answers, not harness failures.
+   * Treating them as recoverable errors cost a phase transition every run.
+   */
+  it("does not recover from a shell probe that merely exited non-zero", () => {
+    const state = createPhasePolicyState({
+      task: "Write image.c",
+      maxTurns: 20,
+      goal: "edit",
+      options: { automaticDelegation: false },
+    });
+
+    const decision = observePhaseTurn(
+      state,
+      [
+        invocation("run_shell", { command: "python3 -c 'print(1)'" }, {
+          output: "/bin/sh: 1: python3: not found",
+          meta: { exitCode: 127 },
+        }),
+      ],
+      1,
+    );
+
+    expect(decision.transition).toBeUndefined();
+    expect(state.phase).toBe("explore");
+    expect(state.recoveryCycles).toBe(0);
+  });
+
+  /** A failing check is still a verification failure: that path must not weaken. */
+  it("still treats a failing verification command as a verification failure", () => {
+    const state = createPhasePolicyState({
+      task: "Fix src/a.ts",
+      maxTurns: 20,
+      goal: "edit",
+      options: { automaticDelegation: false },
+    });
+    observePhaseTurn(state, [invocation("edit_file", { path: "src/a.ts" })], 1);
+
+    const decision = observePhaseTurn(
+      state,
+      [invocation("run_shell", { command: "pnpm test" }, { meta: { exitCode: 1 } })],
+      2,
+    );
+
+    expect(decision.transition).toMatchObject({ reason: "tool_verification_failed" });
+  });
+
+  /** A thrown ToolError is the honest signal that the tool itself broke. */
+  it("still recovers when the shell tool itself throws", () => {
+    const state = createPhasePolicyState({
+      task: "Fix src/a.ts",
+      maxTurns: 20,
+      goal: "edit",
+      options: { automaticDelegation: false },
+    });
+
+    const decision = observePhaseTurn(
+      state,
+      [invocation("run_shell", {}, { error: "timeout", output: "Tool error [Timeout]" })],
+      1,
+    );
+
+    expect(decision.transition).toMatchObject({ to: "recover", reason: "tool_Timeout" });
+  });
+
   it("raises the exploration budget when independent areas make the task complex", () => {
     const state = createPhasePolicyState({
       task: "Fix the typo",

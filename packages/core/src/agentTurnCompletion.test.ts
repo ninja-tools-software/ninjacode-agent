@@ -153,6 +153,8 @@ function completionDeps(overrides: Partial<AgentTurnDeps> = {}): AgentTurnDeps {
     stopHookRetries: 0,
     verificationRetries: 0,
     llmStallRetries: 0,
+    recentLlmTurnMs: [],
+    firedClockMarks: [],
     globalTurn: 0,
     toolCallFingerprints: [],
   };

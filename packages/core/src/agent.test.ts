@@ -200,6 +200,54 @@ describe("Agent with mock provider", () => {
     }
   });
 
+  /**
+   * Slow turns burn the clock while the turn counter barely moves, so the warning
+   * has to name the budget that is actually running out.
+   */
+  it("warns about the clock, not the turns, when slow turns eat the run budget", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nc-clock-nudge-"));
+    try {
+      await fs.writeFile(path.join(dir, "slow.txt"), "line\n".repeat(20));
+      const slowRead = (id: string) => ({
+        delayMs: 1_100,
+        text: "Thinking hard…",
+        toolCalls: [{ id, name: "read_file", arguments: { path: "slow.txt" } }],
+      });
+      const provider = new MockProvider([slowRead("s1"), slowRead("s2"), { text: "Done." }]);
+      const tools = createDefaultToolRegistry();
+      const permissions = new PermissionEngine(defaultPermissionPolicy("autonomous"));
+      permissions.update({ allowlist: tools.names() });
+
+      const agent = new Agent({
+        provider,
+        tools,
+        permissions,
+        workspaceRoot: dir,
+        agentDir: path.join(dir, ".ninjacode"),
+        runTimeoutMs: 4_000,
+        enableCheckpoints: false,
+        enableSubagents: false,
+        persistSessions: true,
+      });
+
+      const outcome = await agent.run("Read slow.txt");
+
+      const events = await sessionEventLog(
+        path.join(dir, ".ninjacode"),
+        outcome.sessionId,
+      ).readAll();
+      const texts = events
+        .filter((event) => event.type === "system_guidance")
+        .map((event) => String(event.payload.text))
+        .join("\n");
+      expect(texts).toContain("of the run's time is gone");
+      expect(texts).toContain("running out of time");
+      expect(texts).not.toContain("turns remain");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 15_000);
+
   it("persists and resumes a session", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nc-sess-"));
     try {

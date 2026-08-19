@@ -12,7 +12,14 @@ import {
   syncVolatileContext,
   truncateToolResult,
 } from "./agentTurnLlm.js";
-import { editProgressWarning, hasMutatedWorkspace, hasWrittenPlan, type ProgressGoal } from "./editProgress.js";
+import {
+  dueClockMark,
+  editProgressWarning,
+  hasMutatedWorkspace,
+  hasWrittenPlan,
+  type ProgressClock,
+  type ProgressGoal,
+} from "./editProgress.js";
 import { repeatedReadWarning } from "./readChurn.js";
 import type { AgentTurnDeps, AgentTurnOutcome } from "./agentTurnTypes.js";
 import type { ToolInvocation } from "./types.js";
@@ -134,22 +141,40 @@ async function handleToolTurn(
     await deps.setState("failed");
     return { kind: "failed", message: adaptive.terminalFailure };
   }
-  const calendarGuidance = [
-    repeatedReadWarning(state.history),
-    editProgressWarning({
-      turn: deps.turn + 1,
-      maxTurns: deps.maxTurns,
-      mutated: progressMutated(deps),
-      goal: progressGoal(deps),
-    }),
-  ].filter((line): line is string => line !== undefined);
-  const guidance = adaptive ? [...adaptive.guidance, ...calendarGuidance] : calendarGuidance;
+  const budgetGuidance = progressGuidance(deps);
+  const guidance = adaptive ? [...adaptive.guidance, ...budgetGuidance] : budgetGuidance;
   if (guidance.length > 0) {
     await pushGuidance(deps, "turn_guidance", guidance.join(" "));
   }
 
   await deps.persist();
   return { kind: "continue" };
+}
+
+/**
+ * Warnings about the budget the agent is actually spending. The clock mark is
+ * consumed here, so each one produces exactly one message for the whole run.
+ */
+function progressGuidance(deps: AgentTurnDeps): string[] {
+  const { state } = deps;
+  const clock: ProgressClock = {
+    remainingMs: deps.remainingRunMs(),
+    runTimeoutMs: deps.runTimeoutMs,
+    recentTurnMs: state.recentLlmTurnMs,
+  };
+  const mark = dueClockMark(clock, state.firedClockMarks);
+  if (mark !== undefined) state.firedClockMarks.push(mark);
+  return [
+    repeatedReadWarning(state.history),
+    editProgressWarning({
+      turn: deps.turn + 1,
+      maxTurns: deps.maxTurns,
+      mutated: progressMutated(deps),
+      goal: progressGoal(deps),
+      clock,
+      clockMarkDue: mark !== undefined,
+    }),
+  ].filter((line): line is string => line !== undefined);
 }
 
 /**

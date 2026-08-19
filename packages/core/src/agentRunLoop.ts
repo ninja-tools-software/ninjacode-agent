@@ -123,6 +123,8 @@ export async function prepareRunLoop(input: RunLoopSetupInput): Promise<RunLoopS
     stopHookRetries: 0,
     verificationRetries: 0,
     llmStallRetries: 0,
+    recentLlmTurnMs: [],
+    firedClockMarks: [],
     globalTurn: input.globalTurn,
     toolCallFingerprints: input.toolCallFingerprints,
     phasePolicy:

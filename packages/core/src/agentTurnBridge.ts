@@ -81,6 +81,7 @@ export interface TurnHostInput {
   ) => void;
   checkRunTimeout: () => string | undefined;
   remainingRunMs: () => number;
+  runTimeoutMs: number;
   runHooks: AgentTurnDeps["runHooks"];
   persist: () => Promise<void>;
   setState: (next: RunState) => Promise<void>;
@@ -148,6 +149,7 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
     getCacheStats: () => ({ ...host.cacheStats, ...host.budget.snapshot() }),
     checkRunTimeout: host.checkRunTimeout,
     remainingRunMs: host.remainingRunMs,
+    runTimeoutMs: host.runTimeoutMs,
     runHooks: host.runHooks,
     runCompletionVerification: (config) =>
       runCompletionVerification({

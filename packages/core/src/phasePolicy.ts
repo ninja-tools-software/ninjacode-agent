@@ -442,6 +442,10 @@ function invocationErrorCategory(invocation: ToolInvocation): ToolErrorCategory 
   if (invocationSucceeded(invocation)) return undefined;
   const structured = invocation.meta?.error;
   if (isRecord(structured) && isToolErrorCategory(structured.category)) return structured.category;
+  // A shell command reporting non-zero is an answer, not a harness failure: probing
+  // `which python3` or a `grep` that matches nothing is exactly how the agent
+  // learns about its environment. Only a thrown ToolError means the tool broke.
+  if (invocation.toolCall.name === "run_shell" && !invocation.error) return undefined;
   const output = `${invocation.error ?? ""} ${invocation.output}`.toLowerCase();
   if (output.includes("circuit-open") || output.includes("circuit open")) return "CircuitOpen";
   if (output.includes("timeout")) return "Timeout";

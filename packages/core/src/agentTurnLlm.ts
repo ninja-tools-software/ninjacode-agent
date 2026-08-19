@@ -33,6 +33,9 @@ import {
   type LlmTurnStallError,
 } from "./llmTurnGuard.js";
 
+/** Enough to characterise the current pace without letting one outlier dominate. */
+const RECENT_TURN_SAMPLES = 3;
+
 export class ContextBudgetError extends Error {
   readonly code = "context_budget_exceeded";
   readonly retryable = false;
@@ -425,6 +428,9 @@ async function recordCompletedTurn(
   durationMs: number,
 ): Promise<void> {
   deps.state.llmStallRetries = 0;
+  // What a turn costs is the one budget figure the model cannot observe itself.
+  deps.state.recentLlmTurnMs.push(durationMs);
+  if (deps.state.recentLlmTurnMs.length > RECENT_TURN_SAMPLES) deps.state.recentLlmTurnMs.shift();
   const resolvedModel = completion.resolvedModel ?? completion.model ?? deps.model;
   const actualInput =
     completion.usage.inputTokens +

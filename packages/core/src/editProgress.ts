@@ -11,7 +11,21 @@ const EDIT_NUDGE_AT = [0.5, 0.8];
 /** Absolute turns so a 64-turn budget still warns before the agent has burned a long explore phase. */
 const EDIT_NUDGE_AT_TURNS = [3, 6, 10];
 
+/**
+ * Fractions of the wall clock at which an agent that has not edited is warned.
+ * Turn marks alone are blind to pace: a run whose turns cost minutes each can
+ * burn its whole budget between two marks and only hear about it at 97%.
+ */
+const CLOCK_NUDGE_AT = [0.5, 0.75];
+
 export type ProgressGoal = "edit" | "plan";
+
+/** Observed cost of a turn plus what the run has left, when the run is timed. */
+export interface ProgressClock {
+  remainingMs: number;
+  runTimeoutMs: number;
+  recentTurnMs: readonly number[];
+}
 
 export function hasMutatedWorkspace(history: Message[]): boolean {
   for (let index = 0; index < history.length; index += 1) {
@@ -71,25 +85,83 @@ export function editProgressWarning(opts: {
   maxTurns: number;
   mutated: boolean;
   goal?: ProgressGoal;
+  clock?: ProgressClock;
+  /** Set when a clock mark just tripped, so the warning fires off the turn marks. */
+  clockMarkDue?: boolean;
 }): string | undefined {
   if (opts.mutated || opts.maxTurns <= 0) return undefined;
   const goal = opts.goal ?? "edit";
-  const marks = nudgeTurns(opts.maxTurns, goal);
-  if (!marks.includes(opts.turn)) return undefined;
+  const onTurnMark = nudgeTurns(opts.maxTurns, goal).includes(opts.turn);
+  if (!onTurnMark && !opts.clockMarkDue) return undefined;
 
-  const remaining = opts.maxTurns - opts.turn;
-  if (goal === "plan") {
-    return (
-      `${opts.turn} of ${opts.maxTurns} turns are gone and no plan has been written yet — ` +
-      `only reads and searches so far. ${remaining} turns remain. ` +
-      "Write the plan now with current evidence via write_plan (and todo_write in the same turn). " +
-      "Do not keep reconfirming a hypothesis you already have; more exploration is not progress."
-    );
-  }
-  return (
-    `${opts.turn} of ${opts.maxTurns} turns are gone and no file has been changed yet — ` +
-    `only reads and searches so far. ${remaining} turns remain. ` +
-    "Stop investigating and apply your best current hypothesis as an edit now: " +
-    "a wrong edit you can then verify and fix beats running out of turns with nothing to show."
-  );
+  const spent = spentBudget(opts.turn, opts.maxTurns, opts.clock);
+  const action =
+    goal === "plan"
+      ? "Write the plan now with current evidence via write_plan (and todo_write in the same turn). " +
+        "Do not keep reconfirming a hypothesis you already have; more exploration is not progress."
+      : "Stop investigating and apply your best current hypothesis as an edit now: " +
+        `a wrong edit you can then verify and fix beats ${spent.ranOut} with nothing to show.`;
+  const missing = goal === "plan" ? "no plan has been written yet" : "no file has been changed yet";
+  return `${spent.headline} and ${missing} — only reads and searches so far. ${spent.remaining} ${action}`;
+}
+
+/**
+ * Names whichever budget is closer to exhausted. Reporting turns while the clock
+ * is the binding constraint is worse than saying nothing: it tells an agent with
+ * seconds left that it has dozens of turns to spend.
+ */
+function spentBudget(
+  turn: number,
+  maxTurns: number,
+  clock: ProgressClock | undefined,
+): { headline: string; remaining: string; ranOut: string } {
+  const turnsRemaining = maxTurns - turn;
+  const turnBudget = {
+    headline: `${turn} of ${maxTurns} turns are gone`,
+    remaining: `${turnsRemaining} turns remain.`,
+    ranOut: "running out of turns",
+  };
+  if (!clock || clock.runTimeoutMs <= 0 || !Number.isFinite(clock.remainingMs)) return turnBudget;
+
+  const clockFraction = 1 - Math.max(0, clock.remainingMs) / clock.runTimeoutMs;
+  if (clockFraction <= turn / maxTurns) return turnBudget;
+  return {
+    headline: `${percent(clockFraction)} of the run's time is gone`,
+    remaining: `${humanMs(clock.remainingMs)} remain${turnPace(clock.recentTurnMs)}.`,
+    ranOut: "running out of time",
+  };
+}
+
+/** A turn's cost is invisible to the model, and it is what makes the budget real. */
+function turnPace(recentTurnMs: readonly number[]): string {
+  const samples = recentTurnMs.filter((value) => Number.isFinite(value) && value > 0);
+  if (samples.length === 0) return "";
+  const slowest = Math.max(...samples);
+  return `, and your recent turns took up to ${humanMs(slowest)} each`;
+}
+
+function percent(fraction: number): string {
+  return `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
+}
+
+function humanMs(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  if (seconds < 90) return `${seconds}s`;
+  return `${Math.round(seconds / 60)}min`;
+}
+
+/**
+ * Returns the clock mark this run has just crossed, or `undefined`. The caller
+ * owns `fired` so each mark yields exactly one message and this stays pure.
+ */
+export function dueClockMark(
+  clock: ProgressClock | undefined,
+  fired: readonly number[],
+): number | undefined {
+  if (!clock || clock.runTimeoutMs <= 0 || !Number.isFinite(clock.remainingMs)) return undefined;
+  const elapsedFraction = 1 - Math.max(0, clock.remainingMs) / clock.runTimeoutMs;
+  // Only the furthest mark crossed matters: a run that jumps from 10% to 97% in
+  // one turn needs one urgent warning, not one per mark it skipped over.
+  const highestFired = fired.length > 0 ? Math.max(...fired) : 0;
+  return CLOCK_NUDGE_AT.filter((mark) => elapsedFraction >= mark && mark > highestFired).pop();
 }
