@@ -38,6 +38,17 @@ describe("resolveLlmTurnStallOptions", () => {
     expect(resolved.requestTimeoutMs).toBe(DEFAULT_LLM_REQUEST_TIMEOUT_MS);
     expect(resolved.maxConsecutiveStalls).toBe(2);
   });
+
+  /**
+   * A canary run lost 36-45% of its budget to a request ceiling that fired on
+   * turns still streaming at 290s. Silence identifies a dead provider; the
+   * absolute ceiling must stay a distant backstop or it kills working work.
+   */
+  it("detects a dead provider by silence, well before the request backstop", () => {
+    const observedStreamingTurnMs = 290_000;
+    expect(DEFAULT_LLM_STREAM_IDLE_TIMEOUT_MS).toBeLessThan(DEFAULT_LLM_REQUEST_TIMEOUT_MS);
+    expect(DEFAULT_LLM_REQUEST_TIMEOUT_MS).toBeGreaterThan(observedStreamingTurnMs * 2);
+  });
 });
 
 describe("effectiveRequestTimeoutMs", () => {

@@ -21,13 +21,14 @@ export interface ResolvedLlmTurnStallOptions {
 }
 
 /**
- * Generous enough for extended thinking at the highest reasoning efforts, and
- * deliberately not higher: undici caps time-to-headers at 300s and Node's
- * global `fetch` exposes no way to raise it, so a larger ceiling here would
- * never be reached — the socket would die first and surface as an opaque
- * `fetch failed` instead of a clean stall.
+ * A backstop, not the primary detector. Reasoning models were observed
+ * streaming for 290s on a single hard turn, so a ceiling anywhere near that
+ * kills working requests and throws away every second already spent. Silence
+ * is what identifies a dead provider, and `streamIdleTimeoutMs` catches it far
+ * sooner. Raising this only helps while the transport allows it: see
+ * `llmFetchInit` in `@ninjacode/providers`, which lifts undici's own 300s cap.
  */
-export const DEFAULT_LLM_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
+export const DEFAULT_LLM_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 /** Silence this long means the stream is dead, not thinking. */
 export const DEFAULT_LLM_STREAM_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 const DEFAULT_MAX_CONSECUTIVE_STALLS = 2;
