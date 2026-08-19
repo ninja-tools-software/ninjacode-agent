@@ -212,6 +212,29 @@ describe("trajectory replay", () => {
     });
   });
 
+  it("keeps the duration of a failed LLM call so stalls are not silent gaps", () => {
+    const recorder = new TrajectoryRecorder({
+      sessionId: "session",
+      runId: "run",
+      traceId: "trace",
+      startedAt: 1_000,
+    });
+    recorder.recordAgentEvent({
+      type: "error",
+      payload: { category: "llm_stall_request", durationMs: 300_000, message: "PRIVATE detail" },
+    }, 301_000);
+
+    const trajectory = recorder.finalize({ completed: false, endedAt: 302_000 });
+    const [event] = trajectory.events;
+
+    expect(event).toMatchObject({
+      type: "error",
+      durationMs: 300_000,
+      attributes: { errorCategory: "llm_stall_request" },
+    });
+    expect(serializeTrajectory(trajectory)).not.toContain("PRIVATE");
+  });
+
   it("rejects unsupported trajectory schema versions", () => {
     const invalid = JSON.stringify({
       schemaVersion: "2.0",

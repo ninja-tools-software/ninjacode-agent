@@ -13,6 +13,7 @@ import type {
 } from "@ninjacode/providers";
 import type { RunState } from "./types.js";
 import { listSessions, loadSession } from "./sessions.js";
+import { sessionEventLog } from "./sessionEventLog.js";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -148,6 +149,55 @@ describe("Agent with mock provider", () => {
     expect(outcome.completed).toBe(true);
     expect(outcome.turns.length).toBeGreaterThanOrEqual(1);
     expect(outcome.turns[0]?.toolInvocations[0]?.toolCall.name).toBe("list_dir");
+  });
+
+  // Guidance only ever reached the model through history, so a run's artifacts
+  // could not tell us whether a nudge fired or what it said.
+  it("records harness guidance in the session event log", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nc-guidance-"));
+    try {
+      await fs.writeFile(path.join(dir, "churn.txt"), "line\n".repeat(50));
+      const read = (id: string, offset: number) => ({
+        text: "Reading again…",
+        toolCalls: [{ id, name: "read_file", arguments: { path: "churn.txt", offset } }],
+      });
+      const provider = new MockProvider([
+        read("r1", 1),
+        read("r2", 5),
+        read("r3", 9),
+        read("r4", 13),
+        { text: "Done." },
+      ]);
+      const tools = createDefaultToolRegistry();
+      const permissions = new PermissionEngine(defaultPermissionPolicy("autonomous"));
+      permissions.update({ allowlist: tools.names() });
+
+      const agent = new Agent({
+        provider,
+        tools,
+        permissions,
+        workspaceRoot: dir,
+        agentDir: path.join(dir, ".ninjacode"),
+        enableCheckpoints: false,
+        enableSubagents: false,
+        persistSessions: true,
+      });
+
+      const outcome = await agent.run("Read churn.txt repeatedly");
+
+      const events = await sessionEventLog(
+        path.join(dir, ".ninjacode"),
+        outcome.sessionId,
+      ).readAll();
+      const guidance = events.filter((event) => event.type === "system_guidance");
+      const texts = guidance.map((event) => String(event.payload.text)).join("\n");
+      expect(guidance.length).toBeGreaterThanOrEqual(1);
+      expect(guidance[0]!.payload).toMatchObject({ source: "turn_guidance", turn: 3 });
+      expect(texts).toContain("no file has been changed yet");
+      expect(texts).toContain("churn.txt");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("persists and resumes a session", async () => {

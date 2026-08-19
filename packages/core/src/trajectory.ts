@@ -309,6 +309,7 @@ export class TrajectoryRecorder {
         this.events.push(createTrajectoryEvent({
           type: "error",
           timestamp,
+          durationMs: finiteNumber(payload.durationMs),
           success: false,
           attributes: { errorCategory: safeCategory(payload.category ?? event.type) },
         }));

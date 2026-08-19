@@ -102,7 +102,7 @@ export interface AgentTurnDeps {
     reason: string,
   ) => Promise<string>;
   recordSessionEvent: (
-    type: "assistant_message" | "compaction",
+    type: "assistant_message" | "compaction" | "system_guidance",
     payload: Record<string, unknown>,
   ) => Promise<void>;
   archiveCompaction: (

@@ -13,7 +13,7 @@ function truthConfig(
     schemaVersion: 1,
     dataset: "terminal-bench/terminal-bench-2-1",
     model: "xai/grok-4.6",
-    reasoningEffort: "xhigh",
+    reasoningEffort: "high",
     harborVersion: "0.21.0",
     node: { minimumMajor: 24, preferredVersion: "24.19.0" },
     timeouts: { cliRunMs: 840000, agentMultiplier: 1, verifierMultiplier: 1 },

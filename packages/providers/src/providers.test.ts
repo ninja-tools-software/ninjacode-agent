@@ -104,7 +104,7 @@ describe("xai provider", () => {
     expect(catalog?.models[0]?.reasoning).toEqual({
       kind: "levels",
       levels: ["low", "medium", "high", "xhigh"],
-      default: "xhigh",
+      default: "high",
     });
   });
 });

@@ -100,7 +100,7 @@ node apps/bench/dist/index.js harbor audit runs/harbor/full \
 Le wrapper génère `apps/cli/dist/ninjacode.harbor-manifest.json` avec la version CLI,
 la version de l'adaptateur, le commit (`NINJACODE_GIT_COMMIT` ou `GITHUB_SHA` en
 archive sans `.git`), le SHA-256 et la taille du bundle, ainsi que la politique Node.
-Il épingle aussi Harbor 0.21.0, `xai/grok-4.6`, l'effort `xhigh`, le timeout CLI,
+Il épingle aussi Harbor 0.21.0, `xai/grok-4.6`, l'effort `high`, le timeout CLI,
 les multiplicateurs agent/verifier, le dataset, le profil, le nombre de tâches et
 d'essais. Le lanceur refuse une version Harbor différente ; l'adaptateur refuse un
 modèle ou un bundle qui ne correspond pas au manifeste.

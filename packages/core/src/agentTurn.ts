@@ -105,7 +105,7 @@ async function handleToolTurn(
   recordToolCalls(state.toolCallFingerprints, completion.toolCalls);
   const loop = evaluateToolLoop(state.toolCallFingerprints, deps.enableLoopDetection);
   if (loop.action === "warn") {
-    state.history.push({ role: "user", content: `[System] ${loop.message}` });
+    await pushGuidance(deps, "loop_detection", loop.message);
   }
   if (loop.action === "stop") {
     await deps.emit("status", { text: loop.message });
@@ -145,11 +145,24 @@ async function handleToolTurn(
   ].filter((line): line is string => line !== undefined);
   const guidance = adaptive ? [...adaptive.guidance, ...calendarGuidance] : calendarGuidance;
   if (guidance.length > 0) {
-    state.history.push({ role: "user", content: `[System] ${guidance.join(" ")}` });
+    await pushGuidance(deps, "turn_guidance", guidance.join(" "));
   }
 
   await deps.persist();
   return { kind: "continue" };
+}
+
+/**
+ * Guidance reaches the model through history only, so without a session event
+ * there is no way to tell afterwards whether a nudge fired or what it said.
+ */
+async function pushGuidance(
+  deps: Pick<AgentTurnDeps, "state" | "turn" | "recordSessionEvent">,
+  source: "loop_detection" | "turn_guidance",
+  text: string,
+): Promise<void> {
+  deps.state.history.push({ role: "user", content: `[System] ${text}` });
+  await deps.recordSessionEvent("system_guidance", { turn: deps.turn + 1, source, text });
 }
 
 async function adaptiveGuidance(

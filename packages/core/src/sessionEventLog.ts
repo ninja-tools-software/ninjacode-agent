@@ -7,6 +7,7 @@ export type SessionEventType =
   | "assistant_message"
   | "tool_result"
   | "compaction"
+  | "system_guidance"
   | "observation_archived"
   | "legacy_message"
   | "legacy_unrecoverable"

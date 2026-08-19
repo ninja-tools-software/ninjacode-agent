@@ -258,7 +258,7 @@ const CATALOG: ProviderCatalog[] = [
         label: "Grok 4.6",
         contextWindow: 500_000,
         maxOutput: 128_000,
-        reasoning: { kind: "levels", levels: ["low", "medium", "high", "xhigh"], default: "xhigh" },
+        reasoning: { kind: "levels", levels: ["low", "medium", "high", "xhigh"], default: "high" },
         vision: true,
       },
       {

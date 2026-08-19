@@ -56,7 +56,7 @@ describe("resolveAgentConfig harness profiles", () => {
 
     expect(legacy.orchestrationProfile).toBe("legacy");
     expect(grok.orchestrationProfile).toBe("adaptive");
-    expect(grok.reasoningEffort).toBe("xhigh");
+    expect(grok.reasoningEffort).toBe("high");
     expect(grok.adaptiveOrchestration).toMatchObject({
       automaticDelegation: false,
       maxAutomaticDelegations: 1,

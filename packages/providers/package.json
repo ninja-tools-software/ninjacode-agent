@@ -23,6 +23,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist"
   },
+  "dependencies": {
+    "undici": "^8.10.0"
+  },
   "devDependencies": {
     "typescript": "^5.8.2",
     "vitest": "^3.0.9"

@@ -67,7 +67,7 @@ const MODEL_PROFILES: Readonly<Record<string, ProfileOverrides>> = Object.freeze
   "o4-mini": Object.freeze({ reasoningEffort: "medium" }),
   "deepseek-v4-flash": Object.freeze({ reasoningEffort: "medium" }),
   "deepseek-v4-pro": Object.freeze({ verification: "strict", reasoningEffort: "high" }),
-  "grok-4.6": Object.freeze({ reasoningEffort: "xhigh" }),
+  "grok-4.6": Object.freeze({ reasoningEffort: "high" }),
 });
 
 function normalizedProvider(value: string | undefined): ProviderKind | undefined {

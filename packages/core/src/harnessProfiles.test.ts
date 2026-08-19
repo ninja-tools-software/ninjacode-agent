@@ -62,7 +62,7 @@ describe("versioned harness profiles", () => {
     expect(Object.isFrozen(profile)).toBe(true);
   });
 
-  it("uses Grok 4.6 extra-high reasoning while inheriting its family's edits", () => {
+  it("raises Grok 4.6 reasoning while inheriting its family's edits", () => {
     const profile = resolveHarnessProfile({
       providerKind: "xai",
       modelId: "grok-4.6",
@@ -72,7 +72,7 @@ describe("versioned harness profiles", () => {
       key: "grok-4.6",
       editFormat: "string_replace",
       orchestration: "adaptive",
-      reasoningEffort: "xhigh",
+      reasoningEffort: "high",
     });
   });
 
@@ -85,7 +85,7 @@ describe("versioned harness profiles", () => {
     expect(grok.reasoningEffort).not.toBe(family.reasoningEffort);
   });
 
-  it("keeps Grok 4.5 on string_replace without xhigh", () => {
+  it("keeps Grok 4.5 on string_replace with no reasoning override", () => {
     expect(resolveHarnessProfile({ modelId: "grok-4.5" })).toMatchObject({
       source: "family",
       key: "xai",

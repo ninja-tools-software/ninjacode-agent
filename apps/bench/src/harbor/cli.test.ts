@@ -14,7 +14,7 @@ function truthConfig(): BenchmarkTruthConfig {
     schemaVersion: 1,
     dataset: "terminal-bench/terminal-bench-2-1",
     model: "xai/grok-4.6",
-    reasoningEffort: "xhigh",
+    reasoningEffort: "high",
     harborVersion: "0.21.0",
     node: { minimumMajor: 24, preferredVersion: "24.19.0" },
     timeouts: { cliRunMs: 840000, agentMultiplier: 1, verifierMultiplier: 1 },
@@ -92,22 +92,22 @@ describe("Harbor A/B effort override", () => {
       "-o",
       "runs/harbor",
       "--job-name",
-      "canary-high",
+      "canary-xhigh",
       "--reasoning-effort",
-      "high",
+      "xhigh",
       "--reuse-bundle",
     ]);
     expect(parsed).toEqual({
-      reasoningEffort: "high",
+      reasoningEffort: "xhigh",
       reuseBundle: true,
-      harborArgs: ["-o", "runs/harbor", "--job-name", "canary-high"],
+      harborArgs: ["-o", "runs/harbor", "--job-name", "canary-xhigh"],
     });
   });
 
   it("rewrites only the pinned effort on the same config", () => {
-    const high = withReasoningEffort(truthConfig(), "high");
-    expect(high.reasoningEffort).toBe("high");
-    expect(high.model).toBe("xai/grok-4.6");
-    expect(high.node.preferredVersion).toBe("24.19.0");
+    const raised = withReasoningEffort(truthConfig(), "xhigh");
+    expect(raised.reasoningEffort).toBe("xhigh");
+    expect(raised.model).toBe("xai/grok-4.6");
+    expect(raised.node.preferredVersion).toBe("24.19.0");
   });
 });

@@ -77,7 +77,7 @@ class HarborAdapterTests(unittest.TestCase):
                 "gitTreeDirty": False,
                 "harborVersion": "0.21.0",
                 "model": "xai/grok-4.6",
-                "reasoningEffort": "xhigh",
+                "reasoningEffort": "high",
                 "cliRunTimeoutMs": 840000,
                 "bundleSha256": digest,
                 "minimumNodeMajor": 24,

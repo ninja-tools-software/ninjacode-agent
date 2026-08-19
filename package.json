@@ -28,7 +28,7 @@
     "bench:quick": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite quick --trials 1 --provider deepseek --model deepseek-v4-flash --concurrency 4 --max-turns 20 --out runs/quick --unpublished",
     "bench:confirm": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite quick --trials 3 --concurrency 2 --out runs/confirm",
     "bench:harness": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --suite harness --provider mock --trials 1 --concurrency 4 --strict --out runs/harness",
-    "bench:holdout": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --tasks-dir \"$NINJABENCH_HOLDOUT_DIR\" --provider xai --model grok-4.6 --reasoning-effort xhigh --trials 3 --concurrency 2 --out runs/holdout",
+    "bench:holdout": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js run --tasks-dir \"$NINJABENCH_HOLDOUT_DIR\" --provider xai --model grok-4.6 --trials 3 --concurrency 2 --out runs/holdout",
     "bench:ablation:plan:quick": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js ablation plan quick",
     "bench:ablation:plan:holdout": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js ablation plan holdout",
     "bench:ablation:plan:public-subset": "pnpm --filter @ninjacode/bench build && node apps/bench/dist/index.js ablation plan public-subset",

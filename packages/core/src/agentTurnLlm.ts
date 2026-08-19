@@ -350,19 +350,22 @@ export async function callLlmForTurn(
     await recordCompletedTurn(deps, completion, estimated, llmSpan, durationMs);
     return { completion };
   } catch (e) {
+    // Every exit carries the wall clock it consumed: a turn that burned minutes
+    // and produced nothing is otherwise a silent gap in the trajectory.
+    const durationMs = Date.now() - llmStarted;
     startSpan("llm", { turn: turn + 1, failed: true }).end();
-    if (isLlmTurnStallError(e)) return handleStalledTurn(deps, e);
+    if (isLlmTurnStallError(e)) return handleStalledTurn(deps, e, durationMs);
     if (deps.isAbortError(e)) {
       const message = abortReasonMessage(deps.signal);
-      deps.logAgentEvent("cancel", `turn ${turn + 1}: ${message}`);
+      deps.logAgentEvent("cancel", `turn ${turn + 1}: ${message} after ${durationMs}ms`);
       await deps.persist();
       await deps.setState("stopped");
       return { kind: "stopped", message };
     }
     const structured = classifyLlmError(e, emitted);
     const msg = structured.message;
-    deps.logAgentEvent("error", `turn ${turn + 1}: LLM error`, msg);
-    await deps.emit("error", { ...structured, gateway: gatewayErrorInfo(e) });
+    deps.logAgentEvent("error", `turn ${turn + 1}: LLM error after ${durationMs}ms`, msg);
+    await deps.emit("error", { ...structured, durationMs, gateway: gatewayErrorInfo(e) });
     await deps.persist();
     await deps.setState("failed");
     return { kind: "failed", message: `LLM error: ${msg}` };
@@ -377,11 +380,24 @@ export async function callLlmForTurn(
 async function handleStalledTurn(
   deps: AgentTurnDeps,
   error: LlmTurnStallError,
+  durationMs: number,
 ): Promise<AgentTurnOutcome> {
   const { state } = deps;
   state.llmStallRetries += 1;
   const decision = decideAfterStall(state.llmStallRetries, deps.llmTurnStall);
   deps.logAgentEvent("error", `turn ${deps.turn + 1}: ${error.message}`, decision.message);
+
+  // A retried stall still ends the run's clock; recording it as an error event
+  // keeps the lost minutes visible even when the next attempt succeeds.
+  await deps.emit("error", {
+    message: decision.message,
+    code: error.code,
+    category: `llm_stall_${error.kind}`,
+    durationMs,
+    retryable: decision.action === "retry",
+    blame: "provider",
+    recoveryHint: "Check provider status or switch model before retrying this task.",
+  });
 
   if (decision.action === "retry") {
     await deps.emit("status", { text: `${error.message} ${decision.message}` });
@@ -389,13 +405,6 @@ async function handleStalledTurn(
     return { kind: "continue" };
   }
 
-  await deps.emit("error", {
-    message: decision.message,
-    code: error.code,
-    retryable: false,
-    blame: "provider",
-    recoveryHint: "Check provider status or switch model before retrying this task.",
-  });
   await deps.persist();
   await deps.setState("failed");
   return { kind: "failed", message: decision.message };

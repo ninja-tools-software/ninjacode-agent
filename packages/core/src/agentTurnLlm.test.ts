@@ -384,6 +384,24 @@ describe("callLlmForTurn stall guard", () => {
     expect(result).toMatchObject({ kind: "failed" });
   });
 
+  // Without this the wall clock a stall consumed is invisible: the trajectory
+  // just skips a turn number and the lost minutes cannot be attributed.
+  it("reports the wall clock a retried stall consumed", async () => {
+    const { deps } = stallingDeps(2);
+
+    await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    const [, payload] = vi
+      .mocked(deps.emit)
+      .mock.calls.find(([type]) => type === "error") as [string, Record<string, unknown>];
+    expect(payload).toMatchObject({
+      code: "llm_turn_stalled",
+      category: "llm_stall_request",
+      retryable: true,
+    });
+    expect(payload.durationMs).toBeGreaterThanOrEqual(20);
+  });
+
   it("forgets earlier stalls after a turn that answered", async () => {
     const { deps } = stallingDeps(2);
     await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
