@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import {
   Agent,
+  clampMaxTokens,
   loadSession,
   type AgentMode,
   type PersistedSession,
@@ -25,9 +26,10 @@ function resolveModelWindow(
     const live = peekCachedGatewayModels()?.find((m) => m.id === model);
     if (live) modelInfo = live;
   }
+  const contextWindow = resolveContextWindow(configuredWindow, modelInfo);
   return {
-    contextWindow: resolveContextWindow(configuredWindow, modelInfo),
-    maxTokens: modelInfo?.maxOutput ?? 8192,
+    contextWindow,
+    maxTokens: clampMaxTokens(modelInfo?.maxOutput ?? 8192, contextWindow),
   };
 }
 

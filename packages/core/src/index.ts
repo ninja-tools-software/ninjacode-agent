@@ -121,7 +121,12 @@ export {
   softenSupersededReads,
 } from "./context.js";
 export type { CompactionInfo } from "./context.js";
-export { estimateTokens, estimateContextUsage } from "./contextEstimate.js";
+export {
+  clampMaxTokens,
+  contextSafetyMargin,
+  estimateTokens,
+  estimateContextUsage,
+} from "./contextEstimate.js";
 export type { ContextUsageBreakdown } from "./contextEstimate.js";
 
 export {

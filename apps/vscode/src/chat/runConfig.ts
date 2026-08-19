@@ -1,5 +1,10 @@
 import * as vscode from "vscode";
-import { DEFAULT_RUN_TIMEOUT_MS, type AgentMode, type ApprovalMode } from "@ninjacode/core";
+import {
+  clampMaxTokens,
+  DEFAULT_RUN_TIMEOUT_MS,
+  type AgentMode,
+  type ApprovalMode,
+} from "@ninjacode/core";
 import type { SandboxMode } from "@ninjacode/tools";
 import {
   getModelInfo,
@@ -57,6 +62,7 @@ export function readRunConfig(modeOverride?: AgentMode): RunConfig {
   const model = cfg.get<string>("model") || undefined;
   const configuredWindow = cfg.get<number>("contextWindow") ?? 0;
   const modelInfo = getModelInfo(kind, model ?? "");
+  const contextWindow = resolveContextWindow(configuredWindow, modelInfo);
 
   return {
     kind,
@@ -68,8 +74,8 @@ export function readRunConfig(modeOverride?: AgentMode): RunConfig {
       ? (cfg.get<SandboxMode>("sandboxMode") ?? "workspace-write")
       : "read-only",
     runTimeoutMs: cfg.get<number>("runTimeoutMs") || DEFAULT_RUN_TIMEOUT_MS,
-    contextWindow: resolveContextWindow(configuredWindow, modelInfo),
-    maxTokens: modelInfo?.maxOutput ?? 8192,
+    contextWindow,
+    maxTokens: clampMaxTokens(modelInfo?.maxOutput ?? 8192, contextWindow),
     ...resolveReasoning(cfg, modelInfo),
     vision: modelInfo ? Boolean(modelInfo.vision) : true,
   };

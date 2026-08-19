@@ -104,4 +104,18 @@ describe("resolveAgentConfig harness profiles", () => {
     });
     expect(adaptiveDisabled.enableVerificationSubAgent).toBe(false);
   });
+
+  it("clamps maxTokens so reserved output cannot exhaust the context window", () => {
+    const deepseekDefault = resolveAgentConfig(
+      options({ maxTokens: 384_000, contextWindow: 200_000 }),
+    );
+    const deepseekFull = resolveAgentConfig(
+      options({ maxTokens: 384_000, contextWindow: 1_000_000 }),
+    );
+    const claude = resolveAgentConfig(options({ maxTokens: 64_000, contextWindow: 200_000 }));
+
+    expect(deepseekDefault.maxTokens).toBe(157_232);
+    expect(deepseekFull.maxTokens).toBe(384_000);
+    expect(claude.maxTokens).toBe(64_000);
+  });
 });

@@ -64,6 +64,28 @@ export interface ContextUsageBreakdown {
   cacheWrite?: number;
 }
 
+const MIN_INPUT_BUDGET = 32_768;
+const MIN_INPUT_FRACTION = 0.25;
+
+/** Guard band reserved for tokenizer/provider variance. */
+export function contextSafetyMargin(window: number): number {
+  return window > 0 ? Math.max(512, Math.floor(window * 0.05)) : 0;
+}
+
+/**
+ * Cap per-turn `maxTokens` so reserved output cannot consume the effective
+ * context window. Leaves at least `min(32768, 25% of window)` tokens for input.
+ */
+export function clampMaxTokens(maxTokens: number, contextWindow?: number): number {
+  if (!contextWindow || contextWindow <= 0) return maxTokens;
+  const safety = contextSafetyMargin(contextWindow);
+  const minInput = Math.max(
+    1,
+    Math.min(MIN_INPUT_BUDGET, Math.floor(contextWindow * MIN_INPUT_FRACTION)),
+  );
+  return Math.max(1, Math.min(maxTokens, contextWindow - safety - minInput));
+}
+
 /**
  * Estimate the token breakdown for an upcoming completion request, without
  * double-counting: `system` and `history` must be disjoint (i.e. `history`
@@ -90,7 +112,7 @@ export function estimateContextUsage(opts: {
   const tools = opts.tools?.length ? estimateTextTokens(JSON.stringify(opts.tools), opts.model) : 0;
   const window = opts.window ?? 0;
   const output = opts.reservedOutput ?? 0;
-  const safetyMargin = window > 0 ? Math.max(512, Math.floor(window * 0.05)) : 0;
+  const safetyMargin = contextSafetyMargin(window);
 
   return {
     system,

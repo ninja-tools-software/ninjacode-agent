@@ -10,6 +10,7 @@ import type { AgentMode, AgentEventHandler, ApprovalHandler } from "./types.js";
 import type { PermissionEngine } from "./permissions.js";
 import type { ToolRegistry } from "@ninjacode/tools";
 import type { ContentPart } from "@ninjacode/providers";
+import { clampMaxTokens } from "./contextEstimate.js";
 import type { TrajectoryCaptureOptions } from "./trajectory.js";
 import {
   resolveAdaptiveOrchestrationOptions,
@@ -272,7 +273,7 @@ export function resolveAgentConfig(opts: AgentOptions): ResolvedAgentConfig {
     agentDir,
     mode,
     maxTurns: opts.maxTurns ?? 64,
-    maxTokens: opts.maxTokens ?? 8192,
+    maxTokens: clampMaxTokens(opts.maxTokens ?? 8192, opts.contextWindow),
     model: opts.model,
     utilityModel: opts.utilityModel,
     reasoningEffort: opts.reasoningEffort ?? profile.reasoningEffort,

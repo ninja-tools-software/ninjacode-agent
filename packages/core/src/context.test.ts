@@ -8,6 +8,8 @@ import {
   truncateToolOutput,
 } from "./context.js";
 import {
+  clampMaxTokens,
+  contextSafetyMargin,
   estimateContextUsage,
   estimateTokens,
   recordTokenCalibration,
@@ -124,6 +126,13 @@ describe("estimateContextUsage", () => {
     expect(usage.total).toBe(0);
   });
 
+  it("uses the shared 5% safety margin (floor 512)", () => {
+    expect(contextSafetyMargin(0)).toBe(0);
+    expect(contextSafetyMargin(200_000)).toBe(10_000);
+    expect(contextSafetyMargin(1_000_000)).toBe(50_000);
+    expect(contextSafetyMargin(1_000)).toBe(512);
+  });
+
   it("calibrates per resolved model and never becomes optimistic", () => {
     const model = "calibration-test-model";
     expect(tokenCalibrationMultiplier(model)).toBeGreaterThanOrEqual(1);
@@ -131,6 +140,37 @@ describe("estimateContextUsage", () => {
     expect(tokenCalibrationMultiplier(model)).toBeGreaterThanOrEqual(1.5);
     recordTokenCalibration(model, 100, 50);
     expect(tokenCalibrationMultiplier(model)).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("clampMaxTokens", () => {
+  it("leaves room for input when maxOutput exceeds the default DeepSeek window", () => {
+    expect(clampMaxTokens(384_000, 200_000)).toBe(157_232);
+  });
+
+  it("keeps the full DeepSeek maxOutput on a 1M window", () => {
+    expect(clampMaxTokens(384_000, 1_000_000)).toBe(384_000);
+  });
+
+  it("does not reduce Claude-sized maxOutput on a 200k window", () => {
+    expect(clampMaxTokens(64_000, 200_000)).toBe(64_000);
+  });
+
+  it("passes through maxTokens when the window is unknown", () => {
+    expect(clampMaxTokens(384_000)).toBe(384_000);
+    expect(clampMaxTokens(384_000, 0)).toBe(384_000);
+  });
+
+  it("leaves enough input budget for a first agent turn on DeepSeek defaults", () => {
+    const maxTokens = clampMaxTokens(384_000, 200_000);
+    const usage = estimateContextUsage({
+      system: "You are NinjaCode.",
+      history: [{ role: "user", content: "hello" }],
+      window: 200_000,
+      reservedOutput: maxTokens,
+    });
+    expect(usage.inputBudget).toBe(32_768);
+    expect(usage.inputBudget).toBeGreaterThan(usage.total);
   });
 });
 
