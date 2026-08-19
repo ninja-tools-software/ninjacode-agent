@@ -10,7 +10,6 @@ import { LlmError } from "./types.js";
 import { applyAnthropicCacheBreakpoints } from "./anthropicCache.js";
 import { anthropicHttpError } from "./anthropicErrors.js";
 import { consumeAnthropicStream } from "./anthropicStream.js";
-import { llmFetchInit } from "./llmTransport.js";
 
 export interface AnthropicConfig {
   apiKey: string;
@@ -69,7 +68,7 @@ export class AnthropicProvider implements LlmProvider {
       applyAnthropicCacheBreakpoints(body);
     }
 
-    const res = await fetch(`${this.baseUrl}/v1/messages`, llmFetchInit({
+    const res = await fetch(`${this.baseUrl}/v1/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,7 +78,7 @@ export class AnthropicProvider implements LlmProvider {
       },
       body: JSON.stringify(body),
       signal: req.signal,
-    }));
+    });
 
     if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText);

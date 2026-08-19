@@ -10,7 +10,6 @@ import { parseGatewayError } from "./gatewayErrors.js";
 import { parseRetryAfterMs } from "./retryAfter.js";
 import { LlmError } from "./types.js";
 import { consumeOpenAIStream } from "./openaiStream.js";
-import { llmFetchInit } from "./llmTransport.js";
 import { promptCacheKey } from "./promptCache.js";
 
 export interface OpenAICompatibleConfig {
@@ -76,7 +75,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
       body.prompt_cache_key = promptCacheKey(model, req);
     }
 
-    const res = await fetch(`${this.baseUrl}/chat/completions`, llmFetchInit({
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -85,7 +84,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
       },
       body: JSON.stringify(body),
       signal: req.signal,
-    }));
+    });
 
     if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText);

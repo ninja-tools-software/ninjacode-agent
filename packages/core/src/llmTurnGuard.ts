@@ -20,7 +20,13 @@ export interface ResolvedLlmTurnStallOptions {
   maxConsecutiveStalls: number;
 }
 
-/** Generous enough for extended thinking at the highest reasoning efforts. */
+/**
+ * Generous enough for extended thinking at the highest reasoning efforts, and
+ * deliberately not higher: undici caps time-to-headers at 300s and Node's
+ * global `fetch` exposes no way to raise it, so a larger ceiling here would
+ * never be reached — the socket would die first and surface as an opaque
+ * `fetch failed` instead of a clean stall.
+ */
 export const DEFAULT_LLM_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
 /** Silence this long means the stream is dead, not thinking. */
 export const DEFAULT_LLM_STREAM_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
