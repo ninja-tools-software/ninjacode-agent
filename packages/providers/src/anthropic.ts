@@ -8,6 +8,7 @@ import type {
 } from "./types.js";
 import { LlmError } from "./types.js";
 import { applyAnthropicCacheBreakpoints } from "./anthropicCache.js";
+import { anthropicHttpError } from "./anthropicErrors.js";
 import { consumeAnthropicStream } from "./anthropicStream.js";
 
 export interface AnthropicConfig {
@@ -81,7 +82,11 @@ export class AnthropicProvider implements LlmProvider {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText);
-      throw new LlmError(`anthropic error ${res.status}: ${errText}`, res.status, this.name);
+      throw anthropicHttpError({
+        status: res.status,
+        body: errText,
+        retryAfter: res.headers.get("retry-after"),
+      });
     }
     if (!res.body) {
       throw new LlmError("anthropic: empty response body", undefined, this.name);
@@ -117,11 +122,23 @@ function toAnthropicImageBlocks(m: Message): Array<Record<string, unknown>> {
   }));
 }
 
+/**
+ * Thinking blocks must come first in an assistant turn and go back exactly as
+ * they arrived — the signature is verified server-side.
+ */
+function toAnthropicThinkingBlocks(m: Message): Array<Record<string, unknown>> {
+  return (m.reasoningBlocks ?? []).map((block) =>
+    block.type === "thinking"
+      ? { type: "thinking", thinking: block.thinking, signature: block.signature }
+      : { type: "redacted_thinking", data: block.data },
+  );
+}
+
 function toAnthropicMessages(messages: Message[]) {
   const out: Array<Record<string, unknown>> = [];
   for (const m of messages) {
     if (m.role === "assistant" && m.toolCalls?.length) {
-      const content: Array<Record<string, unknown>> = [];
+      const content: Array<Record<string, unknown>> = toAnthropicThinkingBlocks(m);
       if (m.content) content.push({ type: "text", text: m.content });
       for (const tc of m.toolCalls) {
         content.push({

@@ -59,4 +59,26 @@ describe("Harbor bundle manifest", () => {
     expect(output).toContain('"gitCommit": "abc"');
     expect(output).not.toContain("generatedAt");
   });
+
+  it("treats a pinned commit as a clean tree", async () => {
+    process.env.NINJACODE_GIT_COMMIT = "0123456789abcdef";
+    const { bundle } = await fixture();
+    const manifest = await buildHarborBundleManifest(bundle, { profile: "publish" });
+    expect(manifest.gitTreeDirty).toBe(false);
+    expect(manifest.publishable).toBe(true);
+  });
+
+  it("refuses to mark a run publishable when the tree state is unknown", async () => {
+    delete process.env.NINJACODE_GIT_COMMIT;
+    const previousSha = process.env.GITHUB_SHA;
+    delete process.env.GITHUB_SHA;
+    try {
+      const { bundle } = await fixture();
+      const manifest = await buildHarborBundleManifest(bundle, { profile: "publish" });
+      // Whatever this working tree looks like, the two fields must agree.
+      expect(manifest.publishable).toBe(!manifest.gitTreeDirty);
+    } finally {
+      if (previousSha !== undefined) process.env.GITHUB_SHA = previousSha;
+    }
+  });
 });

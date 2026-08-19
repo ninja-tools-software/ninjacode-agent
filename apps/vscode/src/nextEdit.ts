@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { t } from "./locale.js";
 
 /**
  * Approximation of "Next Edit Suggestions": after a small edit settles, look for
@@ -40,11 +41,11 @@ class NextEditCodeLensProvider implements vscode.CodeLensProvider {
     const range = document.lineAt(line).range;
     return [
       new vscode.CodeLens(range, {
-        title: "✦ NinjaCode: apply same edit here (Tab)",
+        title: t("✦ NinjaCode: apply same edit here (Tab)"),
         command: "ninjacode.nextEdit.accept",
       }),
       new vscode.CodeLens(range, {
-        title: "Dismiss",
+        title: t("Dismiss"),
         command: "ninjacode.nextEdit.dismiss",
       }),
     ];
@@ -63,8 +64,8 @@ export function registerNextEdit(context: vscode.ExtensionContext): void {
 
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
   statusBarItem.command = "ninjacode.nextEdit.jump";
-  statusBarItem.text = "$(sparkle) Next edit";
-  statusBarItem.tooltip = "NinjaCode: jump to the next suggested edit (Tab)";
+  statusBarItem.text = `$(sparkle) ${t("Next edit")}`;
+  statusBarItem.tooltip = t("NinjaCode: jump to the next suggested edit (Tab)");
 
   lensProvider = new NextEditCodeLensProvider();
 

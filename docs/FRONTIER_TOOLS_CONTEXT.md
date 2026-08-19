@@ -45,3 +45,27 @@ Observation bodies are masked only when the message contains a valid artifact
 reference recoverable through `read_session_artifact`; sessions without
 artifact persistence retain the original observation instead of receiving an
 irreversible placeholder.
+
+## The summarizer is a model call too
+
+Compaction's last resort asks a model to compress a transcript, so that transcript
+must fit the summarizer's own context window. It is bounded by
+`compactionTranscriptBudget`, which reserves room for the checkpoint instructions
+and the summary itself. When the segment is larger than the budget, the oldest
+messages are dropped and the omission is stated in the transcript; prior
+checkpoints are never the part sacrificed, since they are the densest thing in the
+segment.
+
+An unbounded transcript did not fail loudly — it came back as a provider error and
+landed in the local heuristic, producing a plausible summary that hid the loss.
+`CompactionInfo` therefore carries `fallbackReason` and `droppedFromTranscript`,
+and the harness logs both. A silent fallback is indistinguishable from success,
+which is the only outcome worse than a visible failure.
+
+## Waiting is a loop
+
+`llmTurnGuard` bounds one LLM request: a ceiling derived from the remaining run
+budget rather than a constant, a stream-idle watchdog, and an end to the run after
+consecutive stalls. A stalled turn streamed nothing, so history is untouched and
+the retry is both safe and cache-friendly — and it passes back through the turn
+preconditions, which re-check budget, run timeout and abort before waiting again.

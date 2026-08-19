@@ -43,10 +43,11 @@ When `req.cacheSystemPrompt` is true:
 
 ## Step 4: Wiring
 
-1. `catalog.ts`: model entries with context window, pricing, reasoning support, and `editFormat` if the model prefers `patch` over `string_replace` (drives `preferredEditFormat` in core).
-2. `gatewayRegistry.ts`: entry if the model is served through the NinjaCode gateway (route template + price table).
-3. `types.ts`: extend `ProviderKind`; `index.ts`: wire into `createProvider` (keep the exhaustive `never` check) and export.
-4. Hosts: check `apps/cli` and `apps/vscode` provider pickers expose the new kind.
+1. `catalog.ts`: model entries with context window, pricing, reasoning support, vision. The catalog describes models only.
+2. `packages/core/src/harnessProfiles.ts`: edit format, verification policy, orchestration profile, default reasoning effort. This is the **only** place the harness reads them from; add a family entry, and a model entry only when it differs from its family.
+3. `gatewayRegistry.ts`: entry if the model is served through the NinjaCode gateway (route template + price table).
+4. `types.ts`: extend `ProviderKind`; `index.ts`: wire into `createProvider` (keep the exhaustive `never` check) and export.
+5. Hosts: check `apps/cli` and `apps/vscode` provider pickers expose the new kind.
 
 ## Step 5: Tests
 

@@ -102,7 +102,7 @@ def load_bundle_manifest(bundle: Path) -> tuple[Path, dict[str, Any]]:
     missing = [key for key in REQUIRED_MANIFEST_KEYS if key not in manifest]
     if missing:
         raise RuntimeError(f"NinjaCode Harbor manifest misses: {', '.join(missing)}")
-    if manifest["schemaVersion"] != 2:
+    if manifest["schemaVersion"] != 3:
         raise RuntimeError(
             f"Unsupported NinjaCode Harbor manifest schema: {manifest['schemaVersion']}"
         )

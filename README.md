@@ -2,7 +2,7 @@
 
 **Open-source agentic coding** for VS Code — and JetBrains / Zed / Neovim via [ACP](https://zed.dev/acp).
 Bring your own API key (Anthropic, OpenAI, DeepSeek, OpenRouter, Moonshot, GLM, Mistral,
-Mammouth, any OpenAI-compatible endpoint), run a local model, or point the agent at a
+xAI, Mammouth, any OpenAI-compatible endpoint), run a local model, or point the agent at a
 NinjaCode gateway.
 
 This repository contains everything that runs on the developer's machine: the agent harness,
@@ -86,7 +86,7 @@ Key settings (`Preferences: Open Settings` -> search `ninjacode`):
 
 | Setting | Values |
 |---------|--------|
-| `ninjacode.provider` | `anthropic`, `openai`, `deepseek`, `openrouter`, `moonshot`, `glm`, `mistral`, `mammouth`, `openai-compatible`, `local`, `gateway`, `mock` |
+| `ninjacode.provider` | `gateway`, `anthropic`, `openai`, `deepseek`, `openrouter`, `moonshot`, `glm`, `mistral`, `xai`, `mammouth`, `openai-compatible`, `local`, `mock` |
 | `ninjacode.model`, `ninjacode.baseUrl` | provider-specific |
 | `ninjacode.localBaseUrl` | endpoint of the `local` provider (default `http://localhost:11434/v1`) |
 | `ninjacode.mode` | `agent`, `plan`, `ask`, `debug` |
@@ -133,7 +133,16 @@ pnpm bench:harness     # deterministic mock suite
 pnpm bench             # full run; live providers need an API key
 ```
 
-See [apps/bench/README.md](apps/bench/README.md).
+See [apps/bench/README.md](apps/bench/README.md) for the suites, and
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md) for the publication rules — a score is only
+publishable from a bundle built on a clean tree, and no live benchmark runs on a pull
+request.
+
+## Where the harness stands
+
+[docs/AUDIT_HARNESS_2026-08.md](docs/AUDIT_HARNESS_2026-08.md) is the current, honest
+assessment: what the harness guarantees, what it does not, and which gaps are known. It is
+kept deliberately unflattering so nobody has to rediscover a limitation the hard way.
 
 ## Debug mode
 

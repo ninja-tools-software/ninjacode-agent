@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ContentPart } from "@ninjacode/providers";
+import { estimateTextTokens } from "@ninjacode/core";
 import type { ComposerNode, ContextRef, RefKind } from "../protocol.js";
 import { providerForRefKind, type ContextEnv } from "./context/index.js";
 
@@ -8,10 +9,11 @@ import { providerForRefKind, type ContextEnv } from "./context/index.js";
  * blocks are truncated (with a visible note) rather than silently dropped. */
 const TOTAL_CONTEXT_BUDGET = 60_000;
 
-/** Rough token estimate — same 4-chars-per-token heuristic the core uses. */
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
+/**
+ * The harness estimator, not a copy of it: a gauge that disagrees with the budget
+ * the agent enforces is worse than no gauge.
+ */
+export { estimateTextTokens as estimateTokens } from "@ninjacode/core";
 
 /** Stable dedup key for a reference. Two badges pointing at the same target
  * (and range) resolve once and are sent once. */
@@ -140,7 +142,7 @@ export async function resolveRefs(
     }
     used += text.length;
     blocks.push(`### ${ref.label}\n${text}`);
-    resolved.push({ ...ref, status, error, tokens: estimateTokens(text) });
+    resolved.push({ ...ref, status, error, tokens: estimateTextTokens(text) });
   }
 
   return { blocks, images, refs: resolved };

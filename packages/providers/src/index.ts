@@ -7,6 +7,7 @@ export type {
   TokenUsage,
   CompletionRequest,
   Completion,
+  ReasoningBlock,
   StreamEvent,
   StreamSink,
   LlmProvider,
@@ -116,6 +117,14 @@ export type {
 
 export { AnthropicProvider } from "./anthropic.js";
 export type { AnthropicConfig } from "./anthropic.js";
+
+export {
+  anthropicErrorStatus,
+  anthropicHttpError,
+  isAnthropicContextOverflow,
+  parseAnthropicErrorDetail,
+} from "./anthropicErrors.js";
+export { parseRetryAfterMs } from "./retryAfter.js";
 
 export { applyAnthropicCacheBreakpoints } from "./anthropicCache.js";
 export { promptCacheKey } from "./promptCache.js";

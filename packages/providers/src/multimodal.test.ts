@@ -129,6 +129,50 @@ describe("AnthropicProvider multimodal request shaping", () => {
     expect(blocks[1]!.text).toBe("[Workspace state] note");
   });
 
+  it("replays signed thinking blocks first on an assistant tool turn", async () => {
+    let capturedBody: Record<string, unknown> | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        capturedBody = JSON.parse(String(init?.body));
+        return emptySseResponse();
+      }),
+    );
+
+    const provider = new AnthropicProvider({ apiKey: "test-key" });
+    await provider.complete({
+      messages: [
+        { role: "user", content: "go" },
+        {
+          role: "assistant",
+          content: "Reading the file.",
+          toolCalls: [{ id: "t1", name: "read_file", arguments: { path: "a.ts" } }],
+          reasoningBlocks: [
+            { type: "thinking", thinking: "I should read a.ts", signature: "sig-1" },
+            { type: "redacted_thinking", data: "EncRypTeD==" },
+          ],
+        },
+        { role: "tool", content: "file body", toolCallId: "t1", name: "read_file" },
+      ],
+      thinkingBudgetTokens: 4_000,
+    });
+
+    const messages = capturedBody?.messages as Array<{ role: string; content: unknown }>;
+    const blocks = messages[1]!.content as Array<Record<string, unknown>>;
+    expect(blocks.map((b) => b.type)).toEqual([
+      "thinking",
+      "redacted_thinking",
+      "text",
+      "tool_use",
+    ]);
+    expect(blocks[0]).toEqual({
+      type: "thinking",
+      thinking: "I should read a.ts",
+      signature: "sig-1",
+    });
+    expect(blocks[1]).toEqual({ type: "redacted_thinking", data: "EncRypTeD==" });
+  });
+
   it("folds two consecutive plain user messages, as sent at the start of a run", async () => {
     let capturedBody: Record<string, unknown> | undefined;
     vi.stubGlobal(

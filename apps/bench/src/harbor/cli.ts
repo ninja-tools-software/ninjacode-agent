@@ -147,10 +147,31 @@ async function ensureCliBundle(
   process.env.NINJACODE_BUNDLE = bundle;
   process.env.NINJACODE_BUNDLE_MANIFEST = harborManifestPath();
   console.error(
-    `Harbor bundle: CLI ${manifest.cliVersion}, commit ${manifest.gitCommit.slice(0, 12)}, ` +
+    `Harbor bundle: CLI ${manifest.cliVersion}, commit ${manifest.gitCommit.slice(0, 12)}` +
+      `${manifest.gitTreeDirty ? "-dirty" : ""}, ` +
       `sha256 ${manifest.bundleSha256.slice(0, 12)}, profile ${profile}`,
   );
+  if (manifest.gitTreeDirty) {
+    console.error(
+      "WARNING: the working tree is modified, so this bundle contains code that is not " +
+        "in git history. The run will execute but its score is not publishable.",
+    );
+  }
   return bundle;
+}
+
+/**
+ * Read back from the bundle the runner wrote, so an audit of a past run reflects
+ * how that run was actually built rather than the tree as it stands now.
+ */
+async function bundleGitTreeDirty(): Promise<boolean | undefined> {
+  try {
+    const raw = await fs.readFile(harborManifestPath(), "utf8");
+    const parsed = JSON.parse(raw) as { gitTreeDirty?: unknown };
+    return typeof parsed.gitTreeDirty === "boolean" ? parsed.gitTreeDirty : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function withDefaultDataset(args: string[]): string[] {
@@ -317,6 +338,7 @@ async function cmdAudit(args: string[]): Promise<void> {
     minimumCorrectionPassRate: config.profiles[profile].minimumCorrectionPassRate,
     maximumAgentTimeoutRate: config.profiles[profile].maximumAgentTimeoutRate,
     baseline,
+    bundleGitTreeDirty: await bundleGitTreeDirty(),
   });
   const markdown = harborTruthMarkdown(summary, gate);
   console.log(markdown);
@@ -351,6 +373,7 @@ async function auditProfileOutput(
     expectedAttempts: profileConfig.attempts,
     minimumCorrectionPassRate: profileConfig.minimumCorrectionPassRate,
     maximumAgentTimeoutRate: profileConfig.maximumAgentTimeoutRate,
+    bundleGitTreeDirty: await bundleGitTreeDirty(),
   });
   const markdown = harborTruthMarkdown(summary, gate);
   console.log(markdown);

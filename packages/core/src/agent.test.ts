@@ -3,7 +3,7 @@ import { MockProvider } from "@ninjacode/providers";
 import { createDefaultToolRegistry, listPlans } from "@ninjacode/tools";
 import { Agent } from "./agent.js";
 import { PermissionEngine, defaultPermissionPolicy } from "./permissions.js";
-import { compactHistorySync, truncateToolOutput } from "./context.js";
+import { truncateToolOutput } from "./context.js";
 import type {
   Completion,
   CompletionRequest,
@@ -63,16 +63,6 @@ describe("truncateToolOutput", () => {
     const out = truncateToolOutput(long, 1000);
     expect(out.length).toBeLessThan(1200);
     expect(out).toContain("truncated");
-  });
-});
-
-describe("compactHistorySync", () => {
-  it("preserves recent messages", () => {
-    const history: Message[] = Array.from({ length: 10 }, (_, i) => ({
-      role: "user",
-      content: `msg ${i}`,
-    }));
-    expect(compactHistorySync(history)).toHaveLength(10);
   });
 });
 

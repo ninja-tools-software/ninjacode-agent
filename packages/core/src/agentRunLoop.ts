@@ -4,10 +4,7 @@ import type { ToolRegistry } from "@ninjacode/tools";
 import { discoverRules } from "./rules.js";
 import { loadVerifyConfig, type VerifyConfig } from "./verify.js";
 import { filterToolsForEditFormat } from "./editTools.js";
-import {
-  filterToolsForHarnessProfile,
-  resolveHarnessProfile,
-} from "./harnessProfiles.js";
+import { resolveHarnessProfile } from "./harnessProfiles.js";
 import {
   buildUserMessageContent,
   dropOrphanUserMessage,
@@ -113,8 +110,7 @@ export async function prepareRunLoop(input: RunLoopSetupInput): Promise<RunLoopS
     providerKind: input.providerName,
     modelId: input.model,
   });
-  const profiledTools = filterToolsForHarnessProfile(input.tools.forMode(input.mode), profile);
-  const modeTools = filterToolsForEditFormat(profiledTools, profile.editFormat);
+  const modeTools = filterToolsForEditFormat(input.tools.forMode(input.mode), profile.editFormat);
   const toolSpecs = modeTools.specs();
   const toolPipeline = input.createToolPipeline();
 
@@ -126,6 +122,7 @@ export async function prepareRunLoop(input: RunLoopSetupInput): Promise<RunLoopS
     emptyResponseRetries: 0,
     stopHookRetries: 0,
     verificationRetries: 0,
+    llmStallRetries: 0,
     globalTurn: input.globalTurn,
     toolCallFingerprints: input.toolCallFingerprints,
     phasePolicy:

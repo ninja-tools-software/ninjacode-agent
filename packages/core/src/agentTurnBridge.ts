@@ -30,6 +30,7 @@ import type {
   ResolvedIndependentVerifierOptions,
   VerificationMode,
 } from "./agentOptions.js";
+import type { ResolvedLlmTurnStallOptions } from "./llmTurnGuard.js";
 
 export interface TurnHostInput {
   provider: LlmProvider;
@@ -51,6 +52,7 @@ export interface TurnHostInput {
   enableSubagents: boolean;
   orchestrationProfile: OrchestrationProfile;
   adaptiveOrchestration: ResolvedAdaptiveOrchestrationOptions;
+  llmTurnStall: ResolvedLlmTurnStallOptions;
   subagentGovernance: ResolvedSubAgentGovernance;
   subagentOrchestrator: SubAgentOrchestrator;
   createAgent: AgentFactory;
@@ -78,6 +80,7 @@ export interface TurnHostInput {
     opts?: { category?: "compaction"; model?: string },
   ) => void;
   checkRunTimeout: () => string | undefined;
+  remainingRunMs: () => number;
   runHooks: AgentTurnDeps["runHooks"];
   persist: () => Promise<void>;
   setState: (next: RunState) => Promise<void>;
@@ -134,6 +137,7 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
     enableSubagents: host.enableSubagents,
     orchestrationProfile: host.orchestrationProfile,
     adaptiveOrchestration: host.adaptiveOrchestration,
+    llmTurnStall: host.llmTurnStall,
     modifiedFiles: host.modifiedFiles,
     activeFilesProvider: host.activeFilesProvider,
     budget: host.budget,
@@ -143,6 +147,7 @@ function turnHostDeps(host: TurnHostInput): Omit<AgentTurnDeps, keyof ReturnType
     trackUsage: host.trackUsage,
     getCacheStats: () => ({ ...host.cacheStats, ...host.budget.snapshot() }),
     checkRunTimeout: host.checkRunTimeout,
+    remainingRunMs: host.remainingRunMs,
     runHooks: host.runHooks,
     runCompletionVerification: (config) =>
       runCompletionVerification({

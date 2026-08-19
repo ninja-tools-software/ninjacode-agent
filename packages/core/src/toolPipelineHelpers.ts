@@ -42,15 +42,18 @@ export function safeGrantPolicy(
 }
 
 /**
- * Risk of this specific call. A tool may escalate on its arguments
- * (`run_shell` does for irreversible commands); a throwing classifier must
- * never downgrade the decision, so failures fall back to the static risk.
+ * Risk of this specific call. A tool may escalate on its arguments (`run_shell`
+ * does for irreversible commands), so the static risk is a floor, not a verdict:
+ * a classifier that threw has told us nothing about arguments the model chose,
+ * and falling back to the floor would be exactly the downgrade the escalation
+ * exists to prevent. An unclassifiable call is treated as the worst case.
  */
 function safeRisk(tool: Tool, args: Record<string, unknown>): RiskClass {
+  if (!tool.riskFor) return tool.risk;
   try {
-    return tool.riskFor?.(args) ?? tool.risk;
+    return tool.riskFor(args) ?? tool.risk;
   } catch {
-    return tool.risk;
+    return "destructive";
   }
 }
 

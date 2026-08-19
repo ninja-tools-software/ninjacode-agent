@@ -27,6 +27,12 @@ export {
   resolvePerformanceOptions,
 } from "./agentOptions.js";
 export {
+  DEFAULT_LLM_REQUEST_TIMEOUT_MS,
+  DEFAULT_LLM_STREAM_IDLE_TIMEOUT_MS,
+  resolveLlmTurnStallOptions,
+} from "./llmTurnGuard.js";
+export type { LlmTurnStallOptions, ResolvedLlmTurnStallOptions } from "./llmTurnGuard.js";
+export {
   configureTelemetry,
   createTelemetryContext,
   currentTelemetryContext,
@@ -114,7 +120,6 @@ export type { Checkpoint, ChangedFileStat } from "./checkpoints.js";
 
 export {
   compactHistory,
-  compactHistorySync,
   compactHistoryLossless,
   truncateToolOutput,
   toolOutputLimit,
@@ -124,6 +129,8 @@ export type { CompactionInfo } from "./context.js";
 export {
   clampMaxTokens,
   contextSafetyMargin,
+  estimateImageTokens,
+  estimateTextTokens,
   estimateTokens,
   estimateContextUsage,
 } from "./contextEstimate.js";
@@ -172,10 +179,7 @@ export type {
 
 export { filterToolsForEditFormat, preferredEditFormat } from "./editTools.js";
 export type { EditFormat } from "./editTools.js";
-export {
-  filterToolsForHarnessProfile,
-  resolveHarnessProfile,
-} from "./harnessProfiles.js";
+export { resolveHarnessProfile } from "./harnessProfiles.js";
 export type {
   HarnessProfile,
   HarnessProfileVersion,

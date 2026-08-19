@@ -14,7 +14,6 @@ const CATALOG: ProviderCatalog[] = [
         maxOutput: 64_000,
         reasoning: { kind: "budget", min: 1_024, max: 64_000, default: 10_000 },
         vision: true,
-        editFormat: "string_replace",
       },
       {
         id: "claude-opus-4-20250514",
@@ -23,7 +22,6 @@ const CATALOG: ProviderCatalog[] = [
         maxOutput: 32_000,
         reasoning: { kind: "budget", min: 1_024, max: 32_000, default: 16_000 },
         vision: true,
-        editFormat: "string_replace",
       },
       {
         id: "claude-haiku-4-5-20251001",
@@ -44,7 +42,6 @@ const CATALOG: ProviderCatalog[] = [
         contextWindow: 128_000,
         maxOutput: 16_384,
         vision: true,
-        editFormat: "patch",
       },
       {
         id: "gpt-4.1",
@@ -53,7 +50,6 @@ const CATALOG: ProviderCatalog[] = [
         defaultContextWindow: 200_000,
         maxOutput: 32_768,
         vision: true,
-        editFormat: "patch",
       },
       {
         id: "o3",
@@ -62,7 +58,6 @@ const CATALOG: ProviderCatalog[] = [
         maxOutput: 100_000,
         reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "medium" },
         vision: true,
-        editFormat: "patch",
       },
       {
         id: "o4-mini",
@@ -71,7 +66,6 @@ const CATALOG: ProviderCatalog[] = [
         maxOutput: 100_000,
         reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "medium" },
         vision: true,
-        editFormat: "patch",
       },
     ],
   },
@@ -187,7 +181,6 @@ const CATALOG: ProviderCatalog[] = [
         label: "Kimi K2",
         contextWindow: 256_000,
         maxOutput: 32_768,
-        editFormat: "string_replace",
       },
       {
         id: "moonshot-v1-32k",
@@ -214,7 +207,6 @@ const CATALOG: ProviderCatalog[] = [
         maxOutput: 32_768,
         reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "medium" },
         vision: true,
-        editFormat: "string_replace",
       },
       {
         id: "glm-4.5-flash",
@@ -242,7 +234,6 @@ const CATALOG: ProviderCatalog[] = [
         contextWindow: 128_000,
         maxOutput: 32_768,
         vision: true,
-        editFormat: "patch",
       },
       {
         id: "mistral-small-latest",
@@ -255,7 +246,6 @@ const CATALOG: ProviderCatalog[] = [
         label: "Codestral",
         contextWindow: 256_000,
         maxOutput: 32_768,
-        editFormat: "patch",
       },
     ],
   },
@@ -270,7 +260,6 @@ const CATALOG: ProviderCatalog[] = [
         maxOutput: 128_000,
         reasoning: { kind: "levels", levels: ["low", "medium", "high", "xhigh"], default: "xhigh" },
         vision: true,
-        editFormat: "string_replace",
       },
       {
         id: "grok-4.5",
@@ -279,7 +268,6 @@ const CATALOG: ProviderCatalog[] = [
         maxOutput: 128_000,
         reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "medium" },
         vision: true,
-        editFormat: "string_replace",
       },
       {
         id: "grok-4.3",
@@ -288,7 +276,6 @@ const CATALOG: ProviderCatalog[] = [
         maxOutput: 128_000,
         reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "medium" },
         vision: true,
-        editFormat: "string_replace",
       },
     ],
   },
@@ -301,7 +288,6 @@ const CATALOG: ProviderCatalog[] = [
         label: "Mammouth (recommandé)",
         contextWindow: 1_048_576,
         maxOutput: 131_072,
-        editFormat: "patch",
       },
     ],
   },

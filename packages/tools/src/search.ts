@@ -150,7 +150,10 @@ function relativizeGrepLine(line: string, workspaceRoot: string): string {
 
 export const globTool: Tool = {
   name: "glob",
-  description: "Find files matching a glob pattern (e.g. **/*.ts). Respects .gitignore when possible.",
+  description:
+    "Find files matching a glob pattern (e.g. **/*.ts). Skips build and dependency " +
+    "directories (node_modules, dist, .git, …) but does not read .gitignore — use grep " +
+    "with its glob filter when you need gitignore semantics.",
   risk: "read_only",
   inputSchema: {
     type: "object",

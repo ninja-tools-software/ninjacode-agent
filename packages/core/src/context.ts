@@ -1,4 +1,5 @@
 import type { LlmProvider, Message, TokenUsage } from "@ninjacode/providers";
+import { findModelAnywhere } from "@ninjacode/providers";
 import {
   compactResult,
   computeCompactionLimits,
@@ -23,9 +24,6 @@ export { softenSupersededReads } from "./toolAnnotations.js";
 const TOOL_OUTPUT_MAX = 8_000;
 /** Matches packages/tools READ_FILE_MAX_CHARS so harness never re-truncates a clean read. */
 const READ_FILE_OUTPUT_MAX = 40_000;
-const HISTORY_HARD_LIMIT = 80;
-const KEEP_RECENT = 30;
-
 /** Per-tool soft cap for tool results in history / compaction. */
 export function toolOutputLimit(toolName?: string): number {
   if (toolName === "read_file") return READ_FILE_OUTPUT_MAX;
@@ -121,6 +119,10 @@ export interface CompactionInfo {
   native: boolean;
   /** Whether the provider failed and the local heuristic was used. */
   fallback: boolean;
+  /** Why the summarizer was not used — absent when it worked. */
+  fallbackReason?: string;
+  /** Messages the summarizer never saw because its own window was too small. */
+  droppedFromTranscript: number;
 }
 
 /**
@@ -254,6 +256,8 @@ async function buildCompactionSummary(opts: {
     durationMs: Date.now() - startedAt,
     native: false,
     fallback: true,
+    fallbackReason: "no summarizer provider configured",
+    droppedFromTranscript: 0,
   };
 }
 
@@ -298,34 +302,11 @@ async function finalizeCompaction(
     durationMs: summary.durationMs,
     native: summary.native,
     fallback: summary.fallback,
+    fallbackReason: summary.fallbackReason,
+    droppedFromTranscript: summary.droppedFromTranscript,
   });
 
   return result;
-}
-
-/** Sync wrapper for callers that cannot await (tests / CLI smoke). */
-export function compactHistorySync(history: Message[], pinnedTask?: string): Message[] {
-  const lossless = compactHistoryLossless(history);
-  if (lossless.length <= HISTORY_HARD_LIMIT) return lossless;
-  const msgs = maskOldObservations(lossless);
-  const system = msgs.filter((m) => m.role === "system");
-  const nonSystem = msgs.filter((m) => m.role !== "system");
-  let start = Math.max(0, nonSystem.length - KEEP_RECENT);
-  start = alignCompactionStart(nonSystem, start);
-  const recent = nonSystem.slice(start);
-  const older = nonSystem.slice(0, start).filter((message) => !isCompactionMessage(message));
-  if (older.length === 0) return msgs;
-  return normalizeToolHistory([
-    ...system,
-    {
-      role: "user",
-      content: `${COMPACTION_MARKER}\n${buildStructuredCheckpoint({
-        messages: older,
-        pinnedTask,
-      })}`,
-    },
-    ...recent,
-  ]);
 }
 
 interface CompactionSummary {
@@ -335,6 +316,27 @@ interface CompactionSummary {
   durationMs: number;
   native: boolean;
   fallback: boolean;
+  fallbackReason?: string;
+  droppedFromTranscript: number;
+}
+
+function summarizerRequest(opts: {
+  model?: string;
+  pinnedTask?: string;
+  signal?: AbortSignal;
+  transcript: string;
+}): import("@ninjacode/providers").CompletionRequest {
+  const task = opts.pinnedTask ? `Original task: ${opts.pinnedTask}\n\n` : "";
+  return {
+    model: opts.model,
+    maxTokens: SUMMARY_MAX_TOKENS,
+    temperature: 0,
+    signal: opts.signal,
+    messages: [
+      { role: "system", content: CHECKPOINT_INSTRUCTIONS },
+      { role: "user", content: `${task}Transcript to compress:\n${opts.transcript}` },
+    ],
+  };
 }
 
 async function summarizeWithLlm(opts: {
@@ -346,25 +348,18 @@ async function summarizeWithLlm(opts: {
 }): Promise<CompactionSummary> {
   if (opts.signal?.aborted) throw abortError(opts.signal);
   const startedAt = Date.now();
-  const transcript = serializeCompactionSegment(opts.older);
+  const { transcript, dropped } = serializeCompactionSegment(
+    opts.older,
+    compactionTranscriptBudget(opts.model),
+    opts.model,
+  );
   try {
     const native = typeof opts.provider.compactContext === "function";
-    const request: import("@ninjacode/providers").CompletionRequest = {
-      model: opts.model,
-      maxTokens: SUMMARY_MAX_TOKENS,
-      temperature: 0,
-      signal: opts.signal,
-      messages: [
-        { role: "system", content: CHECKPOINT_INSTRUCTIONS },
-        {
-          role: "user",
-          content: `${opts.pinnedTask ? `Original task: ${opts.pinnedTask}\n\n` : ""}Transcript to compress:\n${transcript}`,
-        },
-      ],
-    };
+    const request = summarizerRequest({ ...opts, transcript });
     const completion = native
       ? await opts.provider.compactContext!(request)
       : await opts.provider.complete(request);
+    const empty = completion.text.trim().length === 0;
     return {
       text:
         completion.text.trim() ||
@@ -373,9 +368,11 @@ async function summarizeWithLlm(opts: {
       usage: completion.usage,
       durationMs: Date.now() - startedAt,
       native,
-      fallback: completion.text.trim().length === 0,
+      fallback: empty,
+      fallbackReason: empty ? "summarizer returned an empty response" : undefined,
+      droppedFromTranscript: dropped,
     };
-  } catch {
+  } catch (error) {
     if (opts.signal?.aborted) throw abortError(opts.signal);
     return {
       text: buildStructuredCheckpoint({
@@ -386,6 +383,8 @@ async function summarizeWithLlm(opts: {
       durationMs: Date.now() - startedAt,
       native: false,
       fallback: true,
+      fallbackReason: error instanceof Error ? error.message : String(error),
+      droppedFromTranscript: dropped,
     };
   }
 }
@@ -394,19 +393,71 @@ function abortError(signal: AbortSignal): DOMException {
   return new DOMException(String(signal.reason ?? "Compaction aborted"), "AbortError");
 }
 
-function serializeCompactionSegment(messages: Message[]): string {
-  return messages
-    .map((message, index) =>
-      JSON.stringify({
-        index,
-        role: message.role,
-        name: message.name,
-        toolCallId: message.toolCallId,
-        toolCalls: message.toolCalls,
-        content: message.content,
-        attachments: message.parts?.map((part) => part.type),
-      }),
-    )
-    .join("\n");
+/** Used when the summarizer model is not in the catalog. */
+const FALLBACK_COMPACTION_WINDOW = 128_000;
+
+/**
+ * The summarizer is an LLM call like any other, so its input must fit its own
+ * window. An oversized transcript comes back as a provider error, and the local
+ * fallback then hides that behind a summary nobody asked for — so the transcript
+ * is trimmed up front instead.
+ */
+export function compactionTranscriptBudget(model: string | undefined): number {
+  const window = (model ? findModelAnywhere(model)?.contextWindow : undefined) ??
+    FALLBACK_COMPACTION_WINDOW;
+  const instructions = estimateTokens([{ role: "system", content: CHECKPOINT_INSTRUCTIONS }], model);
+  return Math.max(1_000, Math.floor(window * 0.9) - SUMMARY_MAX_TOKENS - instructions);
+}
+
+function compactionLine(message: Message, index: number): string {
+  return JSON.stringify({
+    index,
+    role: message.role,
+    name: message.name,
+    toolCallId: message.toolCallId,
+    toolCalls: message.toolCalls,
+    content: message.content,
+    attachments: message.parts?.map((part) => part.type),
+  });
+}
+
+/**
+ * Prior checkpoints are the densest thing in the segment, so they are never the
+ * part that gets dropped; the remaining budget is then filled from the newest
+ * message backwards, because recent turns are what the tail needs to make sense.
+ */
+function serializeCompactionSegment(
+  messages: Message[],
+  budgetTokens: number,
+  model?: string,
+): { transcript: string; dropped: number } {
+  const lines = messages.map(compactionLine);
+  const pinned: string[] = [];
+  const rest: string[] = [];
+  messages.forEach((message, index) => {
+    (isCompactionMessage(message) ? pinned : rest).push(lines[index]!);
+  });
+
+  const asMessage = (content: string): Message[] => [{ role: "user", content }];
+  let remaining = budgetTokens - estimateTokens(asMessage(pinned.join("\n")), model);
+  const sizes = rest.map((line) => estimateTokens(asMessage(line), model));
+
+  let start = rest.length;
+  while (start > 0 && remaining - sizes[start - 1]! >= 0) {
+    start -= 1;
+    remaining -= sizes[start]!;
+  }
+
+  // A single message larger than the whole budget still has to say something.
+  const oversized = start === rest.length && rest.length > 0;
+  const kept = oversized
+    ? [rest[rest.length - 1]!.slice(0, Math.max(1, budgetTokens) * 4)]
+    : rest.slice(start);
+  const dropped = rest.length - kept.length;
+  const notice =
+    dropped > 0
+      ? [`[${dropped} older message(s) omitted: they exceed the summarizer's context window.]`]
+      : [];
+  return { transcript: [...notice, ...pinned, ...kept].join("\n"), dropped };
 }
 

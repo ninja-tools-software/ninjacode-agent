@@ -25,8 +25,10 @@ import {
   checkRunTimeout,
   estimateAgentUsage,
   isAbortError,
+  remainingRunMs,
   trackTokenUsage,
 } from "./agentRuntime.js";
+import type { ResolvedLlmTurnStallOptions } from "./llmTurnGuard.js";
 import type {
   OrchestrationProfile,
   ResolvedAdaptiveOrchestrationOptions,
@@ -60,6 +62,7 @@ export interface AgentHostBindings {
   enableSubagents: boolean;
   orchestrationProfile: OrchestrationProfile;
   adaptiveOrchestration: ResolvedAdaptiveOrchestrationOptions;
+  llmTurnStall: ResolvedLlmTurnStallOptions;
   subagentGovernance: ResolvedSubAgentGovernance;
   subagentOrchestrator: SubAgentOrchestrator;
   createAgent: AgentFactory;
@@ -113,6 +116,7 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
     enableSubagents: host.enableSubagents,
     orchestrationProfile: host.orchestrationProfile,
     adaptiveOrchestration: host.adaptiveOrchestration,
+    llmTurnStall: host.llmTurnStall,
     subagentGovernance: host.subagentGovernance,
     subagentOrchestrator: host.subagentOrchestrator,
     createAgent: host.createAgent,
@@ -152,6 +156,7 @@ export function buildAgentTurnHost(host: AgentHostBindings): TurnHostInput {
       if (reason) host.abortRun?.(new DOMException(reason, "TimeoutError"));
       return reason;
     },
+    remainingRunMs: () => remainingRunMs(host.runTimeoutMs, host.runStartedAt),
     runHooks: host.runHooks,
     persist: host.persist,
     setState: host.setState,

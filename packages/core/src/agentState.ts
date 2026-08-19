@@ -30,6 +30,7 @@ import type {
   OrchestrationProfile,
   ResolvedAdaptiveOrchestrationOptions,
 } from "./phasePolicy.js";
+import type { ResolvedLlmTurnStallOptions } from "./llmTurnGuard.js";
 
 export interface AgentConfig {
   provider: AgentOptions["provider"] & { name: string };
@@ -52,6 +53,7 @@ export interface AgentConfig {
     | Promise<readonly string[]>;
   sandboxMode: SandboxMode;
   runTimeoutMs: number;
+  llmTurnStall: ResolvedLlmTurnStallOptions;
   enableCompletionVerification: boolean;
   enableVerificationSubAgent: boolean;
   verificationMode: VerificationMode;
@@ -122,6 +124,7 @@ export function createAgentConfig(
     activeFilesProvider: cfg.activeFilesProvider,
     sandboxMode: cfg.sandboxMode,
     runTimeoutMs: cfg.runTimeoutMs,
+    llmTurnStall: cfg.llmTurnStall,
     enableCompletionVerification: cfg.enableCompletionVerification,
     enableVerificationSubAgent: cfg.enableVerificationSubAgent,
     verificationMode: cfg.verificationMode,
@@ -203,6 +206,7 @@ export function buildHostBindingSource(
     enableSubagents: config.enableSubagents,
     orchestrationProfile: config.orchestrationProfile,
     adaptiveOrchestration: config.adaptiveOrchestration,
+    llmTurnStall: config.llmTurnStall,
     subagentGovernance: config.subagentOrchestrator.governance,
     subagentOrchestrator: config.subagentOrchestrator,
     createAgent,

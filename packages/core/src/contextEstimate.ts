@@ -1,4 +1,4 @@
-import type { Message, ToolSpec } from "@ninjacode/providers";
+import type { ContentPart, Message, ToolSpec } from "@ninjacode/providers";
 
 const DEFAULT_CALIBRATION = 1.1;
 const MAX_CALIBRATION = 4;
@@ -29,17 +29,46 @@ export function tokenCalibrationMultiplier(model?: string): number {
   return Math.min(MAX_CALIBRATION, Math.max(1, p95 * 1.05));
 }
 
+/**
+ * Providers bill images by pixel area, which base64 length only loosely tracks,
+ * so this figure is deliberately rough — but counting them as zero was wrong in
+ * the one direction that matters, under budget. The constant is calibrated on
+ * Anthropic's ~1400 tokens for a 1024x1024 image.
+ */
+const IMAGE_TOKENS_PER_BASE64_CHAR = 1 / 1_000;
+/** Even a tiny image costs the provider a fixed tile. */
+const MIN_IMAGE_TOKENS = 256;
+
+/** Not scaled by the text calibration multiplier: image billing is unrelated. */
+export function estimateImageTokens(parts: ContentPart[] | undefined): number {
+  let tokens = 0;
+  for (const part of parts ?? []) {
+    if (part.type !== "image") continue;
+    tokens += Math.max(
+      MIN_IMAGE_TOKENS,
+      Math.ceil(part.data.length * IMAGE_TOKENS_PER_BASE64_CHAR),
+    );
+  }
+  return tokens;
+}
+
 /** Conservative token estimate calibrated from actual usage for the resolved model. */
 export function estimateTokens(messages: Message[], model?: string): number {
   let chars = 0;
+  let images = 0;
   for (const m of messages) {
     chars += m.content.length;
     if (m.toolCalls) chars += JSON.stringify(m.toolCalls).length;
+    images += estimateImageTokens(m.parts);
   }
-  return Math.ceil((chars / 4) * tokenCalibrationMultiplier(model));
+  return Math.ceil((chars / 4) * tokenCalibrationMultiplier(model)) + images;
 }
 
-function estimateTextTokens(text: string, model?: string): number {
+/**
+ * The single text estimator. Hosts budget with this too, so a gauge and the
+ * harness never disagree about how full the window is.
+ */
+export function estimateTextTokens(text: string, model?: string): number {
   return Math.ceil((text.length / 4) * tokenCalibrationMultiplier(model));
 }
 
@@ -50,6 +79,8 @@ export interface ContextUsageBreakdown {
   tools: number;
   /** Subset of `history` attributable to file-read tool results (informational). */
   files: number;
+  /** Subset of `history` attributable to attached images (informational). */
+  images: number;
   /** Reserved output budget (not part of `total`, shown for headroom awareness). */
   output: number;
   /** system + history + tools — the actual input token estimate. */
@@ -109,6 +140,7 @@ export function estimateContextUsage(opts: {
     ),
     opts.model,
   );
+  const images = opts.history.reduce((total, m) => total + estimateImageTokens(m.parts), 0);
   const tools = opts.tools?.length ? estimateTextTokens(JSON.stringify(opts.tools), opts.model) : 0;
   const window = opts.window ?? 0;
   const output = opts.reservedOutput ?? 0;
@@ -119,6 +151,7 @@ export function estimateContextUsage(opts: {
     history,
     tools,
     files,
+    images,
     output,
     total: system + history + tools,
     window,

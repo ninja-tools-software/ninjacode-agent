@@ -32,11 +32,13 @@ Progressive, cheapest first: 1) truncate tool outputs (`TOOL_OUTPUT_MAX`), 2) so
 - Guardrails are deterministic: `PermissionEngine` evaluates `tool.risk` + `tool.target(args)` — never rely on system-prompt wording to prevent an action.
 - `destructive` always requires approval, even in `autonomous` mode, even when the host pre-approved every tool (`allowAllTools`), and even when a coarse grant would otherwise match. Only an exact `tool:target` grant carries over. Preserve this.
 - Risk is per call, not per tool, when the arguments decide: `run_shell` escalates to `destructive` through `Tool.riskFor` (`shellDanger.ts`) and then refuses to produce grant scopes, so approving `git status` can never come to cover `git push --force`.
+- A classifier reads arguments the model wrote, so it can be made to throw. `safeRisk` is fail-closed: an unclassifiable call is `destructive`, never the tool's static risk — falling back to the floor is exactly the downgrade the escalation exists to prevent.
 - Every new capability must declare a `RiskClass`; anything writing outside the workspace or spawning processes is `shell` or `destructive`, not `write`.
 
 ## Reliability
 
 - Every loop needs a termination condition: `maxTurns`, `BudgetTracker.check()` (a cost ceiling applies even when the caller sets none), abort signal, tool-call loop detection that ends the run and not just warns, `ToolCircuitBreaker` (3 strikes, then one probe per cooldown).
+- Waiting is a loop too. `llmTurnGuard.ts` bounds one LLM request (ceiling narrowed by the remaining run budget, plus a stream-idle watchdog) and ends the run after consecutive stalls. A provider that never answers must not be able to spend the whole wall-clock budget; the circuit breaker covers tools only.
 - Exhausting the turn budget on reads is the dominant benchmark failure, so the budget itself must be visible to the model: `editProgress.ts` warns at 50% and 80% when nothing has been written yet, and `readChurn.ts` warns once per path read 4+ times. Keep such warnings to a fixed, small number of turns — one repeated every turn is noise the model stops reading, and it also churns the cached suffix.
 - Loop detection fingerprints a call with its arguments, so any waste expressed as *varying* arguments (paging one file at shifting offsets, re-running a command with a tweak) is invisible to it. New guards against that class must count over a normalized key, not the fingerprint.
 - Price the budget with the model actually being called (`resolveModelPricing`). A ceiling computed at another model's rate is not a ceiling.

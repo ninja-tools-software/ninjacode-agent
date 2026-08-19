@@ -70,6 +70,12 @@ interface HarborTruthGates {
   minimumCorrectionPassRate?: number;
   maximumAgentTimeoutRate?: number;
   baseline?: HarborTruthSummary;
+  /**
+   * From the bundle manifest. A score produced by code that is not in git history
+   * cannot be reproduced or attributed, so it never passes the gate whatever the
+   * pass rate says.
+   */
+  bundleGitTreeDirty?: boolean;
 }
 
 interface HarborTruthGateResult {
@@ -222,10 +228,11 @@ function taskTrialCounts(summary: HarborTruthSummary): Map<string, number> {
   return counts;
 }
 
-export function evaluateHarborTruthGates(
+/** Coverage, infra noise, and correction quality: the score's own credibility. */
+function qualityGateFailures(
   summary: HarborTruthSummary,
   gates: HarborTruthGates,
-): HarborTruthGateResult {
+): string[] {
   const failures: string[] = [];
   if (
     gates.minimumTelemetryCoverage !== undefined &&
@@ -246,9 +253,36 @@ export function evaluateHarborTruthGates(
     );
   }
   if (
-    gates.expectedTasks !== undefined &&
-    summary.tasks.length !== gates.expectedTasks
+    gates.minimumCorrectionPassRate !== undefined &&
+    summary.correctionPassRate < gates.minimumCorrectionPassRate
   ) {
+    failures.push(
+      `correction pass rate ${(summary.correctionPassRate * 100).toFixed(1)}% is below ` +
+        `${(gates.minimumCorrectionPassRate * 100).toFixed(1)}%`,
+    );
+  }
+  if (
+    gates.maximumAgentTimeoutRate !== undefined &&
+    summary.agentTimeoutRate > gates.maximumAgentTimeoutRate
+  ) {
+    failures.push(
+      `agent timeout rate ${(summary.agentTimeoutRate * 100).toFixed(1)}% exceeds ` +
+        `${(gates.maximumAgentTimeoutRate * 100).toFixed(1)}%`,
+    );
+  }
+  return failures;
+}
+
+/** Task/trial shape, which decides whether the score compares to anything. */
+function comparabilityGateFailures(
+  summary: HarborTruthSummary,
+  gates: HarborTruthGates,
+): string[] {
+  const failures: string[] = [];
+  if (gates.bundleGitTreeDirty === true) {
+    failures.push("bundle was built from a modified working tree: the run is not reproducible");
+  }
+  if (gates.expectedTasks !== undefined && summary.tasks.length !== gates.expectedTasks) {
     failures.push(
       `task count ${summary.tasks.length} differs from expected ${gates.expectedTasks}`,
     );
@@ -270,24 +304,17 @@ export function evaluateHarborTruthGates(
       failures.push("task/trial list differs from baseline");
     }
   }
-  if (
-    gates.minimumCorrectionPassRate !== undefined &&
-    summary.correctionPassRate < gates.minimumCorrectionPassRate
-  ) {
-    failures.push(
-      `correction pass rate ${(summary.correctionPassRate * 100).toFixed(1)}% is below ` +
-        `${(gates.minimumCorrectionPassRate * 100).toFixed(1)}%`,
-    );
-  }
-  if (
-    gates.maximumAgentTimeoutRate !== undefined &&
-    summary.agentTimeoutRate > gates.maximumAgentTimeoutRate
-  ) {
-    failures.push(
-      `agent timeout rate ${(summary.agentTimeoutRate * 100).toFixed(1)}% exceeds ` +
-        `${(gates.maximumAgentTimeoutRate * 100).toFixed(1)}%`,
-    );
-  }
+  return failures;
+}
+
+export function evaluateHarborTruthGates(
+  summary: HarborTruthSummary,
+  gates: HarborTruthGates,
+): HarborTruthGateResult {
+  const failures = [
+    ...comparabilityGateFailures(summary, gates),
+    ...qualityGateFailures(summary, gates),
+  ];
   return { passed: failures.length === 0, failures };
 }
 

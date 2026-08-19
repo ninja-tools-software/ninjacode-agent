@@ -70,6 +70,34 @@ class HarborAdapterTests(unittest.TestCase):
             bundle.write_bytes(b"bundle")
             digest = __import__("hashlib").sha256(b"bundle").hexdigest()
             manifest = {
+                "schemaVersion": 3,
+                "adapterVersion": "1.2.0",
+                "cliVersion": "0.1.0",
+                "gitCommit": "abc",
+                "gitTreeDirty": False,
+                "harborVersion": "0.21.0",
+                "model": "xai/grok-4.6",
+                "reasoningEffort": "xhigh",
+                "cliRunTimeoutMs": 840000,
+                "bundleSha256": digest,
+                "minimumNodeMajor": 24,
+                "preferredNodeVersion": "24.19.0",
+            }
+            bundle.with_name("ninjacode.harbor-manifest.json").write_text(
+                json.dumps(manifest)
+            )
+            _, loaded = ADAPTER.load_bundle_manifest(bundle)
+            self.assertEqual(loaded["gitCommit"], "abc")
+            bundle.write_bytes(b"changed")
+            with self.assertRaisesRegex(RuntimeError, "does not match"):
+                ADAPTER.load_bundle_manifest(bundle)
+
+    def test_manifest_rejects_stale_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = Path(temp_dir) / "ninjacode.cjs"
+            bundle.write_bytes(b"bundle")
+            digest = __import__("hashlib").sha256(b"bundle").hexdigest()
+            manifest = {
                 "schemaVersion": 2,
                 "adapterVersion": "1.0.0",
                 "cliVersion": "0.1.0",
@@ -85,10 +113,7 @@ class HarborAdapterTests(unittest.TestCase):
             bundle.with_name("ninjacode.harbor-manifest.json").write_text(
                 json.dumps(manifest)
             )
-            _, loaded = ADAPTER.load_bundle_manifest(bundle)
-            self.assertEqual(loaded["gitCommit"], "abc")
-            bundle.write_bytes(b"changed")
-            with self.assertRaisesRegex(RuntimeError, "does not match"):
+            with self.assertRaisesRegex(RuntimeError, "schema: 2"):
                 ADAPTER.load_bundle_manifest(bundle)
 
     def test_node_fallback_is_fully_pinned(self) -> None:

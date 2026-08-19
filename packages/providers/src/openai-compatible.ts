@@ -7,6 +7,7 @@ import type {
   ToolSpec,
 } from "./types.js";
 import { parseGatewayError } from "./gatewayErrors.js";
+import { parseRetryAfterMs } from "./retryAfter.js";
 import { LlmError } from "./types.js";
 import { consumeOpenAIStream } from "./openaiStream.js";
 import { promptCacheKey } from "./promptCache.js";
@@ -92,7 +93,12 @@ export class OpenAICompatibleProvider implements LlmProvider {
         provider: this.name,
       });
       if (gatewayErr) throw gatewayErr;
-      throw new LlmError(`${this.name} error ${res.status}: ${errText}`, res.status, this.name);
+      throw new LlmError(
+        `${this.name} error ${res.status}: ${errText}`,
+        res.status,
+        this.name,
+        parseRetryAfterMs(res.headers.get("retry-after")),
+      );
     }
 
     if (!res.body) {

@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { ChatViewProvider } from "./chatViewProvider.js";
+import { t } from "./locale.js";
 import { buildMessages, getQuickProvider, isSensitivePath, relativePath } from "./providerHelper.js";
 
 const SYSTEM_PROMPT = `You are NinjaCode's quick chat assistant, answering a short question about a snippet of
@@ -27,11 +28,11 @@ async function runQuickChat(
 ): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   const question = await vscode.window.showInputBox({
-    title: "NinjaCode: Quick Chat",
+    title: t("NinjaCode: Quick Chat"),
     prompt: editor && !editor.selection.isEmpty
-      ? "Ask something about the selected code"
-      : "Ask NinjaCode a quick question",
-    placeHolder: "e.g. what does this function do? why might this throw?",
+      ? t("Ask something about the selected code")
+      : t("Ask NinjaCode a quick question"),
+    placeHolder: t("e.g. what does this function do? why might this throw?"),
     ignoreFocusOut: true,
   });
   if (!question) return;
@@ -54,7 +55,7 @@ async function runQuickChat(
 
   try {
     await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: "NinjaCode: thinking…", cancellable: false },
+      { location: vscode.ProgressLocation.Notification, title: t("NinjaCode: thinking…"), cancellable: false },
       async () => {
         await quick.llm.completeStreaming(
           {
@@ -75,10 +76,10 @@ async function runQuickChat(
   }
 
   const choice = await vscode.window.showInformationMessage(
-    "NinjaCode quick chat answered in the output panel.",
-    "Continue in Chat",
+    t("NinjaCode quick chat answered in the output panel."),
+    t("Continue in Chat"),
   );
-  if (choice === "Continue in Chat") {
+  if (choice === t("Continue in Chat")) {
     await chatProvider.sendToChat(`${question}${contextBlock}`);
   }
 }

@@ -73,7 +73,6 @@ export interface GatewayModelEntry {
   reasoning?: ReasoningSupport;
   /** Recommended context cap for the UI Default label; falls back to contextWindow. */
   defaultContextWindow?: number;
-  editFormat?: ModelInfo["editFormat"];
   capabilities?: ModelCapabilities;
 }
 
@@ -153,7 +152,6 @@ const GATEWAY_MODELS: GatewayModelEntry[] = [
     failoverRoute: openRouterClaude("claude-sonnet-4-20250514"),
     vision: true,
     reasoning: { kind: "budget", min: 1_024, max: 64_000, default: 10_000 },
-    editFormat: "string_replace",
     capabilities: {
       reasoningDepth: 3,
       codeEditScope: 3,
@@ -178,7 +176,6 @@ const GATEWAY_MODELS: GatewayModelEntry[] = [
       secondaryApiKeyEnv: "GATEWAY_UPSTREAM_KEY",
     },
     vision: true,
-    editFormat: "patch",
     capabilities: {
       reasoningDepth: 2,
       codeEditScope: 2,
@@ -261,7 +258,6 @@ const GATEWAY_MODELS: GatewayModelEntry[] = [
       secondaryApiKeyEnv: "OPENROUTER_API_KEY",
     },
     failoverRoute: openRouterFallback("moonshot", "kimi-k2"),
-    editFormat: "string_replace",
     capabilities: {
       reasoningDepth: 2,
       codeEditScope: 2,
@@ -288,7 +284,6 @@ const GATEWAY_MODELS: GatewayModelEntry[] = [
     failoverRoute: openRouterFallback("glm", "glm-4.5"),
     reasoning: { kind: "levels", levels: ["low", "medium", "high"], default: "medium" },
     vision: true,
-    editFormat: "string_replace",
     capabilities: {
       reasoningDepth: 2,
       codeEditScope: 2,
@@ -314,7 +309,6 @@ const GATEWAY_MODELS: GatewayModelEntry[] = [
     },
     failoverRoute: openRouterFallback("mistral", "mistral-large"),
     vision: true,
-    editFormat: "patch",
     capabilities: {
       reasoningDepth: 2,
       codeEditScope: 2,
@@ -352,7 +346,6 @@ export function listGatewayModelInfos(): ModelInfo[] {
       reasoning: m.reasoning,
       defaultContextWindow: m.defaultContextWindow,
       vision: m.vision,
-      editFormat: m.editFormat,
       tags: m.virtual ? ["auto"] : undefined,
     })),
   );

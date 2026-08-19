@@ -198,6 +198,36 @@ temps total et latence p95. Une variante n'est retenue que si la correction ne
 baisse pas ; les gains de coût ou latence ne compensent jamais une régression de
 correction, de déterminisme ou de reprise.
 
+## Repère externe
+
+Relevé du 19 août 2026, à re-vérifier avant toute comparaison publique. Ces
+scores sont ceux du couple **harnais + modèle**, pas du modèle seul :
+
+| Harnais | Modèle | Terminal-Bench 2.1 |
+|---|---|---|
+| Codex CLI | GPT-5.6 Sol (xhigh) | 89,5 % |
+| Claude Code | Opus 5 (max effort) | 89,1 % |
+| — | Grok 4.6 (high) | 88,4 % |
+| Claude Code | Fable 5 | 83,8 % ± 1,2 |
+| Codex CLI | GPT-5.5 | 83,1 % ± 1,1 |
+| Cursor CLI | Grok 4.5 | 79,3 % ± 1,5 |
+| Terminus 2 (neutre) | Fable 5 | 80,4 % ± 1,2 |
+| Gemini CLI | Gemini 3.1 Pro | 70,7 % |
+
+L'écart entre un modèle sous Terminus 2 (harnais neutre) et le même modèle sous
+son harnais propriétaire mesure ce que vaut le scaffold. C'est la seule
+comparaison qui nous concerne : NinjaCode se juge contre le score du même modèle
+sur le même dataset, pas contre le haut du tableau obtenu avec un autre modèle.
+
+## Reproductibilité du bundle
+
+Le manifeste enregistre `gitCommit` **et** `gitTreeDirty`. Un bundle construit
+depuis un arbre modifié contient du code absent de l'historique : son score n'est
+ni reproductible ni attribuable. Dans ce cas `publishable` passe à `false`, le
+lanceur affiche un avertissement, et `harbor audit` échoue avec
+`bundle was built from a modified working tree`. Committer avant de lancer, ou
+passer `NINJACODE_GIT_COMMIT` en archive sans `.git`.
+
 ## Publication honnête
 
 Tout score publié doit joindre :

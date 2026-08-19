@@ -19,6 +19,11 @@ import {
   type ResolvedAdaptiveOrchestrationOptions,
 } from "./phasePolicy.js";
 import type { VerificationMode } from "./verificationTypes.js";
+import {
+  resolveLlmTurnStallOptions,
+  type LlmTurnStallOptions,
+  type ResolvedLlmTurnStallOptions,
+} from "./llmTurnGuard.js";
 export type { VerificationMode } from "./verificationTypes.js";
 
 /** Input to `Agent.run` — a plain string, or text plus multimodal image parts. */
@@ -112,6 +117,8 @@ export interface AgentOptions {
   /** OS boundary for shell, hooks, verification, and local MCP servers. */
   sandboxMode?: SandboxMode;
   runTimeoutMs?: number;
+  /** Per-request ceilings so one unresponsive provider cannot eat the whole run. */
+  llmTurnStall?: LlmTurnStallOptions;
   enableCompletionVerification?: boolean;
   /**
    * Compatibility switch for the LLM verifier. Prefer verificationMode for
@@ -156,6 +163,7 @@ export interface ResolvedAgentConfig {
     | Promise<readonly string[]>;
   sandboxMode: SandboxMode;
   runTimeoutMs: number;
+  llmTurnStall: ResolvedLlmTurnStallOptions;
   enableCompletionVerification: boolean;
   enableVerificationSubAgent: boolean;
   verificationMode: VerificationMode;
@@ -284,6 +292,7 @@ export function resolveAgentConfig(opts: AgentOptions): ResolvedAgentConfig {
     activeFilesProvider: opts.activeFilesProvider,
     sandboxMode: opts.sandboxMode ?? "workspace-write",
     runTimeoutMs: opts.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS,
+    llmTurnStall: resolveLlmTurnStallOptions(opts.llmTurnStall),
     enableCompletionVerification: resolveCompletionVerification(opts, mode),
     enableVerificationSubAgent:
       opts.enableVerificationSubAgent ??

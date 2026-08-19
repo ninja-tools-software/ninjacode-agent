@@ -41,6 +41,12 @@ export function waitOrAbort<T>(promise: Promise<T>, signal: AbortSignal): Promis
   });
 }
 
+/** Milliseconds left on the run clock; `Infinity` when the run is untimed. */
+export function remainingRunMs(runTimeoutMs: number, runStartedAt: number): number {
+  if (!runTimeoutMs || runTimeoutMs <= 0) return Number.POSITIVE_INFINITY;
+  return Math.max(0, runTimeoutMs - (Date.now() - runStartedAt));
+}
+
 export function checkRunTimeout(runTimeoutMs: number, runStartedAt: number): string | undefined {
   if (!runTimeoutMs || runTimeoutMs <= 0) return undefined;
   if (Date.now() - runStartedAt > runTimeoutMs) {

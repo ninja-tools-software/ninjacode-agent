@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Message } from "@ninjacode/providers";
 import type { TurnTrace } from "./types.js";
 import { normalizeToolHistory, alignCompactionStart, isValidToolChain } from "./toolHistory.js";
-import { compactHistory, compactHistorySync } from "./context.js";
+import { compactHistory } from "./context.js";
 import {
   buildPersistedSession,
   deriveSessionTitle,
@@ -127,7 +127,7 @@ describe("compactHistory tool integrity", () => {
     expect(isValidToolChain(out.messages)).toBe(true);
   });
 
-  it("compactHistorySync preserves tool blocks", () => {
+  it("keeps tool blocks valid when compaction has no summarizer provider", async () => {
     const history: Message[] = Array.from({ length: 90 }, (_, i) => {
       if (i % 3 === 0) return { role: "user" as const, content: `u${i}` };
       if (i % 3 === 1) {
@@ -144,8 +144,8 @@ describe("compactHistory tool integrity", () => {
         name: "list_dir",
       };
     });
-    const out = compactHistorySync(history, "task");
-    expect(isValidToolChain(out)).toBe(true);
+    const out = await compactHistory({ history, pinnedTask: "task" });
+    expect(isValidToolChain(out.messages)).toBe(true);
   });
 });
 

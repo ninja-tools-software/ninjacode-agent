@@ -1,16 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LlmProvider, Message, ToolSpec } from "@ninjacode/providers";
+import { findModelAnywhere } from "@ninjacode/providers";
 import {
   compactHistory,
   compactHistoryLossless,
+  compactionTranscriptBudget,
   isCompactionMessage,
   toolOutputLimit,
   truncateToolOutput,
 } from "./context.js";
+import { CHECKPOINT_INSTRUCTIONS } from "./compactionCheckpoint.js";
 import {
   clampMaxTokens,
   contextSafetyMargin,
   estimateContextUsage,
+  estimateImageTokens,
   estimateTokens,
   recordTokenCalibration,
   tokenCalibrationMultiplier,
@@ -143,6 +147,43 @@ describe("estimateContextUsage", () => {
   });
 });
 
+describe("image token estimation", () => {
+  const image = (chars: number): Message => ({
+    role: "user",
+    content: "look",
+    parts: [{ type: "image", mimeType: "image/png", data: "a".repeat(chars) }],
+  });
+
+  it("counts attached images instead of treating them as free", () => {
+    const withImage = estimateTokens([image(1_400_000)]);
+    const textOnly = estimateTokens([{ role: "user", content: "look" }]);
+    expect(withImage).toBeGreaterThan(textOnly + 1_000);
+  });
+
+  it("charges a floor even for a tiny image", () => {
+    expect(estimateImageTokens([{ type: "image", mimeType: "image/png", data: "aa" }])).toBe(256);
+  });
+
+  it("returns zero when a message has no parts", () => {
+    expect(estimateImageTokens(undefined)).toBe(0);
+    expect(estimateImageTokens([])).toBe(0);
+  });
+
+  it("reports images as their own line in the breakdown", () => {
+    const usage = estimateContextUsage({ system: "s", history: [image(500_000)] });
+    expect(usage.images).toBeGreaterThan(0);
+    expect(usage.total).toBeGreaterThan(usage.images);
+  });
+
+  it("leaves the breakdown image line at zero for text-only history", () => {
+    const usage = estimateContextUsage({
+      system: "s",
+      history: [{ role: "user", content: "hello" }],
+    });
+    expect(usage.images).toBe(0);
+  });
+});
+
 describe("clampMaxTokens", () => {
   it("leaves room for input when maxOutput exceeds the default DeepSeek window", () => {
     expect(clampMaxTokens(384_000, 200_000)).toBe(157_232);
@@ -230,6 +271,195 @@ describe("compactHistory telemetry", () => {
     expect(result.messages.some((m) => m.content.startsWith("[Compacted earlier conversation]"))).toBe(
       true,
     );
+  });
+
+  it("names the reason when the summarizer fails instead of silently degrading", async () => {
+    const provider: LlmProvider = {
+      name: "broken",
+      async complete() {
+        throw new Error("prompt is too long: 250000 tokens > 200000 maximum");
+      },
+      async completeStreaming() {
+        throw new Error("unused");
+      },
+    };
+    let info: { fallback: boolean; fallbackReason?: string; model: string } | undefined;
+
+    await compactHistory({
+      history: bigHistory(90),
+      provider,
+      model: "claude-sonnet-4-20250514",
+      onCompaction: (i) => {
+        info = i;
+      },
+    });
+
+    expect(info?.fallback).toBe(true);
+    expect(info?.fallbackReason).toContain("prompt is too long");
+  });
+
+  it("reports no fallback reason when the summarizer answers", async () => {
+    const provider: LlmProvider = {
+      name: "summarizer",
+      async complete() {
+        return {
+          text: "## Objective\nShip it.",
+          toolCalls: [],
+          usage: { inputTokens: 5, outputTokens: 5 },
+          model: "summarizer",
+          stopReason: "end" as const,
+        };
+      },
+      async completeStreaming() {
+        throw new Error("unused");
+      },
+    };
+    let info: { fallback: boolean; fallbackReason?: string } | undefined;
+
+    await compactHistory({
+      history: bigHistory(90),
+      provider,
+      onCompaction: (i) => {
+        info = i;
+      },
+    });
+
+    expect(info?.fallback).toBe(false);
+    expect(info?.fallbackReason).toBeUndefined();
+  });
+});
+
+describe("compactionTranscriptBudget", () => {
+  it("leaves room for the checkpoint instructions and the summary itself", () => {
+    const budget = compactionTranscriptBudget("claude-sonnet-4-20250514");
+    const window = findModelAnywhere("claude-sonnet-4-20250514")!.contextWindow;
+    expect(budget).toBeGreaterThan(0);
+    expect(budget).toBeLessThan(window * 0.9);
+  });
+
+  it("falls back to a conservative window for an unknown summarizer", () => {
+    expect(compactionTranscriptBudget("some-unlisted-model")).toBe(
+      compactionTranscriptBudget(undefined),
+    );
+  });
+
+  it("never returns a budget too small to send anything", () => {
+    expect(compactionTranscriptBudget("gpt-4o")).toBeGreaterThanOrEqual(1_000);
+  });
+});
+
+describe("summarizer transcript bounding", () => {
+  function hugeHistory(n: number, charsEach: number): Message[] {
+    return Array.from({ length: n }, (_, i) => ({
+      role: (i % 2 === 0 ? "user" : "assistant") as Message["role"],
+      content: `m${i} ${"x".repeat(charsEach)}`,
+    }));
+  }
+
+  /**
+   * The regression: a transcript larger than the summarizer's own window used to
+   * be sent as-is, come back as a provider error, and land in the heuristic
+   * fallback with no trace.
+   */
+  it("trims an oversized transcript instead of letting the call fail", async () => {
+    let requestChars = 0;
+    const provider: LlmProvider = {
+      name: "small-window",
+      async complete(request) {
+        requestChars = request.messages.reduce((total, m) => total + m.content.length, 0);
+        return {
+          text: "## Objective\nDone.",
+          toolCalls: [],
+          usage: { inputTokens: 1, outputTokens: 1 },
+          model: "small-window",
+          stopReason: "end" as const,
+        };
+      },
+      async completeStreaming() {
+        throw new Error("unused");
+      },
+    };
+    let info: { fallback: boolean; droppedFromTranscript: number } | undefined;
+
+    await compactHistory({
+      history: hugeHistory(120, 20_000),
+      provider,
+      model: "gpt-4o",
+      onCompaction: (i) => {
+        info = i;
+      },
+    });
+
+    const budget = compactionTranscriptBudget("gpt-4o");
+    expect(info?.fallback).toBe(false);
+    expect(info?.droppedFromTranscript).toBeGreaterThan(0);
+    expect(requestChars).toBeLessThanOrEqual(budget * 4 + CHECKPOINT_INSTRUCTIONS.length + 4_000);
+  });
+
+  it("keeps the prior canonical checkpoint even when trimming", async () => {
+    let transcript = "";
+    const provider: LlmProvider = {
+      name: "small-window",
+      async complete(request) {
+        transcript = request.messages.at(-1)!.content;
+        return {
+          text: "## Objective\nDone.",
+          toolCalls: [],
+          usage: { inputTokens: 1, outputTokens: 1 },
+          model: "small-window",
+          stopReason: "end" as const,
+        };
+      },
+      async completeStreaming() {
+        throw new Error("unused");
+      },
+    };
+
+    await compactHistory({
+      history: [
+        { role: "user", content: "[Compacted earlier conversation]\n## Objective\nKEEP_THIS_MARKER" },
+        ...hugeHistory(120, 20_000),
+      ],
+      provider,
+      model: "gpt-4o",
+      force: true,
+    });
+
+    expect(transcript).toContain("KEEP_THIS_MARKER");
+    expect(transcript).toContain("older message(s) omitted");
+  });
+
+  it("sends the whole transcript when it comfortably fits", async () => {
+    let transcript = "";
+    const provider: LlmProvider = {
+      name: "big-window",
+      async complete(request) {
+        transcript = request.messages.at(-1)!.content;
+        return {
+          text: "## Objective\nDone.",
+          toolCalls: [],
+          usage: { inputTokens: 1, outputTokens: 1 },
+          model: "big-window",
+          stopReason: "end" as const,
+        };
+      },
+      async completeStreaming() {
+        throw new Error("unused");
+      },
+    };
+    let info: { droppedFromTranscript: number } | undefined;
+
+    await compactHistory({
+      history: hugeHistory(90, 50),
+      provider,
+      model: "gpt-4o",
+      onCompaction: (i) => {
+        info = i;
+      },
+    });
+
+    expect(info?.droppedFromTranscript).toBe(0);
+    expect(transcript).not.toContain("omitted");
   });
 });
 

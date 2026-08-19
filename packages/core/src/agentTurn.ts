@@ -86,6 +86,7 @@ async function handleToolTurn(
     role: "assistant",
     content: completion.text,
     toolCalls: completion.toolCalls,
+    reasoningBlocks: completion.reasoningBlocks,
   });
 
   const invocations = await deps.toolPipeline.executeToolCalls(deps.modeTools, completion.toolCalls);

@@ -235,6 +235,72 @@ describe("withRetry", () => {
     expect(inner.attempts).toHaveLength(6);
   });
 
+  it("waits exactly as long as Retry-After asks, without jitter", async () => {
+    const inner = new FlakyProvider([new LlmError("rate limited", 429, "test", 7_000)]);
+    const slept: number[] = [];
+    const provider = withRetry(inner, {
+      maxRetries: 2,
+      baseDelayMs: 500,
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    await provider.complete({ messages: [{ role: "user", content: "hi" }] });
+    expect(slept).toEqual([7_000]);
+  });
+
+  it("caps an absurd Retry-After rather than parking the run", async () => {
+    const inner = new FlakyProvider([new LlmError("rate limited", 429, "test", 3_600_000)]);
+    const slept: number[] = [];
+    const provider = withRetry(inner, {
+      maxRetries: 2,
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    await provider.complete({ messages: [{ role: "user", content: "hi" }] });
+    expect(slept).toEqual([60_000]);
+  });
+
+  it("falls back to the backoff curve when no Retry-After is given", async () => {
+    const inner = new FlakyProvider([new LlmError("server error", 503, "test")]);
+    const slept: number[] = [];
+    const provider = withRetry(inner, {
+      maxRetries: 2,
+      baseDelayMs: 400,
+      clock: { now: () => 0 },
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    await provider.complete({ messages: [{ role: "user", content: "hi" }] });
+    expect(slept).toEqual([400]);
+  });
+
+  it("does not retry a final 4xx whose text mentions a socket", async () => {
+    const inner = new FlakyProvider([
+      new LlmError("bad request: socket options rejected", 400, "test"),
+    ]);
+    const provider = withRetry(inner, { maxRetries: 3, sleep: async () => undefined });
+
+    await expect(
+      provider.complete({ messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(inner.attempts).toHaveLength(1);
+  });
+
+  it("still retries an untyped network failure on its message", async () => {
+    const inner = new FlakyProvider([new Error("fetch failed")]);
+    const provider = withRetry(inner, { maxRetries: 2, sleep: async () => undefined });
+
+    const result = await provider.complete({ messages: [{ role: "user", content: "hi" }] });
+    expect(result.text).toBe("ok");
+    expect(inner.attempts).toHaveLength(2);
+  });
+
   it("surfaces abort during backoff instead of the previous provider error", async () => {
     const controller = new AbortController();
     const inner = new FlakyProvider([new LlmError("server error", 503, "test")]);

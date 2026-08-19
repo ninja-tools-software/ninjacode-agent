@@ -168,4 +168,50 @@ describe("Harbor benchmark truth", () => {
     expect(gate.failures.join("\n")).toMatch(/agent timeout rate/);
     expect(harborTruthMarkdown(summary, gate)).toMatch(/Agent timeout rate/);
   });
+
+  it("rejects a run whose bundle came from a modified working tree", () => {
+    const passing = summarizeHarborTruth([
+      {
+        task: "a",
+        trial: "a__1",
+        passed: true,
+        verifierPassed: true,
+        agentCompleted: true,
+        telemetryEligible: true,
+        telemetryAvailable: true,
+        telemetryComplete: true,
+      },
+    ]);
+    const gate = evaluateHarborTruthGates(passing, {
+      expectedTasks: 1,
+      expectedAttempts: 1,
+      bundleGitTreeDirty: true,
+    });
+    expect(passing.correctionPassRate).toBe(1);
+    expect(gate.passed).toBe(false);
+    expect(gate.failures.join("\n")).toMatch(/not reproducible/);
+  });
+
+  it("stays silent about the tree when the bundle was clean or unknown", () => {
+    const passing = summarizeHarborTruth([
+      {
+        task: "a",
+        trial: "a__1",
+        passed: true,
+        verifierPassed: true,
+        agentCompleted: true,
+        telemetryEligible: true,
+        telemetryAvailable: true,
+        telemetryComplete: true,
+      },
+    ]);
+    for (const bundleGitTreeDirty of [false, undefined]) {
+      const gate = evaluateHarborTruthGates(passing, {
+        expectedTasks: 1,
+        expectedAttempts: 1,
+        bundleGitTreeDirty,
+      });
+      expect(gate.passed).toBe(true);
+    }
+  });
 });

@@ -34,3 +34,24 @@ sudo apt-get install bubblewrap
 
 The VSIX does not bundle a privileged native runtime. The extension checks the platform backend at
 execution time and returns a structured permission error when it is unavailable.
+
+## Known limits
+
+The boundary is real but it is not a jail. What it does **not** currently guarantee:
+
+- **Reads are not confined to the workspace.** Seatbelt allows `file-read*` with targeted denies,
+  and Bubblewrap mounts the host read-only. Sensitive paths are masked, but a shell command can
+  still read most of the filesystem. Only writes and network are confined.
+- **`run_shell` is not path-confined.** Only `cwd` is validated against the workspace; the command
+  itself is not restricted to paths inside it. The filesystem tools are confined
+  (`resolveInWorkspace` resolves symlinks and rejects escapes), the shell is not.
+- **Shell danger classification is syntactic.** `shellDanger.ts` recognises families of dangerous
+  commands by parsing argv, unwrapping wrappers and descending into `-c` payloads. A payload it
+  cannot parse is not thereby safe — that is why an unclassifiable call is treated as
+  `destructive` rather than as the tool's static risk.
+- **No defence against prompt injection.** File contents, fetched pages and MCP responses are not
+  marked as untrusted. The guarantee comes from permissions and this sandbox, never from prompt
+  wording.
+
+`danger-full-access` removes all of the above. The benchmark harness uses it deliberately, which
+is one more reason a benchmark score is not a statement about the product's safety posture.

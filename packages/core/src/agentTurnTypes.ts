@@ -22,6 +22,7 @@ import type {
   ResolvedIndependentVerifierOptions,
   VerificationMode,
 } from "./agentOptions.js";
+import type { ResolvedLlmTurnStallOptions } from "./llmTurnGuard.js";
 import type { IndependentVerifierRunResult } from "./agentSupport.js";
 
 export interface AgentTurnMutableState {
@@ -34,6 +35,8 @@ export interface AgentTurnMutableState {
   emptyResponseRetries: number;
   stopHookRetries: number;
   verificationRetries: number;
+  /** Consecutive LLM turns that produced nothing before their time ran out. */
+  llmStallRetries: number;
   globalTurn: number;
   toolCallFingerprints: string[];
   phasePolicy?: PhasePolicyState;
@@ -66,6 +69,7 @@ export interface AgentTurnDeps {
   enableSubagents: boolean;
   orchestrationProfile: OrchestrationProfile;
   adaptiveOrchestration: ResolvedAdaptiveOrchestrationOptions;
+  llmTurnStall: ResolvedLlmTurnStallOptions;
   modifiedFiles: Set<string>;
   activeFilesProvider?: () =>
     | readonly string[]
@@ -85,6 +89,8 @@ export interface AgentTurnDeps {
   ) => void;
   getCacheStats: () => Record<string, unknown>;
   checkRunTimeout: () => string | undefined;
+  /** Milliseconds left on the run clock; `Infinity` when the run is untimed. */
+  remainingRunMs: () => number;
   runHooks: (
     event: HookRunResult["event"],
     input: { toolName?: string; arguments?: Record<string, unknown>; output?: string; error?: string },

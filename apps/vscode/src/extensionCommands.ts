@@ -13,6 +13,7 @@ import { registerChatParticipant } from "./chatParticipant.js";
 import { registerLmProvider } from "./lmProvider.js";
 import { registerNextEdit } from "./nextEdit.js";
 import { registerQuickChat } from "./quickChat.js";
+import { t } from "./locale.js";
 import { setSecretApiKey } from "./secrets.js";
 
 export function registerChatView(context: vscode.ExtensionContext, provider: ChatViewProvider): void {
@@ -58,7 +59,7 @@ export function registerEditCommands(
       const p =
         path ??
         (await vscode.window.showQuickPick(provider.proposedEdits.paths(), {
-          title: "Review proposed edit",
+          title: t("Review proposed edit"),
         }));
       if (p) {
         const { showProposedDiff } = await import("./proposedEdits.js");
@@ -113,18 +114,18 @@ export function registerApiKeyCommand(context: vscode.ExtensionContext): void {
         "openai-compatible",
       ];
       const kind = (await vscode.window.showQuickPick(kinds, {
-        title: "Provider for API key",
+        title: t("Provider for API key"),
       })) as ProviderKind | undefined;
       if (!kind) return;
       const key = await vscode.window.showInputBox({
-        title: `NinjaCode API Key (${kind})`,
+        title: t("NinjaCode API Key ({0})", kind),
         password: true,
-        prompt: "Stored securely in VS Code SecretStorage",
+        prompt: t("Stored securely in VS Code SecretStorage"),
         ignoreFocusOut: true,
       });
       if (key) {
         await setSecretApiKey(context, key, kind);
-        vscode.window.showInformationMessage(`NinjaCode: API key saved for ${kind}.`);
+        vscode.window.showInformationMessage(t("NinjaCode: API key saved for {0}.", kind));
       }
     }),
   );

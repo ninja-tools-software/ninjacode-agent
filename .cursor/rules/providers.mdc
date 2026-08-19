@@ -23,7 +23,8 @@ All adapters implement `LlmProvider` (`types.ts`): `complete(req)` and `complete
 
 ## Adding a model or provider
 
-- New models go in `catalog.ts` (context window, pricing, `editFormat` if the model prefers `patch` over `string_replace` — see `preferredEditFormat` in core) and in `gatewayRegistry.ts` if served through the gateway.
+- New models go in `catalog.ts` (context window, pricing, reasoning support, vision) and in `gatewayRegistry.ts` if served through the gateway. The catalog describes models; it does not configure the loop.
+- Edit format, verification policy, orchestration profile and default reasoning effort are **harness** decisions and live only in `harnessProfiles.ts` (`packages/core`), which resolves exact model, then provider family, then default. Do not add them to `catalog.ts`.
 - New providers: add to `ProviderKind`, wire in `createProvider` (keep the exhaustive `never` check), export from `index.ts`.
 - Test streaming against `MockProvider` patterns; add a colocated `*.test.ts` covering tool-call assembly from deltas and error mapping.
 

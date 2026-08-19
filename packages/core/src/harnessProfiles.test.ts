@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultToolRegistry } from "@ninjacode/tools";
-import {
-  filterToolsForHarnessProfile,
-  resolveHarnessProfile,
-  type HarnessProfile,
-} from "./harnessProfiles.js";
+import { resolveHarnessProfile } from "./harnessProfiles.js";
 
 describe("versioned harness profiles", () => {
   it("resolves exact model overrides before a conflicting provider family", () => {
@@ -47,7 +42,7 @@ describe("versioned harness profiles", () => {
     });
 
     expect(first).toEqual(second);
-    expect(first.editFormat).toBe("patch");
+    expect(first).toMatchObject({ source: "family", key: "openai", editFormat: "patch" });
   });
 
   it("uses an immutable default for unknown families and models", () => {
@@ -65,10 +60,9 @@ describe("versioned harness profiles", () => {
       orchestration: "legacy",
     });
     expect(Object.isFrozen(profile)).toBe(true);
-    expect(Object.isFrozen(profile.optionalTools)).toBe(true);
   });
 
-  it("uses Grok 4.6 extra-high reasoning, string_replace edits, and adaptive orchestration", () => {
+  it("uses Grok 4.6 extra-high reasoning while inheriting its family's edits", () => {
     const profile = resolveHarnessProfile({
       providerKind: "xai",
       modelId: "grok-4.6",
@@ -80,6 +74,15 @@ describe("versioned harness profiles", () => {
       orchestration: "adaptive",
       reasoningEffort: "xhigh",
     });
+  });
+
+  /** A restated family value would hide which field is really the exception. */
+  it("keeps model entries down to what differs from their family", () => {
+    const grok = resolveHarnessProfile({ modelId: "grok-4.6" });
+    const family = resolveHarnessProfile({ modelId: "grok-4.5" });
+    expect(grok.editFormat).toBe(family.editFormat);
+    expect(grok.orchestration).toBe(family.orchestration);
+    expect(grok.reasoningEffort).not.toBe(family.reasoningEffort);
   });
 
   it("keeps Grok 4.5 on string_replace without xhigh", () => {
@@ -98,16 +101,4 @@ describe("versioned harness profiles", () => {
       .toBeUndefined();
   });
 
-  it("filters only the optional tool namespace", () => {
-    const base = resolveHarnessProfile({ modelId: "gpt-4.1" });
-    const profile: HarnessProfile = {
-      ...base,
-      optionalTools: ["git_status"],
-    };
-    const tools = filterToolsForHarnessProfile(createDefaultToolRegistry(), profile);
-
-    expect(tools.get("git_status")).toBeDefined();
-    expect(tools.get("git_diff")).toBeUndefined();
-    expect(tools.get("read_file")).toBeDefined();
-  });
 });

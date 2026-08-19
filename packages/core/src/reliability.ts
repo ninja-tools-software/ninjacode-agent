@@ -103,8 +103,10 @@ async function retry<T>(opts: {
       if (opts.signal?.aborted) throw abortError(opts.signal);
       if (opts.canRetry?.() === false) throw e;
       if (!isRetryableLlmError(e) || attempt === opts.maxRetries) throw e;
-      const delay = Math.min(opts.maxDelayMs, opts.baseDelayMs * 2 ** attempt);
-      const jitter = backoffJitter(opts.clock, attempt, delay);
+      const requested = retryAfterMsFrom(e);
+      const delay = requested ?? Math.min(opts.maxDelayMs, opts.baseDelayMs * 2 ** attempt);
+      // A server-stated wait is honored as given; jitter only spreads our own curve.
+      const jitter = requested === undefined ? backoffJitter(opts.clock, attempt, delay) : 0;
       await opts.sleepFn(delay + jitter, opts.signal);
     }
   }
@@ -125,11 +127,26 @@ function abortError(signal: AbortSignal): Error {
   return new DOMException(signal.reason ? String(signal.reason) : "Aborted", "AbortError");
 }
 
+/**
+ * A rate limiter that states how long to wait knows better than our curve. The
+ * ceiling still applies: waiting minutes inside a run that has its own deadline
+ * buys nothing over failing and letting the caller decide.
+ */
+const MAX_RETRY_AFTER_MS = 60_000;
+
+function retryAfterMsFrom(error: unknown): number | undefined {
+  if (!(error instanceof LlmError)) return undefined;
+  const requested = error.retryAfterMs;
+  if (requested === undefined || !Number.isFinite(requested) || requested < 0) return undefined;
+  return Math.min(requested, MAX_RETRY_AFTER_MS);
+}
+
 export function isRetryableLlmError(e: unknown): boolean {
   if (e instanceof GatewayError) return !e.partial && !isTerminalGatewayCode(e.code);
-  if (e instanceof LlmError) {
-    if (e.status === 429) return true;
-    if (e.status && e.status >= 500) return true;
+  // A typed status is the verdict, not a hint: falling through to the message
+  // heuristics below would retry a final 4xx whose text happens to say "socket".
+  if (e instanceof LlmError && e.status !== undefined) {
+    return e.status === 429 || e.status >= 500;
   }
   const msg = e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
   return (

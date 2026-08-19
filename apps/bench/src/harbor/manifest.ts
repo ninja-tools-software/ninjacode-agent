@@ -13,14 +13,20 @@ import { ablationComponents, resolveAblationVariant } from "../ablations.js";
 
 const execFileAsync = promisify(execFile);
 
-export const HARBOR_ADAPTER_VERSION = "1.1.0";
-export const HARBOR_MANIFEST_SCHEMA_VERSION = 2;
+export const HARBOR_ADAPTER_VERSION = "1.2.0";
+export const HARBOR_MANIFEST_SCHEMA_VERSION = 3;
 
 interface HarborBundleManifest {
   schemaVersion: number;
   adapterVersion: string;
   cliVersion: string;
   gitCommit: string;
+  /**
+   * A commit alone does not identify the bundle: one built from a modified tree
+   * carries code that exists nowhere in history, so its score cannot be
+   * reproduced or attributed. Recording this is what makes `publishable` honest.
+   */
+  gitTreeDirty: boolean;
   bundleSha256: string;
   bundleBytes: number;
   minimumNodeMajor: number;
@@ -58,6 +64,20 @@ async function resolveGitCommit(): Promise<string> {
   }
 }
 
+/**
+ * Reported as dirty when the answer is unknown: an unverifiable tree is exactly
+ * as unpublishable as one we know was modified.
+ */
+async function resolveGitTreeDirty(): Promise<boolean> {
+  if ((process.env.NINJACODE_GIT_COMMIT ?? process.env.GITHUB_SHA)?.trim()) return false;
+  try {
+    const { stdout } = await execFileAsync("git", ["status", "--porcelain"], { cwd: repoRoot() });
+    return stdout.trim().length > 0;
+  } catch {
+    return true;
+  }
+}
+
 async function cliVersion(): Promise<string> {
   const packagePath = path.join(benchRoot(), "..", "cli", "package.json");
   const parsed = JSON.parse(await readFile(packagePath, "utf8")) as { version?: unknown };
@@ -82,11 +102,13 @@ export async function buildHarborBundleManifest(
     process.env.NINJACODE_PERF_ABLATION ?? "optimized",
   );
   const bundle = await readFile(bundlePath);
+  const gitTreeDirty = await resolveGitTreeDirty();
   return {
     schemaVersion: HARBOR_MANIFEST_SCHEMA_VERSION,
     adapterVersion: HARBOR_ADAPTER_VERSION,
     cliVersion: await cliVersion(),
     gitCommit: await resolveGitCommit(),
+    gitTreeDirty,
     bundleSha256: createHash("sha256").update(bundle).digest("hex"),
     bundleBytes: bundle.byteLength,
     minimumNodeMajor: config.node.minimumMajor,
@@ -101,7 +123,7 @@ export async function buildHarborBundleManifest(
     profile,
     expectedTasks: profileConfig.expectedTasks,
     attempts: profileConfig.attempts,
-    publishable: profileConfig.publishable,
+    publishable: profileConfig.publishable && !gitTreeDirty,
     ablation: {
       name: ablation.name,
       disabled: ablation.disabled,

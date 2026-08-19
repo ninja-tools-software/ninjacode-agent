@@ -146,7 +146,7 @@ function remoteOnlyModel(m: GatewayModelWire, extras: WireExtras): ModelInfo {
 
 function mergeKnownModel(m: GatewayModelWire, known: ModelInfo, extras: WireExtras): ModelInfo {
   // API fields win for anything the server can vary per catalog; static fills
-  // capabilities the wire format does not carry (reasoning, editFormat, …).
+  // capabilities the wire format does not carry (reasoning, vision, …).
   // costIndex is the only cost signal on the wire — full rate tables stay off.
   return {
     ...known,

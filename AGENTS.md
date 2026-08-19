@@ -35,7 +35,7 @@ pnpm version:bump                # explicit release-only patch bump
 
 `pnpm build` and `package` are pure: they must not rewrite `package.json`. Bump versions only with `pnpm version:bump`, then commit and tag `vX.Y.Z`. CI runs `check:build-purity` and `check:clean-tree` after build and tests.
 
-Known pitfall: `CAPACITES_AGENT.md` is sometimes out of date vs the code — trust the code.
+Known pitfall: `CAPACITES_AGENT.md` drifts from the code — it has claimed the wrong tool count, an absent keybinding and a stale provider list. Trust the code, and fix the file when you catch it. `docs/AUDIT_HARNESS_2026-08.md` is the current assessment of what the harness does and does not guarantee.
 
 ## Conventions
 
@@ -52,5 +52,6 @@ Known pitfall: `CAPACITES_AGENT.md` is sometimes out of date vs the code — tru
 ## Harness invariants (do not break)
 
 - **Prompt-cache stable prefix**: system prompt and tool specs must stay byte-stable within a session. No timestamps, UUIDs, or per-turn dynamic values in the system prompt or tool descriptions; volatile context goes into messages.
-- **Compaction is progressive**: lossless first (truncate tool outputs, soften superseded reads in `context.ts`), LLM summarization last resort. Never delete tool messages in a way that breaks `tool_calls` chains.
-- Every retry loop needs a termination condition (max attempts, circuit breaker, abort signal). Every new loop in the agent needs a budget/turn check.
+- **Compaction is progressive**: lossless first (truncate tool outputs, soften superseded reads in `context.ts`), LLM summarization last resort. Never delete tool messages in a way that breaks `tool_calls` chains. The summarizer is a model call like any other: its input must fit its own context window, and a fallback to the local heuristic must state its cause rather than pass for a successful compaction.
+- Every retry loop needs a termination condition (max attempts, circuit breaker, abort signal). Every new loop in the agent needs a budget/turn check. **Waiting counts as a loop**: `llmTurnGuard.ts` bounds one LLM request and ends the run after consecutive stalls, because the circuit breaker only ever covered tools.
+- **Risk classification is fail-closed.** `Tool.riskFor` reads arguments the model wrote, so it can be made to throw; an unclassifiable call is `destructive`, never the tool's static risk.

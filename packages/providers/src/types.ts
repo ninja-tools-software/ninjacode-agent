@@ -56,11 +56,23 @@ export interface Message {
   toolCalls?: ToolCall[];
   toolCallId?: string;
   name?: string;
+  /** Signed thinking blocks to replay on an assistant turn. */
+  reasoningBlocks?: ReasoningBlock[];
 }
 
 export function hasImageParts(message: Message): boolean {
   return Boolean(message.parts?.some((p) => p.type === "image"));
 }
+
+/**
+ * A provider-signed reasoning block. Anthropic verifies the signature when the
+ * block comes back, so it has to round-trip verbatim: the harness keeps these on
+ * the assistant message and the adapter replays them ahead of any other content.
+ * Losing them means paying for extended thinking and discarding it every turn.
+ */
+export type ReasoningBlock =
+  | { type: "thinking"; thinking: string; signature: string }
+  | { type: "redacted_thinking"; data: string };
 
 export interface ToolSpec {
   name: string;
@@ -101,8 +113,10 @@ export interface Completion {
   /** Model actually used after gateway Auto routing (when different from request). */
   resolvedModel?: string;
   stopReason: "end" | "tool_use" | "max_tokens" | "error";
-  /** Reasoning/thinking tokens when the provider exposes them (OpenAI o-series, etc.). */
+  /** Reasoning/thinking text when the provider exposes it (OpenAI o-series, etc.). */
   reasoning?: string;
+  /** Signed reasoning blocks that must be replayed on the next turn (Anthropic). */
+  reasoningBlocks?: ReasoningBlock[];
 }
 
 export type StreamEvent =
@@ -142,6 +156,8 @@ export class LlmError extends Error {
     message: string,
     readonly status?: number,
     readonly provider?: string,
+    /** Server-requested wait before retrying, parsed from `Retry-After`. */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "LlmError";

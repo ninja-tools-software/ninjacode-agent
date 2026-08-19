@@ -14,6 +14,7 @@ import { estimateContextUsage } from "./contextEstimate.js";
 import { isCompactionMessage } from "./context.js";
 import type { AgentTurnDeps, AgentTurnMutableState } from "./agentTurnTypes.js";
 import { withRetry } from "./reliability.js";
+import { resolveLlmTurnStallOptions } from "./llmTurnGuard.js";
 
 function bigHistory(n: number): Message[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -54,6 +55,7 @@ function depsFor(history: Message[], provider: LlmProvider): AgentTurnDeps {
     emptyResponseRetries: 0,
     stopHookRetries: 0,
     verificationRetries: 0,
+    llmStallRetries: 0,
     globalTurn: 0,
     toolCallFingerprints: [],
   };
@@ -82,6 +84,8 @@ function depsFor(history: Message[], provider: LlmProvider): AgentTurnDeps {
     archiveCompaction: vi.fn(async () => undefined),
     getCacheStats: () => ({}),
     checkRunTimeout: () => undefined,
+    remainingRunMs: () => Number.POSITIVE_INFINITY,
+    llmTurnStall: resolveLlmTurnStallOptions(),
     logAgentEvent: vi.fn(),
     isAbortError: () => false,
     outcome: (answer: string, completed: boolean) => ({
@@ -172,6 +176,7 @@ describe("prepareTurnMessages persists compaction", () => {
       tools: 0,
       history: 89,
       files: 0,
+      images: 0,
     });
 
     await expect(prepareTurnMessages(deps)).rejects.toBeInstanceOf(ContextBudgetError);
@@ -237,6 +242,28 @@ function executionProvider(
     ) {
       provider.attempts += 1;
       return run(provider.attempts, sink);
+    },
+  };
+  return provider;
+}
+
+/** Never answers; only the harness guard can end the call. */
+function stallingProvider(): LlmProvider & { attempts: number } {
+  const provider = {
+    name: "stalling",
+    attempts: 0,
+    async complete() {
+      throw new Error("unused");
+    },
+    async completeStreaming(request: Parameters<LlmProvider["completeStreaming"]>[0]) {
+      provider.attempts += 1;
+      return new Promise<never>((_resolve, reject) => {
+        request.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true },
+        );
+      });
     },
   };
   return provider;
@@ -312,5 +339,75 @@ describe("callLlmForTurn safe retry", () => {
       "error",
       expect.objectContaining({ code: "retry_exhausted", retryable: false }),
     );
+  });
+});
+
+describe("callLlmForTurn stall guard", () => {
+  function stallingDeps(maxConsecutiveStalls: number) {
+    const provider = stallingProvider();
+    const deps = depsFor([], provider);
+    deps.llmTurnStall = { requestTimeoutMs: 20, streamIdleTimeoutMs: 0, maxConsecutiveStalls };
+    return { deps, provider };
+  }
+
+  it("retries a stalled turn once instead of burning the run budget", async () => {
+    const { deps, provider } = stallingDeps(2);
+
+    const result = await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    expect(result).toEqual({ kind: "continue" });
+    expect(deps.state.llmStallRetries).toBe(1);
+    expect(provider.attempts).toBe(1);
+    expect(deps.setState).not.toHaveBeenCalled();
+    expect(deps.state.history).toEqual([]);
+  });
+
+  it("ends the run once stalls are consecutive", async () => {
+    const { deps } = stallingDeps(2);
+
+    await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+    const result = await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    expect(result).toMatchObject({ kind: "failed" });
+    expect(deps.setState).toHaveBeenCalledWith("failed");
+    expect(deps.emit).toHaveBeenCalledWith(
+      "error",
+      expect.objectContaining({ code: "llm_turn_stalled", retryable: false }),
+    );
+  });
+
+  it("stops immediately when no retry is budgeted", async () => {
+    const { deps } = stallingDeps(1);
+
+    const result = await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    expect(result).toMatchObject({ kind: "failed" });
+  });
+
+  it("forgets earlier stalls after a turn that answered", async () => {
+    const { deps } = stallingDeps(2);
+    await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+    expect(deps.state.llmStallRetries).toBe(1);
+
+    deps.provider = executionProvider(async () => successCompletion);
+    await callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+
+    expect(deps.state.llmStallRetries).toBe(0);
+  });
+
+  it("reports a user stop as stopped, never as a stall", async () => {
+    const controller = new AbortController();
+    const provider = stallingProvider();
+    const deps = depsFor([], provider);
+    deps.signal = controller.signal;
+    deps.isAbortError = (error) => error instanceof DOMException && error.name === "AbortError";
+    deps.llmTurnStall = { requestTimeoutMs: 5_000, streamIdleTimeoutMs: 0, maxConsecutiveStalls: 2 };
+
+    const pending = callLlmForTurn(deps, [{ role: "system", content: "system" }], []);
+    controller.abort(new DOMException("User stopped", "AbortError"));
+
+    await expect(pending).resolves.toMatchObject({ kind: "stopped" });
+    expect(deps.state.llmStallRetries).toBe(0);
+    expect(deps.setState).toHaveBeenCalledWith("stopped");
   });
 });

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import path from "node:path";
 import type { ChatViewProvider } from "./chatViewProvider.js";
+import { t } from "./locale.js";
 import { showProposedDiff, type ProposedEditsStore } from "./proposedEdits.js";
 import { buildMessages, getQuickProvider, isSensitivePath, relativePath, stripCodeFence } from "./providerHelper.js";
 
@@ -36,35 +37,35 @@ function buildSelectionActions(document: vscode.TextDocument, range: vscode.Rang
   const uri = document.uri;
   return [
     makeAction({
-      title: "NinjaCode: Explain",
+      title: t("NinjaCode: Explain"),
       command: "ninjacode.codeAction.explain",
       kind: vscode.CodeActionKind.Empty,
       uri,
       range,
     }),
     makeAction({
-      title: "NinjaCode: Fix",
+      title: t("NinjaCode: Fix"),
       command: "ninjacode.codeAction.fix",
       kind: ACTION_KIND,
       uri,
       range,
     }),
     makeAction({
-      title: "NinjaCode: Generate tests",
+      title: t("NinjaCode: Generate tests"),
       command: "ninjacode.codeAction.generateTests",
       kind: ACTION_KIND,
       uri,
       range,
     }),
     makeAction({
-      title: "NinjaCode: Document",
+      title: t("NinjaCode: Document"),
       command: "ninjacode.codeAction.document",
       kind: ACTION_KIND,
       uri,
       range,
     }),
     makeAction({
-      title: "NinjaCode: Send to Chat",
+      title: t("NinjaCode: Send to Chat"),
       command: "ninjacode.codeAction.sendToChat",
       kind: vscode.CodeActionKind.Empty,
       uri,
@@ -79,13 +80,13 @@ function buildDiagnosticActions(
 ): vscode.CodeAction[] {
   return diagnostics.map((diagnostic) => {
     const action = new vscode.CodeAction(
-      `Fix with NinjaCode: ${truncate(diagnostic.message, 60)}`,
+      t("Fix with NinjaCode: {0}", truncate(diagnostic.message, 60)),
       vscode.CodeActionKind.QuickFix,
     );
     action.diagnostics = [diagnostic];
     action.isPreferred = diagnostic.severity === vscode.DiagnosticSeverity.Error;
     action.command = {
-      title: "Fix with NinjaCode",
+      title: t("Fix with NinjaCode"),
       command: "ninjacode.codeAction.fixDiagnostic",
       arguments: [document.uri, diagnostic.range, diagnostic.message],
     };
@@ -174,7 +175,7 @@ async function explain(context: vscode.ExtensionContext, uri: vscode.Uri, range:
   channel.show(true);
 
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: "NinjaCode: explaining…", cancellable: false },
+    { location: vscode.ProgressLocation.Notification, title: t("NinjaCode: explaining…"), cancellable: false },
     async () => {
       await quick.llm.completeStreaming(
         {
@@ -220,21 +221,21 @@ async function proposeRevision(opts: ProposeRevisionOpts): Promise<void> {
   const after =
     before.slice(0, doc.offsetAt(opts.range.start)) + revised + before.slice(doc.offsetAt(opts.range.end));
   if (after === before) {
-    vscode.window.showInformationMessage("NinjaCode: no changes suggested.");
+    vscode.window.showInformationMessage(t("NinjaCode: no changes suggested."));
     return;
   }
   opts.proposedEdits.set({ path: rel, before, after });
   await showProposedDiff(rel);
 
   const choice = await vscode.window.showInformationMessage(
-    `NinjaCode proposed an edit to ${rel}.`,
-    "Accept",
-    "Reject",
+    t("NinjaCode proposed an edit to {0}.", rel),
+    t("Accept"),
+    t("Reject"),
   );
   const folder = vscode.workspace.workspaceFolders?.[0];
-  if (choice === "Accept" && folder) {
+  if (choice === t("Accept") && folder) {
     await opts.proposedEdits.accept(folder.uri.fsPath, rel);
-  } else if (choice === "Reject") {
+  } else if (choice === t("Reject")) {
     await opts.proposedEdits.reject(rel);
   }
 }
@@ -258,7 +259,7 @@ async function fix(opts: FixOpts): Promise<void> {
       text,
       "```",
     ].join("\n"),
-    progressTitle: "NinjaCode: fixing…",
+    progressTitle: t("NinjaCode: fixing…"),
   });
 }
 
@@ -284,7 +285,7 @@ async function documentCode(
       text,
       "```",
     ].join("\n"),
-    progressTitle: "NinjaCode: documenting…",
+    progressTitle: t("NinjaCode: documenting…"),
   });
 }
 
@@ -300,7 +301,7 @@ async function generateTests(
 
   let testsCode: string | undefined;
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: "NinjaCode: generating tests…", cancellable: false },
+    { location: vscode.ProgressLocation.Notification, title: t("NinjaCode: generating tests…"), cancellable: false },
     async () => {
       try {
         const completion = await quick.llm.complete({
@@ -331,14 +332,14 @@ async function generateTests(
   await showProposedDiff(testPath);
 
   const choice = await vscode.window.showInformationMessage(
-    `NinjaCode proposed new tests at ${testPath}.`,
-    "Accept",
-    "Reject",
+    t("NinjaCode proposed new tests at {0}.", testPath),
+    t("Accept"),
+    t("Reject"),
   );
   const folder = vscode.workspace.workspaceFolders?.[0];
-  if (choice === "Accept" && folder) {
+  if (choice === t("Accept") && folder) {
     await proposedEdits.accept(folder.uri.fsPath, testPath);
-  } else if (choice === "Reject") {
+  } else if (choice === t("Reject")) {
     await proposedEdits.reject(testPath);
   }
 }

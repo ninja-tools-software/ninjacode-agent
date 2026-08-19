@@ -8,7 +8,7 @@ import type {
 } from "@ninjacode/providers";
 import path from "node:path";
 import { gatewayErrorInfo } from "@ninjacode/providers";
-import { toolOutputLimit, truncateToolOutput } from "./context.js";
+import { toolOutputLimit, truncateToolOutput, type CompactionInfo } from "./context.js";
 import { buildContextView } from "./contextViewBuilder.js";
 import {
   estimateContextUsage,
@@ -25,6 +25,13 @@ import type { AgentTurnDeps, AgentTurnOutcome } from "./agentTurnTypes.js";
 import { abortReasonMessage } from "./agentRuntime.js";
 import { startSpan } from "./telemetry.js";
 import { isRetryableLlmError, isRetryWrappedProvider } from "./reliability.js";
+import {
+  createLlmTurnStallGuard,
+  decideAfterStall,
+  effectiveRequestTimeoutMs,
+  isLlmTurnStallError,
+  type LlmTurnStallError,
+} from "./llmTurnGuard.js";
 
 export class ContextBudgetError extends Error {
   readonly code = "context_budget_exceeded";
@@ -93,6 +100,41 @@ export async function syncVolatileContext(deps: AgentTurnDeps): Promise<void> {
   if (message) state.history.push(message);
 }
 
+async function reportCompaction(deps: AgentTurnDeps, info: CompactionInfo): Promise<void> {
+  if (info.usage) {
+    deps.trackUsage(info.usage, {
+      category: "compaction",
+      model: info.model,
+      durationMs: info.durationMs,
+    });
+    await deps.emit("usage", {
+      turn: deps.turn + 1,
+      usage: info.usage,
+      model: info.model,
+      category: "compaction",
+    });
+  }
+  await deps.archiveCompaction(deps.state.history, { ...info });
+  await deps.emit("compaction", info);
+  // A silent fallback looks like a successful compaction while losing the
+  // structure the summarizer was supposed to produce.
+  if (info.fallbackReason) {
+    deps.logAgentEvent(
+      "error",
+      `compaction fell back to a local summary: ${info.fallbackReason}`,
+      `model=${info.model} dropped=${info.droppedFromTranscript}`,
+    );
+  }
+  startSpan("compaction", {
+    model: info.model,
+    durationMs: info.durationMs,
+    native: info.native,
+    fallback: info.fallback,
+    fallbackReason: info.fallbackReason,
+    droppedFromTranscript: info.droppedFromTranscript,
+  }).end();
+}
+
 export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[]> {
   const { state } = deps;
   const systemTokens = estimateTokens(
@@ -116,29 +158,7 @@ export async function prepareTurnMessages(deps: AgentTurnDeps): Promise<Message[
     toolTokens,
     reservedOutputTokens: deps.maxTokens,
     signal: deps.signal,
-    onCompaction: async (info) => {
-      if (info.usage) {
-        deps.trackUsage(info.usage, {
-          category: "compaction",
-          model: info.model,
-          durationMs: info.durationMs,
-        });
-        await deps.emit("usage", {
-          turn: deps.turn + 1,
-          usage: info.usage,
-          model: info.model,
-          category: "compaction",
-        });
-      }
-      await deps.archiveCompaction(state.history, { ...info });
-      await deps.emit("compaction", info);
-      startSpan("compaction", {
-        model: info.model,
-        durationMs: info.durationMs,
-        native: info.native,
-        fallback: info.fallback,
-      }).end();
-    },
+    onCompaction: (info) => reportCompaction(deps, info),
   });
   if (changed) state.history = compacted;
 
@@ -245,12 +265,18 @@ async function enforceContextBudget(
   }
 }
 
-function createStreamSink(deps: AgentTurnDeps, onEmission?: () => void): StreamSink {
+/**
+ * `onVisibleOutput` fires only for events the user has already seen. Replaying a
+ * turn after that would print the same tokens twice, which is what forbids the
+ * retry — usage and tool-call bookkeeping carry no such cost.
+ */
+function createStreamSink(deps: AgentTurnDeps, onVisibleOutput?: () => void): StreamSink {
   return async (event) => {
-    onEmission?.();
     if (event.type === "text_delta") {
+      onVisibleOutput?.();
       await deps.emit("text_delta", { text: event.text });
     } else if (event.type === "reasoning_delta") {
+      onVisibleOutput?.();
       await deps.emit("reasoning_delta", { text: event.text });
     } else if (event.type === "routing") {
       await deps.emit("routing", {
@@ -261,6 +287,23 @@ function createStreamSink(deps: AgentTurnDeps, onEmission?: () => void): StreamS
         estimatedCredits: event.estimatedCredits,
       });
     }
+  };
+}
+
+function turnRequest(
+  deps: AgentTurnDeps,
+  messages: Message[],
+  toolSpecs: ToolSpec[],
+): CompletionRequest {
+  return {
+    messages,
+    tools: toolSpecs,
+    maxTokens: deps.maxTokens,
+    model: deps.model,
+    cacheSystemPrompt: deps.enablePromptCache,
+    reasoningEffort: deps.reasoningEffort,
+    thinkingBudgetTokens: deps.thinkingBudgetTokens,
+    signal: deps.signal,
   };
 }
 
@@ -289,28 +332,26 @@ export async function callLlmForTurn(
       provider: deps.provider.name,
       model: deps.model,
     });
-    const request: CompletionRequest = {
-      messages,
-      tools: toolSpecs,
-      maxTokens: deps.maxTokens,
-      model: deps.model,
-      cacheSystemPrompt: deps.enablePromptCache,
-      reasoningEffort: deps.reasoningEffort,
-      thinkingBudgetTokens: deps.thinkingBudgetTokens,
-      signal: deps.signal,
-    };
     const completion = await completeTurnSafely({
       provider: deps.provider,
-      request,
+      request: turnRequest(deps, messages, toolSpecs),
       sink,
       signal: deps.signal,
       hasEmitted: () => emitted,
+      stall: {
+        requestTimeoutMs: effectiveRequestTimeoutMs(
+          deps.llmTurnStall.requestTimeoutMs,
+          deps.remainingRunMs(),
+        ),
+        streamIdleTimeoutMs: deps.llmTurnStall.streamIdleTimeoutMs,
+      },
     });
     const durationMs = Date.now() - llmStarted;
     await recordCompletedTurn(deps, completion, estimated, llmSpan, durationMs);
     return { completion };
   } catch (e) {
     startSpan("llm", { turn: turn + 1, failed: true }).end();
+    if (isLlmTurnStallError(e)) return handleStalledTurn(deps, e);
     if (deps.isAbortError(e)) {
       const message = abortReasonMessage(deps.signal);
       deps.logAgentEvent("cancel", `turn ${turn + 1}: ${message}`);
@@ -328,6 +369,38 @@ export async function callLlmForTurn(
   }
 }
 
+/**
+ * A stalled turn streamed nothing, so history is untouched and replaying is both
+ * safe and cache-friendly. The retry goes through `checkTurnPreconditions`, so
+ * budget, run timeout, and abort are all re-checked before waiting again.
+ */
+async function handleStalledTurn(
+  deps: AgentTurnDeps,
+  error: LlmTurnStallError,
+): Promise<AgentTurnOutcome> {
+  const { state } = deps;
+  state.llmStallRetries += 1;
+  const decision = decideAfterStall(state.llmStallRetries, deps.llmTurnStall);
+  deps.logAgentEvent("error", `turn ${deps.turn + 1}: ${error.message}`, decision.message);
+
+  if (decision.action === "retry") {
+    await deps.emit("status", { text: `${error.message} ${decision.message}` });
+    await deps.persist();
+    return { kind: "continue" };
+  }
+
+  await deps.emit("error", {
+    message: decision.message,
+    code: error.code,
+    retryable: false,
+    blame: "provider",
+    recoveryHint: "Check provider status or switch model before retrying this task.",
+  });
+  await deps.persist();
+  await deps.setState("failed");
+  return { kind: "failed", message: decision.message };
+}
+
 function logLlmCall(deps: AgentTurnDeps, messageCount: number): void {
   deps.logAgentEvent(
     "llm_call",
@@ -342,15 +415,18 @@ async function recordCompletedTurn(
   llmSpan: ReturnType<typeof startSpan>,
   durationMs: number,
 ): Promise<void> {
+  deps.state.llmStallRetries = 0;
   const resolvedModel = completion.resolvedModel ?? completion.model ?? deps.model;
   const actualInput =
     completion.usage.inputTokens +
     (completion.usage.cacheReadTokens ?? 0) +
     (completion.usage.cacheWriteTokens ?? 0);
+  // Calibrate on text only: image tokens are billed by area, so feeding them into
+  // a chars/4 ratio would teach the multiplier the wrong lesson.
   recordTokenCalibration(
     resolvedModel,
-    estimated.total / tokenCalibrationMultiplier(deps.model),
-    actualInput,
+    (estimated.total - estimated.images) / tokenCalibrationMultiplier(deps.model),
+    actualInput - estimated.images,
   );
   deps.trackUsage(completion.usage, { model: resolvedModel });
   await deps.emit("usage", {
@@ -389,22 +465,42 @@ interface SafeTurnCall {
   sink: StreamSink;
   signal: AbortSignal;
   hasEmitted: () => boolean;
+  stall: { requestTimeoutMs: number; streamIdleTimeoutMs: number };
 }
 
+/**
+ * A stall is not retried here: it is reported to the turn loop, which owns the
+ * consecutive-stall budget. Retrying in both places would double the wait.
+ */
 async function completeTurnSafely(opts: SafeTurnCall): Promise<Completion> {
   const maxAttempts = isRetryWrappedProvider(opts.provider) ? 1 : 2;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     if (opts.signal.aborted) throw abortError(opts.signal);
+    const guard = createLlmTurnStallGuard({
+      outerSignal: opts.signal,
+      requestTimeoutMs: opts.stall.requestTimeoutMs,
+      streamIdleTimeoutMs: opts.stall.streamIdleTimeoutMs,
+    });
     try {
-      return await opts.provider.completeStreaming(opts.request, opts.sink);
+      return await opts.provider.completeStreaming(
+        { ...opts.request, signal: guard.signal },
+        async (event) => {
+          guard.noteActivity();
+          await opts.sink(event);
+        },
+      );
     } catch (error) {
+      const translated = guard.translate(error);
       const safe =
+        !isLlmTurnStallError(translated) &&
         !opts.hasEmitted() &&
         !opts.signal.aborted &&
-        isRetryableLlmError(error) &&
+        isRetryableLlmError(translated) &&
         attempt < maxAttempts;
-      if (!safe) throw error;
+      if (!safe) throw translated;
       await retryDelay(100, opts.signal);
+    } finally {
+      guard.dispose();
     }
   }
   throw new Error("LLM turn retry budget exhausted");

@@ -73,8 +73,6 @@ export interface ModelInfo {
   defaultContextWindow?: number;
   /** Whether this model accepts image content parts. Defaults to false when omitted. */
   vision?: boolean;
-  /** Preferred file-edit tool format for this model's training. */
-  editFormat?: "string_replace" | "patch";
   /** Gateway Pass: hosting region when known (e.g. EU). */
   hostingRegion?: string | null;
   /** Gateway Pass: catalog slug this model was listed from. */
