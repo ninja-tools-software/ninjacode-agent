@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -34,12 +36,39 @@ jobs:
       - run: pnpm check:clean-tree
       - name: Package VS Code extension
         run: pnpm --filter ninjacode package
+      - name: Bundle CLI and ACP
+        run: |
+          pnpm --filter @ninjacode/cli bundle
+          pnpm --filter @ninjacode/acp-agent bundle
       - run: pnpm check:clean-tree
-      - name: Upload vsix
+      - name: Stage release assets
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          mkdir -p .release
+          cp apps/vscode/*.vsix .release/
+          cp apps/cli/dist/ninjacode.cjs ".release/ninjacode-cli-${VERSION}.cjs"
+          cp apps/acp-agent/dist/ninjacode-acp.cjs ".release/ninjacode-acp-${VERSION}.cjs"
+          ls -la .release
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ninjacode-vsix
-          path: apps/vscode/*.vsix
+          name: ninjacode-release
+          path: .release/*
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node scripts/changelog-release-notes.mjs "$VERSION" release-notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" .release/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md --title "$GITHUB_REF_NAME"
+          else
+            gh release create "$GITHUB_REF_NAME" .release/* \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-notes.md
+          fi
 
   # Publishing requires secrets — configure VSCE_PAT, OVSX_PAT, NPM_TOKEN
   publish-npm:

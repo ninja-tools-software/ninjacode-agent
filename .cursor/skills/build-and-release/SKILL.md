@@ -117,6 +117,8 @@ git tag vX.Y.Z
 
 The tag, the CHANGELOG heading and the VSIX version must be the same three digits. Pushing the commit and the tag is the user's call — do not push unless asked.
 
+Pushing `vX.Y.Z` creates the GitHub Release (VSIX, CLI bundle, ACP bundle, notes from CHANGELOG). Do not create the Release by hand.
+
 ## Out of scope
 
 Marketplace, Open VSX and ACP Registry publishing are covered by [docs/PUBLISHING.md](../../../docs/PUBLISHING.md).

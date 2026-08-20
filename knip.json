@@ -14,7 +14,8 @@
       "project": ["src/**/*.ts", "esbuild.mjs"]
     },
     "apps/acp-agent": {
-      "project": ["src/**/*.ts"]
+      "entry": ["esbuild.mjs"],
+      "project": ["src/**/*.ts", "esbuild.mjs"]
     },
     "apps/bench": {
       "entry": ["src/**/*.test.ts"],

@@ -11,6 +11,17 @@ git push -u origin main
 - Enable Discussions / Issues
 - Require CLA comment on first PR ([CLA.md](../CLA.md))
 
+Pushing a tag `vX.Y.Z` (matching the version in `package.json` and
+`apps/vscode/package.json`) runs [`.github/workflows/release.yml`](../.github/workflows/release.yml).
+That workflow verifies, builds, tests, then creates a GitHub Release with:
+
+- `ninjacode-X.Y.Z.vsix` — VS Code / Cursor / VSCodium extension
+- `ninjacode-cli-X.Y.Z.cjs` — headless CLI (`node ninjacode-cli-X.Y.Z.cjs …`, Node >= 24)
+- `ninjacode-acp-X.Y.Z.cjs` — ACP server for JetBrains / Zed / Neovim (`node ninjacode-acp-X.Y.Z.cjs`)
+
+Release notes are the matching `## [X.Y.Z]` section of `CHANGELOG.md`. Re-running
+the workflow on the same tag updates the assets in place.
+
 The gateway backend lives in a separate private repository — never copy code from it
 into this repo: it is proprietary and cannot be redistributed under the GPL.
 
@@ -50,11 +61,10 @@ Create a token at https://open-vsx.org/
 
 ## 4. ACP Agent Registry (JetBrains + Zed)
 
-1. Build and distribute `ninjacode-acp` via npm:
+1. Download `ninjacode-acp-X.Y.Z.cjs` from the GitHub Release, or bundle locally:
 
 ```bash
-npx pnpm --filter @ninjacode/acp-agent build
-# publish @ninjacode/acp-agent to npm (optional) or document npx path
+pnpm --filter @ninjacode/acp-agent bundle
 ```
 
 2. Submit [`apps/acp-agent/acp-manifest.json`](../apps/acp-agent/acp-manifest.json) to the
@@ -67,7 +77,7 @@ npx pnpm --filter @ninjacode/acp-agent build
   "agent_servers": {
     "NinjaCode": {
       "command": "node",
-      "args": ["/absolute/path/to/ninjacode-agent/apps/acp-agent/dist/index.js"],
+      "args": ["/absolute/path/to/ninjacode-acp-X.Y.Z.cjs"],
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-..."
       }

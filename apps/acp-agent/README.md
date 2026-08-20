@@ -6,11 +6,11 @@ Use NinjaCode inside **JetBrains IDEs**, **Zed**, Neovim, and Emacs via the Agen
 
 ```bash
 # from monorepo
-pnpm --filter @ninjacode/acp-agent build
-node apps/acp-agent/dist/index.js
+pnpm --filter @ninjacode/acp-agent bundle
+node apps/acp-agent/dist/ninjacode-acp.cjs
 
-# or after npm publish
-npx @ninjacode/acp-agent
+# or a GitHub Release asset
+node ninjacode-acp-<version>.cjs
 ```
 
 ## Environment
@@ -29,7 +29,7 @@ npx @ninjacode/acp-agent
   "agent_servers": {
     "NinjaCode": {
       "command": "node",
-      "args": ["/absolute/path/to/ninjacode/apps/acp-agent/dist/index.js"],
+      "args": ["/absolute/path/to/ninjacode-acp.cjs"],
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-..."
       }

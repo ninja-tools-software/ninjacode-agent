@@ -59,7 +59,22 @@ Dependency direction is one-way: apps depend on `core`, `core` depends on `tools
 - VS Code >= 1.105 for the extension (or a compatible fork)
 - A provider API key — or use the `mock` provider offline
 
-## Install and build
+## Install
+
+Download a tagged build from [GitHub Releases](https://github.com/ninja-tools-software/ninjacode-agent/releases).
+
+```bash
+# VS Code / Cursor / VSCodium
+code --install-extension ninjacode-<version>.vsix
+
+# Headless CLI (Node >= 24)
+node ninjacode-cli-<version>.cjs run "Explain this repo" --mode ask
+
+# JetBrains / Zed / Neovim (ACP stdio server)
+node ninjacode-acp-<version>.cjs
+```
+
+To build from source:
 
 ```bash
 git clone git@github.com:ninja-tools-software/ninjacode-agent.git
@@ -118,9 +133,9 @@ Flags: `--provider`, `--model`, `--api-key`, `--base-url`, `--workspace`, `--mod
 ### JetBrains / Zed / Neovim (ACP)
 
 ```bash
-pnpm --filter @ninjacode/acp-agent build
+pnpm --filter @ninjacode/acp-agent bundle
 export ANTHROPIC_API_KEY=sk-ant-...
-node apps/acp-agent/dist/index.js
+node apps/acp-agent/dist/ninjacode-acp.cjs
 ```
 
 Register it in the IDE's ACP settings — see

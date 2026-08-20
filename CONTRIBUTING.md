@@ -47,8 +47,8 @@ pnpm --filter @ninjacode/cli exec node dist/index.js run "Add a README section" 
 ### ACP agent (JetBrains / Zed)
 
 ```bash
-pnpm --filter @ninjacode/acp-agent build
-# Point the IDE ACP config at: node /path/to/apps/acp-agent/dist/index.js
+pnpm --filter @ninjacode/acp-agent bundle
+# Point the IDE ACP config at: node /path/to/apps/acp-agent/dist/ninjacode-acp.cjs
 ```
 
 See [apps/acp-agent/acp-manifest.json](apps/acp-agent/acp-manifest.json) for registry submission.
