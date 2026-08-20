@@ -11,3 +11,6 @@ PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 "NinjaCode" and its logos are trademarks of Ninja Tools Software. The license
 above grants no rights to the name or the logos: forks must rebrand.
+
+Third-party notice: the VS Code extension VSIX may embed a ripgrep binary via
+the `@vscode/ripgrep` package (MIT). See that package for its license text.

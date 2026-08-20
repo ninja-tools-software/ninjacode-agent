@@ -32,6 +32,13 @@ const BUILTIN_SLASH_COMMANDS = [
   { name: "skills", description: "List available skills" },
 ];
 
+function localizedBuiltinSlashCommands() {
+  return BUILTIN_SLASH_COMMANDS.map((c) => ({
+    name: c.name,
+    description: t(c.description),
+  }));
+}
+
 /**
  * Owns the chat webview and wires together the controllers that do the actual work:
  * sessions, proposed edits, context attachment, the agent run loop, plan/todos and
@@ -162,7 +169,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async pushExtras(): Promise<void> {
     const root = this.core.workspaceRoot();
     if (!root) {
-      this.core.post(undefined, { type: "slash_commands", builtins: BUILTIN_SLASH_COMMANDS, prompts: [] });
+      this.core.post(undefined, { type: "slash_commands", builtins: localizedBuiltinSlashCommands(), prompts: [] });
       return;
     }
     const [prompts] = await Promise.all([
@@ -171,7 +178,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     ]);
     this.core.post(undefined, {
       type: "slash_commands",
-      builtins: BUILTIN_SLASH_COMMANDS,
+      builtins: localizedBuiltinSlashCommands(),
       prompts: prompts.map((p) => ({
         name: p.name,
         description: p.description,

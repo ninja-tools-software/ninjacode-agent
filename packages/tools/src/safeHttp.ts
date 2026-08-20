@@ -202,7 +202,7 @@ async function pinnedTransport(
       dispatcher,
       signal,
       headers: {
-        "user-agent": "NinjaCode/0.1 (+https://ninjacode.dev)",
+        "user-agent": "NinjaCode (+https://ninjacode.dev)",
         "accept-encoding": "identity",
         accept: "text/*, application/json, application/xml, application/xhtml+xml",
       },

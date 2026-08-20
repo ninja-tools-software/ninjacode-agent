@@ -209,3 +209,53 @@ describe("unclassifiable tool call", () => {
     expect(emitted).toHaveLength(0);
   });
 });
+
+describe("unclassifiable target is fail-closed", () => {
+  it("does not fall back to tool.name and refuses coarse grants", async () => {
+    const { safeTarget, UNCLASSIFIABLE_TARGET, isUnclassifiableTarget } = await import(
+      "./toolPipelineHelpers.js"
+    );
+    const tools = createDefaultToolRegistry();
+    const shell = tools.get("run_shell")!;
+    const throwing: Tool = {
+      ...shell,
+      target: () => {
+        throw new Error("boom");
+      },
+    };
+    expect(safeTarget(throwing, { command: "git status" })).toBe(UNCLASSIFIABLE_TARGET);
+    expect(isUnclassifiableTarget(UNCLASSIFIABLE_TARGET)).toBe(true);
+
+    const engine = new PermissionEngine(defaultPermissionPolicy("balanced"));
+    engine.grant("run_shell", "run_shell");
+    engine.grant("run_shell", "*");
+    const { deps } = (() => {
+      const emitted: ApprovalRequest[] = [];
+      return {
+        deps: {
+          permissions: engine,
+          getState: () => "running" as RunState,
+          setState: vi.fn(async () => {}),
+          waitOrAbort: async <T>(promise: Promise<T>) => promise,
+          isAbortError: () => false,
+          emit: async (_type: "approval_required", payload: unknown) => {
+            emitted.push(payload as ApprovalRequest);
+          },
+        },
+      };
+    })();
+
+    const result = await resolveToolApproval({
+      deps,
+      tool: throwing,
+      tc: { id: "call_u", name: "run_shell", arguments: { command: "git status" } },
+      target: UNCLASSIFIABLE_TARGET,
+      scopes: [],
+      grantPolicy: "never",
+      started: Date.now(),
+    });
+
+    expect(result.approved).toBe(false);
+    expect(result.earlyReturn?.error).toBe("approval_required");
+  });
+});

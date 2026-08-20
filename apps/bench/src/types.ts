@@ -33,7 +33,7 @@ export interface BenchTask {
   /** Per-task agent turn budget (overrides adapter default). */
   maxTurns?: number;
   /** Optional adaptive orchestration for scripted harness tasks. */
-  orchestrationProfile?: "legacy" | "adaptive";
+  orchestrationProfile?: "standard" | "adaptive";
   /**
    * Force edit-tool filtering for scripted mock runs.
    * `"patch"` exposes `apply_patch` (hides `edit_file`); `"string_replace"` is the mock default.

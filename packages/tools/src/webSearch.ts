@@ -3,6 +3,7 @@ import { ToolError } from "./types.js";
 
 const MAX_RESULTS = 8;
 const TIMEOUT_MS = 15_000;
+export const NINJACODE_USER_AGENT = "NinjaCode (+https://ninjacode.dev)";
 
 export const webSearchTool: Tool = {
   name: "web_search",
@@ -40,7 +41,7 @@ export const webSearchTool: Tool = {
       const res = await fetch(url, {
         signal,
         headers: {
-          "User-Agent": "NinjaCode/0.1 (agent web_search)",
+          "User-Agent": `${NINJACODE_USER_AGENT} web_search`,
           Accept: "text/html",
         },
       });
@@ -70,13 +71,14 @@ export const webSearchTool: Tool = {
   },
 };
 
-interface SearchHit {
+export interface SearchHit {
   title: string;
   url: string;
   snippet: string;
 }
 
-function parseDuckDuckGoResults(html: string, limit: number): SearchHit[] {
+/** Pure HTML scrape of DuckDuckGo's lite results page — fragile by design. */
+export function parseDuckDuckGoResults(html: string, limit: number): SearchHit[] {
   const hits: SearchHit[] = [];
   const resultRe =
     /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:class="result__snippet"[^>]*>([\s\S]*?)<\/a|<td[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/td>)/gi;

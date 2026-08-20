@@ -77,4 +77,7 @@ Run: `pnpm build && pnpm --filter @ninjacode/tools test`.
 
 ## Step 6: Docs sync
 
-Update `CAPACITES_AGENT.md` and the README tool list with the **exact** tool name (past bug: docs said `shell`, tool is `run_shell`). If the tool changes agent behavior, run `pnpm bench` before/after (see the `harness-eval` skill).
+Update [docs/FEATURE_PARITY.md](docs/FEATURE_PARITY.md) and the README when the tool changes
+user-visible capabilities. Use the **exact** tool name (past bug: docs said `shell`, tool is
+`run_shell`). If the tool changes agent behavior, run `pnpm bench` before/after (see the
+`harness-eval` skill).

@@ -129,7 +129,7 @@ le seul score disponible venait de code absent de l'historique.
 - **`run_shell` n'est pas confiné aux chemins** : seul `cwd` est validé.
 - **Outils manquants** vs marché : shell en arrière-plan avec `kill_shell`,
   édition multi-emplacements en un appel, lecture d'images.
-- **`web_search`** scrape le HTML de DuckDuckGo avec deux regex, sans test.
+- **`web_search`** scrape le HTML de DuckDuckGo avec deux regex.
 - **Un score public reproductible** reste à produire : le subset stratifié
   Terminal-Bench 2.1 20×3 n'a pas encore tourné depuis un bundle propre.
 

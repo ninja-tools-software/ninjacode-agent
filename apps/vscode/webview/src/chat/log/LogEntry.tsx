@@ -284,7 +284,7 @@ function StatusLogEntry({
   return (
     <div className={`msg status msg-enter${isLive ? " status-live" : ""}`}>
       {isLive && <span className="status-live-dot" aria-hidden="true" />}
-      <span className={isLive ? "status-live-text" : undefined}>{item.text}</span>
+      <span className={isLive ? "status-live-text" : undefined}>{t(item.text)}</span>
     </div>
   );
 }
@@ -342,7 +342,7 @@ export function LogEntry(props: LogEntryProps) {
     case "user_action":
       return <UserActionCard item={item} vscode={vscode} />;
     case "error":
-      return <div className="msg error msg-enter">{item.text}</div>;
+      return <div className="msg error msg-enter">{t(item.text)}</div>;
     case "gateway_error":
       return <GatewayErrorCard item={item} vscode={vscode} />;
     case "status":

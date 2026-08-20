@@ -31,7 +31,8 @@ export interface HookRunResult {
   event: HookEvent;
   command: string;
   ran: boolean;
-  /** True when the hook exited with code 2 (the Claude-Code-style "block" convention). */
+  /** True when the hook exited with code 2, or when a PreToolUse hook was
+   * denied / lacked an approval handler (fail-closed: the tool must not run). */
   blocked: boolean;
   exitCode?: number;
   stdout?: string;
@@ -177,7 +178,13 @@ export class HookRunner {
     });
 
     if (!decision.allowed) {
-      return { event: input.event, command: def.command, ran: false, blocked: false, reason: decision.reason };
+      return {
+        event: input.event,
+        command: def.command,
+        ran: false,
+        blocked: input.event === "PreToolUse",
+        reason: decision.reason,
+      };
     }
 
     if (decision.needsApproval) {
@@ -186,7 +193,7 @@ export class HookRunner {
           event: input.event,
           command: def.command,
           ran: false,
-          blocked: false,
+          blocked: input.event === "PreToolUse",
           reason: "approval required but no handler configured",
         };
       }
@@ -196,7 +203,13 @@ export class HookRunner {
         reason: `hook (${input.event}): ${decision.reason}`,
       });
       if (!approval.approved) {
-        return { event: input.event, command: def.command, ran: false, blocked: false, reason: "denied by user" };
+        return {
+          event: input.event,
+          command: def.command,
+          ran: false,
+          blocked: input.event === "PreToolUse",
+          reason: "denied by user",
+        };
       }
       if (approval.remember && policy !== "never") {
         if (policy === "exact" || scopes.length === 0) {

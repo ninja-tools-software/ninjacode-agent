@@ -13,12 +13,21 @@ export function abortedInvocation(tc: ToolCall): ToolInvocation {
   };
 }
 
+export const UNCLASSIFIABLE_TARGET = "<unclassifiable>";
+
 export function safeTarget(tool: Tool, args: Record<string, unknown>): string {
   try {
     return tool.target(args);
   } catch {
-    return tool.name;
+    // Never fall back to tool.name: that can match a coarse grant (`run_shell:*`
+    // still requires grantPolicy !== "never", but an exact `run_shell:run_shell`
+    // grant would silently cover a call whose target we failed to classify).
+    return UNCLASSIFIABLE_TARGET;
   }
+}
+
+export function isUnclassifiableTarget(target: string): boolean {
+  return target === UNCLASSIFIABLE_TARGET;
 }
 
 export function safeGrantScopes(tool: Tool, args: Record<string, unknown>): string[] {

@@ -3,8 +3,8 @@ import type { ModelPricing } from "./models.js";
 /** Fixed customer-facing value of one credit, in USD (plan price / included credits). */
 const CREDIT_VALUE_USD = 0.01;
 
-/** Target gross margin baked into credit rates derived from provider cost. */
-const CREDIT_TARGET_MARGIN = 0.3;
+/** Markup factor used when deriving gateway credit rates from provider cost. */
+const CREDIT_MARKUP = 1 / 0.7;
 
 /** Credits charged per million tokens, per token class. */
 export interface GatewayCreditRate {
@@ -16,13 +16,9 @@ export interface GatewayCreditRate {
   cacheWrite?: number;
 }
 
-/**
- * Derive a credit rate from a provider cost table so that fully-consumed
- * credits keep roughly CREDIT_TARGET_MARGIN of gross margin at face value.
- */
+/** Derive a credit rate from a provider cost table (list price in credits). */
 export function creditRateFromCost(cost: ModelPricing): GatewayCreditRate {
-  const perMillion = (usd: number): number =>
-    Math.ceil(usd / (CREDIT_VALUE_USD * (1 - CREDIT_TARGET_MARGIN)));
+  const perMillion = (usd: number): number => Math.ceil((usd * CREDIT_MARKUP) / CREDIT_VALUE_USD);
   const rate: GatewayCreditRate = {
     input: perMillion(cost.input),
     output: perMillion(cost.output),

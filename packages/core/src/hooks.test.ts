@@ -107,7 +107,41 @@ describe("HookRunner", () => {
     const results = await runner.run({ event: "PreToolUse", sessionId: "s1", toolName: "run_shell" });
     expect(approvalRequested).toBe(true);
     expect(results[0]!.ran).toBe(false);
+    expect(results[0]!.blocked).toBe(true);
     expect(results[0]!.reason).toContain("denied");
+  });
+
+  it("blocks PreToolUse when approval is required but no handler is configured", async () => {
+    const root = await tmpWorkspace();
+    const permissions = new PermissionEngine(defaultPermissionPolicy("strict"));
+    const runner = new HookRunner(
+      { enabled: true, hooks: { PreToolUse: [{ command: "echo hi" }] } },
+      root,
+      permissions,
+    );
+    const results = await runner.run({ event: "PreToolUse", sessionId: "s1", toolName: "run_shell" });
+    expect(results[0]!.ran).toBe(false);
+    expect(results[0]!.blocked).toBe(true);
+    expect(results[0]!.reason).toContain("no handler");
+  });
+
+  it("does not treat a denied PostToolUse approval as a block", async () => {
+    const root = await tmpWorkspace();
+    const permissions = new PermissionEngine(defaultPermissionPolicy("strict"));
+    const runner = new HookRunner(
+      { enabled: true, hooks: { PostToolUse: [{ command: "echo hi" }] } },
+      root,
+      permissions,
+      async () => ({ approved: false }),
+    );
+    const results = await runner.run({
+      event: "PostToolUse",
+      sessionId: "s1",
+      toolName: "run_shell",
+      output: "ok",
+    });
+    expect(results[0]!.ran).toBe(false);
+    expect(results[0]!.blocked).toBe(false);
   });
 
   it("does not run PostToolUse/Stop hooks under a PreToolUse-only config", async () => {

@@ -141,7 +141,7 @@ export class McpClient {
     return this.tools.find((tool) => tool.name === name);
   }
 
-  /** Legacy rollback path. Dynamic catalog tools are used by default. */
+  /** Static catalog fallback when dynamicDiscovery is disabled. */
   asNinjaTools(): Tool[] {
     return this.tools.map((tool) => {
       const serverName = this.config.name;

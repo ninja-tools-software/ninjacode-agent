@@ -1,7 +1,7 @@
 import type { ToolInvocation } from "./types.js";
 import type { ToolErrorCategory } from "./toolErrors.js";
 
-export type OrchestrationProfile = "legacy" | "adaptive";
+export type OrchestrationProfile = "standard" | "adaptive";
 export type AgentPhase = "explore" | "execute" | "verify" | "recover";
 export type TaskComplexity = "simple" | "medium" | "complex";
 export type PhaseProgressGoal = "edit" | "plan";
@@ -70,7 +70,7 @@ interface VerificationPhaseDecision {
 
 const READ_TOOLS = new Set(["read_file", "list_dir", "glob", "grep", "search_codebase"]);
 const WRITE_TOOLS = new Set(["apply_patch", "edit_file", "write_file", "delete_file"]);
-const VERIFY_TOOLS = new Set(["read_lints", "get_errors"]);
+const VERIFY_TOOLS = new Set(["read_lints"]);
 const RECOVERABLE_ERROR_CATEGORIES = new Set<ToolErrorCategory>([
   "Unknown",
   "InvalidArguments",

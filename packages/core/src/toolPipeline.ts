@@ -20,6 +20,7 @@ import type { ApprovalHandler, RunState, ToolInvocation } from "./types.js";
 import { isWriteTool, postEditDiagnostics } from "./toolPipelineDiagnostics.js";
 import {
   abortedInvocation,
+  isUnclassifiableTarget,
   preflightToolCall,
   registryToolOrThrow,
   resolveToolApproval,
@@ -112,8 +113,10 @@ export class ToolPipeline {
       return this.preExecutionFailure(tc, error, started);
     }
     const target = safeTarget(tool, tc.arguments);
-    const scopes = safeGrantScopes(tool, tc.arguments);
-    const grantPolicy = safeGrantPolicy(tool, tc.arguments, scopes);
+    const scopes = isUnclassifiableTarget(target) ? [] : safeGrantScopes(tool, tc.arguments);
+    const grantPolicy = isUnclassifiableTarget(target)
+      ? "never"
+      : safeGrantPolicy(tool, tc.arguments, scopes);
 
     const approval = await resolveToolApproval({
       deps: {
@@ -169,9 +172,11 @@ export class ToolPipeline {
     const preHooks = await this.deps.runHooks("PreToolUse", { toolName: tool.name, arguments: tc.arguments });
     const preBlock = preHooks.find((r) => r.blocked);
     if (!preBlock) return null;
+    const detail =
+      preBlock.stderr || preBlock.stdout || preBlock.reason || "no reason given";
     return {
       toolCall: tc,
-      output: `Blocked by PreToolUse hook: ${preBlock.stderr || preBlock.stdout || "no reason given"}`,
+      output: `Blocked by PreToolUse hook: ${detail}`,
       approved,
       durationMs: Date.now() - started,
       error: "blocked_by_hook",

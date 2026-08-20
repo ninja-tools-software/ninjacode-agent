@@ -513,5 +513,13 @@
   "Use this plan in the current session": "Utiliser ce plan dans la session actuelle",
   "context": "contexte",
   "{0} message — will send after the current run": "{0} message — sera envoyé après l’exécution en cours",
-  "{0} messages — will send after the current run": "{0} messages — seront envoyés après l’exécution en cours"
+  "{0} messages — will send after the current run": "{0} messages — seront envoyés après l’exécution en cours",
+  "Thinking…": "Réflexion…",
+  "New session started.": "Nouvelle session démarrée.",
+  "Open a workspace folder first.": "Ouvrez d’abord un dossier d’espace de travail.",
+  "Steering — restarting with your new message…": "Pilotage — redémarrage avec votre nouveau message…",
+  "Stopping and sending your new message…": "Arrêt et envoi de votre nouveau message…",
+  "⋯ cannot compact while the agent is running": "⋯ impossible de compacter pendant que l’agent tourne",
+  "⋯ nothing to compact yet": "⋯ rien à compacter pour l’instant",
+  "⊕ checkpoint {0}": "⊕ point de contrôle {0}"
 }

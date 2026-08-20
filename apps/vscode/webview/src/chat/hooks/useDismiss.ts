@@ -1,9 +1,6 @@
 import { useEffect, useRef, type RefObject } from "react";
 
-/**
- * Close a popover on outside click or Escape. Every menu in the chat used to
- * inline its own copy of this effect; they are all this hook now.
- */
+/** Close a popover on outside click or Escape. */
 export function useDismiss<T extends HTMLElement>(
   open: boolean,
   onDismiss: () => void,

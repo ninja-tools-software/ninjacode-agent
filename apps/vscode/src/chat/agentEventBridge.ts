@@ -232,7 +232,7 @@ export class AgentEventBridge {
   private onCheckpoint(sessionId: string, cp: Checkpoint): void {
     this.deps.runtimes.getOrCreate(sessionId).checkpoints.push(cp);
     this.deps.post(sessionId, { type: "checkpoint", id: cp.id, label: cp.label });
-    this.deps.post(sessionId, { type: "status", text: `⊕ checkpoint ${cp.label}` });
+    this.deps.post(sessionId, { type: "status", text: t("⊕ checkpoint {0}", cp.label) });
   }
 
   private onCheckpointFailure(sessionId: string, failure: CheckpointFailure): void {

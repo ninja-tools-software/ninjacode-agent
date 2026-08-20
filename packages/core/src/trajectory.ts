@@ -148,7 +148,7 @@ const TRAJECTORY_ATTRIBUTE_KEYS = new Set([
 ]);
 const WRITE_TOOLS = new Set(["apply_patch", "edit_file", "write_file", "delete_file"]);
 const READ_TOOLS = new Set(["read_file", "list_dir", "glob", "grep", "search_codebase"]);
-const VERIFY_TOOLS = new Set(["read_lints", "get_errors"]);
+const VERIFY_TOOLS = new Set(["read_lints"]);
 
 export function createTrajectory(
   input: Omit<Trajectory, "schemaVersion" | "events"> & { events?: TrajectoryEvent[] },

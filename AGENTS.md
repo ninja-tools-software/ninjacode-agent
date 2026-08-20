@@ -35,7 +35,9 @@ pnpm version:bump                # explicit release-only patch bump
 
 `pnpm build` and `package` are pure: they must not rewrite `package.json`. Bump versions only with `pnpm version:bump`, then commit and tag `vX.Y.Z`. CI runs `check:build-purity` and `check:clean-tree` after build and tests.
 
-Known pitfall: `CAPACITES_AGENT.md` drifts from the code — it has claimed the wrong tool count, an absent keybinding and a stale provider list. Trust the code, and fix the file when you catch it. `docs/AUDIT_HARNESS_2026-08.md` is the current assessment of what the harness does and does not guarantee.
+Known pitfall: docs can drift from the code (tool names, keybindings, provider lists).
+Trust the code. Feature inventory: [docs/FEATURE_PARITY.md](docs/FEATURE_PARITY.md).
+Harness guarantees and limits: [docs/HARNESS.md](docs/HARNESS.md).
 
 ## Conventions
 

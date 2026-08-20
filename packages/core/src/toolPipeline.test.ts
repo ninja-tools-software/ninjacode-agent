@@ -224,6 +224,52 @@ describe("ToolPipeline bounded retries", () => {
     expect(attempts).toBe(1);
     expect(result.error).toBe("aborted");
   });
+
+  it("blocks the tool when a PreToolUse hook reports blocked without running", async () => {
+    const execute = vi.fn(async () => ({ output: "must not run" }));
+    const tool = testTool({
+      execute,
+      inputSchema: { type: "object", properties: {} },
+    });
+    const pipe = new ToolPipeline({
+      signal: new AbortController().signal,
+      permissions: new PermissionEngine(defaultPermissionPolicy("autonomous")),
+      breaker: new ToolCircuitBreaker(3),
+      workspaceRoot: "/tmp/workspace",
+      agentDir: "/tmp/workspace/.ninjacode",
+      sessionId: "session",
+      planId: "plan",
+      sandboxMode: "workspace-write",
+      persistSessionContext: false,
+      parallelToolReads: true,
+      getState: () => "running",
+      setState: async () => undefined,
+      runHooks: async () => [
+        {
+          event: "PreToolUse",
+          command: "echo hi",
+          ran: false,
+          blocked: true,
+          reason: "denied by user",
+        },
+      ],
+      emit: async () => undefined,
+      logAgentEvent: () => undefined,
+      waitOrAbort: async (promise) => promise,
+      isAbortError: (error) => error instanceof Error && error.name === "AbortError",
+      onModifiedFiles: () => undefined,
+    });
+
+    const result = await pipe.runToolCall(new ToolRegistry().register(tool), {
+      id: "hooked",
+      name: tool.name,
+      arguments: {},
+    });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(result.error).toBe("blocked_by_hook");
+    expect(result.output).toContain("denied by user");
+  });
 });
 
 describe("ToolPipeline read concurrency", () => {

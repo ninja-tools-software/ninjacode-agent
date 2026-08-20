@@ -28,4 +28,4 @@ The gateway backend lives in a separate private repository (`ninjacode-backend`)
 ## Known pitfalls
 
 - Size and complexity rules are `warn` during the current refactoring campaign, so `pnpm lint` exits 0 with warnings. Read them — they are the backlog, not noise.
-- `CAPACITES_AGENT.md` can lag behind the code (e.g. it says `shell`, the tool is `run_shell`). The code is the source of truth; update docs when they diverge.
+- Docs can lag behind the code (tool names, keybindings, provider lists). The code is the source of truth; update `docs/FEATURE_PARITY.md` / `docs/HARNESS.md` when they diverge.

@@ -58,6 +58,6 @@ Judgement matters more than the raw counts:
 
 ## Ranking the work
 
-Order candidates by `(blast radius of a bug) x (how often the file changes) / (cost to split)`. Concretely, in this repo: security and money paths first (`permissions.ts`, the credits ledger), then the agent loop, then anything duplicated across apps, then UI. Files nobody touches, however ugly, come last.
+Order candidates by `(blast radius of a bug) x (how often the file changes) / (cost to split)`. Concretely, in this repo: security paths first (`permissions.ts`), then the agent loop, then anything duplicated across apps, then UI. Files nobody touches, however ugly, come last.
 
 Record the numbers before starting a campaign so the after-comparison is real rather than a feeling.

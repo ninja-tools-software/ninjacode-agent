@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { appendSessionNote } from "@ninjacode/core";
+import { t } from "../locale.js";
 import type { ProposedEdit, ProposedEditsStore } from "../proposedEdits.js";
 import { showProposedDiff } from "../proposedEdits.js";
 import type { ChatCore } from "./chatCore.js";
@@ -80,7 +81,7 @@ export class EditsController {
     const root = this.core.workspaceRoot();
     if (!root) return;
     const n = await this.deps.store.acceptAll(root);
-    vscode.window.showInformationMessage(`Accepted ${n} edit(s).`);
+    vscode.window.showInformationMessage(t("Accepted {0} edit(s).", n));
   }
 
   async rejectAll(): Promise<void> {

@@ -27,10 +27,11 @@ The model-tool loop is commodity. The differentiation is the **harness**:
 ## Repository layout
 
 ```
-apps/vscode      VS Code extension (host + React webview)
-apps/cli         headless CLI (`ninjacode`)
-apps/acp-agent   ACP JSON-RPC server for JetBrains / Zed / Neovim
-apps/bench       NinjaBench — benchmark and monitoring harness
+apps/vscode        VS Code extension (host + React webview)
+apps/cli           headless CLI (`ninjacode`)
+apps/acp-agent     ACP JSON-RPC server for JetBrains / Zed / Neovim
+apps/bench         NinjaBench — benchmark and monitoring harness
+apps/cloud-worker  Experimental durable-job foundation (not a hosted cloud-agent product)
 
 packages/core       agent loop, permissions, context compaction, checkpoints,
                     rules/skills/hooks, MCP, sub-agents, sessions
@@ -42,12 +43,12 @@ Dependency direction is one-way: apps depend on `core`, `core` depends on `tools
 `providers`, and the leaves never reach back up. `pnpm depcruise` enforces it.
 
 ```
- apps/vscode   apps/cli   apps/acp-agent   apps/bench
-        \          |            /            /
-         \         |           /            /
-              packages/core
-                    |
-       packages/tools + packages/providers
+ apps/vscode   apps/cli   apps/acp-agent   apps/bench   apps/cloud-worker
+        \          |            /            /              /
+         \         |           /            /              /
+                        packages/core
+                              |
+                 packages/tools + packages/providers
 ```
 
 ## Prerequisites
@@ -140,9 +141,9 @@ request.
 
 ## Where the harness stands
 
-[docs/AUDIT_HARNESS_2026-08.md](docs/AUDIT_HARNESS_2026-08.md) is the current, honest
-assessment: what the harness guarantees, what it does not, and which gaps are known. It is
-kept deliberately unflattering so nobody has to rediscover a limitation the hard way.
+[docs/HARNESS.md](docs/HARNESS.md) lists what the harness guarantees and the known limits
+(tokenizer, sandbox, `web_search`, missing tools). Feature coverage vs Cursor / Copilot is
+in [docs/FEATURE_PARITY.md](docs/FEATURE_PARITY.md).
 
 ## Debug mode
 

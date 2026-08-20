@@ -39,7 +39,7 @@ const DEFAULT_PROFILE: ProfileOverrides = Object.freeze({
   editFormat: "string_replace",
   verification: "standard",
   verificationMode: "current",
-  orchestration: "legacy",
+  orchestration: "standard",
 });
 
 const FAMILY_PROFILES: Readonly<Partial<Record<ProviderKind, ProfileOverrides>>> = Object.freeze({

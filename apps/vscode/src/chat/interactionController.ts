@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { AskUserAnswer, AskUserRequest, UserActionRequest } from "@ninjacode/tools";
+import { t } from "../locale.js";
 import type { ChatCore } from "./chatCore.js";
 
 interface InteractionControllerDeps {
@@ -108,7 +109,11 @@ export class InteractionController {
       action: request.action,
       reason: request.reason,
     });
-    this.notifyIfHidden(sessionId, `NinjaCode needs a manual action: ${request.action}`, "Review");
+    this.notifyIfHidden(
+      sessionId,
+      t("NinjaCode needs a manual action: {0}", request.action),
+      t("Review"),
+    );
     return new Promise((resolve) => {
       this.core.runtimes.registerUserAction(sessionId, requestId, request.action, (v) => {
         this.core.post(sessionId, { type: "user_action_resolved", requestId, comment: v.comment });
@@ -123,9 +128,9 @@ export class InteractionController {
     this.notifyIfHidden(
       sessionId,
       completed
-        ? `NinjaCode finished: ${summary || "Task complete."}`
-        : `NinjaCode stopped: ${summary || "Run did not complete."}`,
-      "Open Chat",
+        ? t("NinjaCode finished: {0}", summary || t("Task complete."))
+        : t("NinjaCode stopped: {0}", summary || t("Run did not complete.")),
+      t("Open Chat"),
     );
   }
 

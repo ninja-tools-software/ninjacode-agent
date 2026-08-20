@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { getProviderCatalog, type ModelInfo } from "@ninjacode/providers";
+import { t } from "./locale.js";
 import { mapGatewayModel, type GatewayModelWire } from "./gatewayModelMap.js";
 import { parseOverage } from "./billingGateway.js";
 import { resolveGatewayBase, resolveWebUrl } from "./providerHelper.js";
@@ -190,19 +191,19 @@ export async function startMagicLink(gatewayBase: string, email: string): Promis
       error?: string;
     };
     if (!res.ok) {
-      vscode.window.showErrorMessage(data.error ?? "Failed to send magic link");
+      vscode.window.showErrorMessage(data.error ?? t("Failed to send magic link"));
       return;
     }
     if (data.link) {
       await vscode.env.openExternal(vscode.Uri.parse(data.link));
-      vscode.window.showInformationMessage("NinjaCode: opening magic link (dev)…");
+      vscode.window.showInformationMessage(t("NinjaCode: opening magic link…"));
     } else {
       vscode.window.showInformationMessage(
-        data.message ?? "Check your email for the magic link.",
+        data.message ?? t("Check your email for the magic link."),
       );
     }
   } catch (e) {
-    vscode.window.showErrorMessage(`Magic link failed: ${(e as Error).message}`);
+    vscode.window.showErrorMessage(t("Magic link failed: {0}", (e as Error).message));
   }
 }
 

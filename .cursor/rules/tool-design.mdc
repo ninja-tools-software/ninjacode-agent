@@ -29,6 +29,6 @@ Tool results consume the context window. Bound every output:
 1. Register in `createDefaultToolRegistry()` (`packages/tools/src/index.ts`), behind `includeNetwork`/`includeDebug` flags if applicable.
 2. Check mode filtering in `ToolRegistry.forMode` — should it be available in `ask`/`plan`?
 3. Colocated Vitest test exercising success, invalid args, and truncation.
-4. Update `CAPACITES_AGENT.md` and README with the exact tool name.
+4. Update `docs/FEATURE_PARITY.md` and README with the exact tool name when user-visible.
 
 Use the `add-agent-tool` skill for the full workflow.
