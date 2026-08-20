@@ -22,12 +22,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm version:verify
       - run: pnpm check:build-purity
+      - run: pnpm build
+      - run: pnpm check:clean-tree
+      - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm depcruise
       - run: pnpm knip
-      - run: pnpm -r typecheck
-      - run: pnpm build
-      - run: pnpm check:clean-tree
       - run: pnpm test
       - run: pnpm check:clean-tree
       - run: pnpm bench:harness

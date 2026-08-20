@@ -26,7 +26,7 @@ jobs:
       - run: pnpm bench:harness
       - run: pnpm check:clean-tree
       - run: pnpm --filter @ninjacode/cli exec node dist/eval.js
-      - run: pnpm -r typecheck
+      - run: pnpm typecheck
 
   quality:
     runs-on: ubuntu-latest
