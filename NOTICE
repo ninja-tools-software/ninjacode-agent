@@ -1,5 +1,5 @@
 NinjaCode Agent
-Copyright 2026 Ninja Tools Software and NinjaCode Contributors
+Copyright 2026 Ninja Tools and NinjaCode Contributors
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2, as published by the
@@ -9,7 +9,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-"NinjaCode" and its logos are trademarks of Ninja Tools Software. The license
+"NinjaCode" and its logos are trademarks of Ninja Tools. The license
 above grants no rights to the name or the logos: forks must rebrand.
 
 Third-party notice: the VS Code extension VSIX may embed a ripgrep binary via
