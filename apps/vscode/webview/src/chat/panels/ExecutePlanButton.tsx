@@ -42,11 +42,12 @@ export function ExecutePlanButton({
         type="button"
         className="btn-execute"
         disabled={busy}
+        aria-label={t("Execute plan")}
         data-tooltip={t("Switch to Agent mode and implement this plan")}
         onClick={execute}
       >
-        <PlayIcon size={14} />
-        <span>{t("Execute plan")}</span>
+        <PlayIcon size={16} />
+        <span className="btn-execute-label">{t("Execute plan")}</span>
         <kbd className="btn-execute-kbd">{executeShortcutLabel()}</kbd>
       </button>
     </div>

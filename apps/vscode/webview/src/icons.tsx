@@ -400,7 +400,7 @@ export function TrashIcon({ size }: { size?: IconSize }) {
 export function PlayIcon({ size }: { size?: IconSize }) {
   return (
     <Svg size={size} filled>
-      <polygon points="10,8 16,12 10,16" stroke="none" />
+      <polygon points="6 3 20 12 6 21" stroke="none" />
     </Svg>
   );
 }

@@ -91,7 +91,7 @@ function PlanAppToolbar({
             data-tooltip={t("Switch to Agent mode and implement this plan")}
             onClick={onExecute}
           >
-            <PlayIcon size={14} />
+            <PlayIcon size={16} />
             <span>{t("Execute plan")}</span>
           </button>
         </div>

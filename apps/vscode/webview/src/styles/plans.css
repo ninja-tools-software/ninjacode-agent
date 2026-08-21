@@ -221,7 +221,8 @@
 .btn-execute {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: var(--space-2);
   border: none;
   border-radius: var(--radius-md);
   background: var(--accent);
@@ -234,6 +235,11 @@
   cursor: pointer;
   box-shadow: var(--shadow-1);
   transition: filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.btn-execute svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  flex-shrink: 0;
 }
 .btn-execute:hover:not(:disabled) {
   filter: brightness(1.06);
@@ -308,6 +314,19 @@
 .plan-app-toolbar,
 .plan-app-actions {
   overflow: visible;
+}
+
+/* Same compact breakpoint as the composer toolbar: icon-only execute. */
+@container (max-width: 420px) {
+  .plan-card-footer,
+  .plan-execute-wrap { gap: var(--space-1); }
+  .btn-execute {
+    width: var(--ctrl-lg);
+    padding: 0;
+    gap: 0;
+  }
+  .btn-execute-label,
+  .btn-execute-kbd { display: none; }
 }
 .plan-compact-row {
   display: flex;
