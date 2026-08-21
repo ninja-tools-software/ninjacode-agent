@@ -19,6 +19,34 @@ export function isInteractiveUserTool(name: string): boolean {
   return name === "ask_user" || name === "request_user_action";
 }
 
+/**
+ * Information-gathering tools, folded into a single collapsible group in the chat log.
+ * Explicit list rather than the core risk class: unknown tools (MCP, third-party) stay
+ * visible on their own rather than silently disappearing into the group.
+ */
+const EXPLORATION_TOOLS = new Set([
+  "read_file",
+  "list_dir",
+  "glob",
+  "grep",
+  "search",
+  "search_codebase",
+  "read_lints",
+  "read_session_artifact",
+  "read_debug_logs",
+  "git_status",
+  "git_diff",
+  "git_log",
+  "git_show",
+  "fetch_url",
+  "web_search",
+  "delegate",
+]);
+
+export function isExplorationTool(name: string): boolean {
+  return EXPLORATION_TOOLS.has(name);
+}
+
 function truncateText(s: string, max: number): string {
   if (s.length <= max) return s;
   return `${s.slice(0, max)}…`;

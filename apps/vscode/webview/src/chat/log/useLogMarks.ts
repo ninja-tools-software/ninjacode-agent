@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { lastIndexOfKind, liveIndex } from "../state/chatReducer.js";
 import type { LogItem } from "../types.js";
+import { explorationGroups, type ExplorationMarks } from "./explorationGroups.js";
 import {
   lastWritePlanIndex,
   planBlockSummaryIndices,
@@ -25,6 +26,7 @@ export interface LogMarks {
   planSummarySet: Set<number>;
   liveStatus: number;
   liveReasoning: number;
+  exploration: ExplorationMarks;
 }
 
 export function useLogMarks(log: LogItem[], agentActive: boolean): LogMarks {
@@ -42,6 +44,7 @@ export function useLogMarks(log: LogItem[], agentActive: boolean): LogMarks {
       planSummarySet: new Set(planSummaries),
       liveStatus: liveIndex(log, "status", lastUser, agentActive),
       liveReasoning: liveIndex(log, "reasoning", lastUser, agentActive),
+      exploration: explorationGroups(log),
     };
   }, [log, agentActive]);
 }

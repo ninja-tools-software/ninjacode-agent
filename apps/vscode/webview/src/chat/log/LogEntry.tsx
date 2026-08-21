@@ -7,6 +7,7 @@ import { PlanCard, PlanCompactRow } from "../panels/PlanCard.js";
 import { t } from "../../i18n.js";
 import type { LogItem, PlanState, SettingsState, TodoItem, VsCodeApi } from "../types.js";
 import { ApprovalCard } from "./ApprovalCard.js";
+import { ExplorationGroupCard } from "./ExplorationGroupCard.js";
 import { GatewayErrorCard } from "./GatewayErrorCard.js";
 import { QuestionCard } from "./QuestionCard.js";
 import { ToolCard } from "./ToolCard.js";
@@ -242,6 +243,8 @@ function ToolLogEntry({
   if (item.name === "todo_write") {
     return <TodoToolCard item={item} defaultOpen={!busy && index === marks.lastTodoWrite} />;
   }
+  const group = marks.exploration.heads.get(index);
+  if (group) return <ExplorationGroupCard group={group} log={log} />;
   return <ToolCard item={item} />;
 }
 
@@ -325,6 +328,9 @@ interface LogEntryProps {
 
 export function LogEntry(props: LogEntryProps) {
   const { item, index, log, marks, agentActive, vscode } = props;
+
+  // Folded into an exploration group: the group head renders it inside its body.
+  if (marks.exploration.members.has(index)) return null;
 
   switch (item.kind) {
     case "user":

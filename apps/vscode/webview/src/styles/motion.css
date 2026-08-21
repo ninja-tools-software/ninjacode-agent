@@ -115,6 +115,7 @@
 }
 
 .tool-card.is-open > .tool-body,
+.tool-card.is-open > .tool-group-body,
 .tool-card.is-open > .mcp-tools {
   animation: nc-slide-down-in var(--dur-med) var(--ease-out) both;
 }
@@ -136,6 +137,7 @@
   .screen-enter,
   .send-btn-state,
   .tool-card.is-open > .tool-body,
+  .tool-card.is-open > .tool-group-body,
   .tool-card.is-open > .mcp-tools,
   .hunk-list,
   .feedback-box,
