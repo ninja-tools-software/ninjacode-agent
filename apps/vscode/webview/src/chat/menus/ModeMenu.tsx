@@ -60,6 +60,7 @@ function ModeMenuTrigger({
       type="button"
       className={`composer-pill mode-pill mode-${mode}`}
       data-tooltip={`${t(meta.hint)} · Shift+Tab`}
+      aria-label={t(meta.label)}
       aria-expanded={open}
       onClick={onToggle}
     >

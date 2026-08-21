@@ -613,11 +613,29 @@ textarea {
 .model-settings-btn:hover { background: var(--list-hover); }
 .model-settings-btn svg { flex-shrink: 0; opacity: 0.7; }
 .model-settings-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
   font-variant-numeric: tabular-nums;
+}
+
+/* Sidebar widths (~280–420): drop mode text and the effort word so the
+   toolbar stays on one row. The mode name stays on aria-label + tooltip. */
+@container (max-width: 420px) {
+  .composer-controls { flex-wrap: nowrap; }
+  .composer-controls .mode-pill {
+    min-width: 0;
+    padding: 0 var(--space-1);
+    justify-content: center;
+    gap: 0;
+  }
+  .composer-controls .mode-pill-label,
+  .composer-controls .mode-pill > svg:last-child { display: none; }
+  .composer-controls .model-settings-btn-effort { display: none; }
 }
 .model-settings-menu {
   min-width: 220px;

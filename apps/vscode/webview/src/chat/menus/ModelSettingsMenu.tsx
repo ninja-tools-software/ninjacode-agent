@@ -41,9 +41,6 @@ export function ModelSettingsMenu({
   if (!hasReasoning && ctxOptions.length === 0) return null;
 
   const summary = modelSettingsSummaryParts(settings, modelInfo);
-  const summaryLabel = summary.effort
-    ? `${t(summary.effort)} ${summary.context}`
-    : summary.context;
 
   return (
     <div className="model-menu-wrap model-settings-wrap" ref={rootRef}>
@@ -80,7 +77,12 @@ export function ModelSettingsMenu({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="model-settings-btn-label">{summaryLabel}</span>
+        <span className="model-settings-btn-label">
+          {summary.effort && (
+            <span className="model-settings-btn-effort">{t(summary.effort)}</span>
+          )}
+          <span className="model-settings-btn-context">{summary.context}</span>
+        </span>
         <ChevronDownIcon size={12} />
       </button>
     </div>
