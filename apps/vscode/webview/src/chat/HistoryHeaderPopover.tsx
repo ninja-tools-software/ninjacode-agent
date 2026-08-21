@@ -40,14 +40,14 @@ export function HistoryHeaderPopover({
     <div className="history-popover-wrap" ref={wrapRef}>
       <button
         type="button"
-        className={`icon-btn icon-btn--lg history-toggle${historyOpen ? " active" : ""}`}
+        className={`icon-btn history-toggle${historyOpen ? " active" : ""}`}
         data-tooltip={label}
         aria-label={label}
         aria-expanded={historyOpen}
         disabled={sessionsLoading}
         onClick={onToggle}
       >
-        <HistoryIcon size={16} />
+        <HistoryIcon size={14} />
       </button>
       {historyMounted && (
         <HistoryPanel

@@ -84,12 +84,12 @@ export function SessionMenu({
   return (
     <div className="session-menu-wrap" ref={rootRef}>
       <button
-        className={`icon-btn icon-btn--lg${open ? " active" : ""}`}
+        className={`icon-btn${open ? " active" : ""}`}
         data-tooltip={t("More actions")}
         aria-label={t("More actions")}
         onClick={() => setOpen((v) => !v)}
       >
-        <DotsIcon size={16} />
+        <DotsIcon size={14} />
       </button>
       {presence.mounted && (
         <div
