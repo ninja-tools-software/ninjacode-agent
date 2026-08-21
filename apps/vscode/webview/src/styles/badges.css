@@ -7,7 +7,7 @@
   max-width: 100%;
   vertical-align: baseline;
   padding: 1px 6px;
-  margin: 0 1px;
+  margin: 1px;
   border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
