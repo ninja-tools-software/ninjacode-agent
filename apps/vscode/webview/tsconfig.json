@@ -11,5 +11,12 @@
     "declarationMap": false,
     "composite": false
   },
-  "include": ["src/**/*", "../src/reasoningUi.ts", "../src/toolLogUi.ts", "../src/toolUi.ts", "../src/protocol.ts"]
+  "include": [
+    "src/**/*",
+    "preview/**/*",
+    "../src/reasoningUi.ts",
+    "../src/toolLogUi.ts",
+    "../src/toolUi.ts",
+    "../src/protocol.ts"
+  ]
 }

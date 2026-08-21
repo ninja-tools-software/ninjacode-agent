@@ -1,0 +1,102 @@
+/*
+ * Chrome of the preview page itself. Not a product surface: it deliberately
+ * ignores the design tokens, since it has to stay legible whichever theme the
+ * chat below is rendering. Nothing here may style a product selector.
+ */
+:root {
+  --pv-bar-bg: #17181c;
+  --pv-bar-fg: #e6e6e6;
+  --pv-bar-muted: #9aa0a6;
+  --pv-bar-border: #303238;
+  --pv-stage-bg: #0c0d0f;
+  --pv-frame-width: 380px;
+  --pv-bar-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+#preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--pv-bar-bg);
+  color: var(--pv-bar-fg);
+  border-bottom: 1px solid var(--pv-bar-border);
+  font: 12px/1.4 var(--pv-bar-font);
+  flex: none;
+}
+
+#preview-bar strong {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+#preview-bar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--pv-bar-muted);
+}
+
+#preview-bar select,
+#preview-bar button {
+  font: inherit;
+  color: var(--pv-bar-fg);
+  background: #23252b;
+  border: 1px solid var(--pv-bar-border);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+#preview-bar button {
+  cursor: pointer;
+}
+
+#preview-bar button:hover {
+  background: #2c2f36;
+}
+
+#preview-outbound {
+  margin-left: auto;
+  color: var(--pv-bar-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40ch;
+}
+
+#preview-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  background: var(--pv-stage-bg);
+  overflow: hidden;
+}
+
+/*
+ * Stands in for the VS Code side bar: the chat is never full-window. It also
+ * carries the editor background, because in a real webview the panel *is* the
+ * body — here the body sits behind the stage and would never be painted.
+ */
+#preview-frame {
+  display: flex;
+  height: 100%;
+  width: var(--pv-frame-width);
+  max-width: 100%;
+  background: var(--vscode-editor-background);
+  border-inline: 1px solid var(--pv-bar-border);
+  overflow: hidden;
+  resize: horizontal;
+}
+
+#root {
+  flex: 1;
+  min-width: 0;
+}

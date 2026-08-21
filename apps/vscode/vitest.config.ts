@@ -13,6 +13,10 @@ export default defineConfig({
     // The webview modules under test touch the DOM (composer caret mapping,
     // drag & drop parsing); the host modules don't care either way.
     environment: "jsdom",
-    include: ["src/**/*.test.ts", "webview/src/**/*.test.{ts,tsx}"],
+    include: [
+      "src/**/*.test.ts",
+      "webview/src/**/*.test.{ts,tsx}",
+      "webview/preview/**/*.test.ts",
+    ],
   },
 });

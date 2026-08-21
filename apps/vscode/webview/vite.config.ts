@@ -8,6 +8,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   root: __dirname,
   plugins: [react()],
+  // Dev server only serves `preview/` (the CSS playground); the VSIX ships the
+  // `build` output below, which never includes it.
+  server: { port: 5173, strictPort: false },
   build: {
     outDir: path.join(__dirname, "../dist/webview"),
     emptyOutDir: true,

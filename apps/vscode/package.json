@@ -645,6 +645,7 @@
   },
   "scripts": {
     "build:webview": "vite build --config webview/vite.config.ts",
+    "dev:webview": "vite --config webview/vite.config.ts --open /preview/index.html",
     "build:ext": "node esbuild.mjs",
     "build": "pnpm run clean && pnpm run build:deps && pnpm run build:webview && pnpm run build:ext",
     "build:deps": "pnpm --filter @ninjacode/core --filter @ninjacode/providers --filter @ninjacode/tools run build",

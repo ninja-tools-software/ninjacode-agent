@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NinjaCode chat — UI preview</title>
+  </head>
+  <body data-view="chat" data-locale="en">
+    <div id="preview-bar">
+      <strong>Chat UI preview</strong>
+      <label>
+        Scenario
+        <select id="preview-scenario"></select>
+      </label>
+      <label>
+        Theme
+        <select id="preview-theme">
+          <option value="dark">Dark Modern</option>
+          <option value="light">Light Modern</option>
+        </select>
+      </label>
+      <label>
+        Width
+        <select id="preview-width">
+          <option value="320">320 px</option>
+          <option value="380">380 px</option>
+          <option value="480">480 px</option>
+          <option value="full">Full</option>
+        </select>
+      </label>
+      <label>
+        Locale
+        <select id="preview-locale">
+          <option value="en">en</option>
+          <option value="fr">fr</option>
+        </select>
+      </label>
+      <button id="preview-replay" type="button">Replay</button>
+      <span id="preview-outbound"></span>
+    </div>
+    <div id="preview-stage">
+      <div id="preview-frame">
+        <div id="root"></div>
+      </div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
